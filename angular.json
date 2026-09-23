@@ -7,7 +7,7 @@
   },
   "newProjectRoot": "projects",
   "projects": {
-    "angular-pwa-starter": {
+    "critterstead": {
       "projectType": "application",
       "schematics": {
         "@schematics/angular:component": {
@@ -41,13 +41,13 @@
               "budgets": [
                 {
                   "type": "initial",
-                  "maximumWarning": "500kB",
-                  "maximumError": "1MB"
+                  "maximumWarning": "1.1MB",
+                  "maximumError": "1.3MB"
                 },
                 {
                   "type": "anyComponentStyle",
-                  "maximumWarning": "4kB",
-                  "maximumError": "8kB"
+                  "maximumWarning": "16kB",
+                  "maximumError": "20kB"
                 }
               ],
               "outputHashing": "all",
@@ -65,10 +65,10 @@
           "builder": "@angular/build:dev-server",
           "configurations": {
             "production": {
-              "buildTarget": "angular-pwa-starter:build:production"
+              "buildTarget": "critterstead:build:production"
             },
             "development": {
-              "buildTarget": "angular-pwa-starter:build:development"
+              "buildTarget": "critterstead:build:development"
             }
           },
           "defaultConfiguration": "development"

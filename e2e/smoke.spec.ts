@@ -1,57 +1,51 @@
-import { test, expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
 
-test.describe('Responsive Shell Smoke Tests', () => {
-  test('should load application cleanly without runtime errors or horizontal overflow', async ({
-    page,
-  }) => {
-    const consoleErrors: string[] = [];
-    page.on('console', (msg) => {
-      if (msg.type() === 'error') {
-        consoleErrors.push(msg.text());
-      }
-    });
-    page.on('pageerror', (err) => {
-      consoleErrors.push(err.message);
-    });
+test('opens a responsive, playable homestead without runtime errors', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto('/');
+  await expect(page).toHaveTitle(/Critterstead/);
+  await expect(page.locator('.brand')).toContainText('Critterstead');
+  await expect(page.locator('.world-canvas canvas')).toBeVisible();
+  await expect(page.locator('.companion-card')).toContainText('Pip');
+  await expect(page.locator('.save-state')).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
 
-    await page.goto('/');
+  await page.getByRole('button', { name: 'How to play', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Close panel', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Close panel', exact: true }).click();
+  await page.getByRole('button', { name: 'Field journal', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Close panel', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Close panel', exact: true }).click();
+  await page.getByRole('button', { name: 'Pause game', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Resume game', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Resume game', exact: true }).click();
+  expect(errors).toEqual([]);
+});
 
-    // 1. Root shell and brand verification
-    await expect(page.locator('.brand-title')).toBeVisible();
-    await expect(page.locator('#starter-title')).toHaveText('Angular PWA Starter');
-
-    // 2. Primary layout elements are visible
-    await expect(page.locator('header[role="banner"]')).toBeVisible();
-    await expect(page.locator('main[role="main"]')).toBeVisible();
-    await expect(page.locator('footer[role="contentinfo"]')).toBeVisible();
-
-    // 3. Prevent accidental horizontal overflow
-    const hasHorizontalOverflow = await page.evaluate(() => {
-      return document.documentElement.scrollWidth > window.innerWidth;
-    });
-    expect(hasHorizontalOverflow).toBeFalsy();
-
-    // 4. Client-side navigation to status screen
-    const statusLink = page.locator('#view-status-btn');
-    await expect(statusLink).toBeVisible();
-    await statusLink.click();
-
-    await expect(page).toHaveURL(/.*status/);
-    await expect(page.locator('#status-heading')).toBeVisible();
-    await expect(page.locator('#base-uri-val')).toBeVisible();
-
-    // Verify no horizontal overflow on secondary route
-    const statusOverflow = await page.evaluate(() => {
-      return document.documentElement.scrollWidth > window.innerWidth;
-    });
-    expect(statusOverflow).toBeFalsy();
-
-    // 5. Navigate back to Home
-    await page.locator('#back-home-link').click();
-    await expect(page).toHaveURL(/\/?$/);
-    await expect(page.locator('#starter-title')).toBeVisible();
-
-    // 6. Zero unhandled console errors or exceptions
-    expect(consoleErrors).toEqual([]);
-  });
+test('keeps care and day progression across a reload', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('.world-canvas canvas')).toBeVisible();
+  await page.getByRole('button', { name: 'Give a little scritch', exact: true }).click();
+  await expect(
+    page.getByRole('button', { name: 'Give a little scritch', exact: true }),
+  ).toBeDisabled();
+  await page.reload();
+  await expect(
+    page.getByRole('button', { name: 'Give a little scritch', exact: true }),
+  ).toBeDisabled();
+  await page.keyboard.press('Backquote');
+  await expect(page.getByText('Developer field kit', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Advance one day', exact: true }).click();
+  await page.getByRole('button', { name: 'Close panel', exact: true }).click();
+  await expect(
+    page.getByRole('button', { name: 'Give a little scritch', exact: true }),
+  ).toBeEnabled();
+  await page.reload();
+  await expect(
+    page.getByRole('button', { name: 'Give a little scritch', exact: true }),
+  ).toBeEnabled();
+  await expect(page.locator('body')).toContainText(/Day\s+2/);
 });

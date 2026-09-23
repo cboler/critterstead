@@ -2,20 +2,47 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>Angular PWA Starter</title>
+    <title>Critterstead — A little care. A little adventure.</title>
     <base href="/" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta
       name="description"
-      content="A clean, production-ready Angular PWA starter for GitHub Pages."
+      content="Make a home, raise a little companion, and grow together. An original cozy critter-raising game."
     />
-    <meta name="theme-color" content="#0f172a" />
-    <link rel="icon" type="image/x-icon" href="favicon.ico" />
+    <meta name="theme-color" content="#456349" />
+    <link rel="icon" type="image/svg+xml" href="icons/critterstead.svg" />
     <link rel="apple-touch-icon" href="icons/icon-192x192.png" />
     <link rel="manifest" href="manifest.webmanifest" />
   </head>
   <body>
-    <app-root></app-root>
-    <noscript>Please enable JavaScript to run this Angular PWA.</noscript>
+    <app-root>
+      <div
+        style="
+          min-height: 100svh;
+          display: grid;
+          place-content: center;
+          justify-items: center;
+          gap: 1rem;
+          background: #f4ecd8;
+          color: #354833;
+          font-family: Georgia, serif;
+          text-align: center;
+        "
+      >
+        <img
+          src="icons/critterstead.svg"
+          alt="A little brindlekin with leafy ears"
+          width="112"
+          height="112"
+          style="border-radius: 28px"
+        />
+        <span style="font-size: 2.5rem">Critterstead</span>
+        <span>Your little corner of the world is waking up…</span>
+      </div>
+    </app-root>
+    <noscript
+      >Please enable JavaScript to play Critterstead. Your homestead is saved on this
+      device.</noscript
+    >
   </body>
 </html>

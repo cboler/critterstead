@@ -1,34 +1,36 @@
-# Agent Instructions
+# Critterstead development instructions
 
-This repository is an **Angular PWA Starter** optimized for hosting on **GitHub Pages**.
+Critterstead is a browser-based critter-raising game, built with Angular and Three.js. Read `docs/ASTRA-HANDOFF.md` for current status before changing the game.
 
-When working in this repository or any project created from this template, follow these guidelines:
+## Keep the slice focused
 
-## Core Principles
+- The creature is a persistent individual, never an inventory item. Preserve stable entity IDs, learned behavior, care, and a coherent versioned save.
+- Gameplay changes enter through commands into the local authoritative simulation. Angular and Three.js must not directly apply game rules.
+- Keep important outcomes deterministic from state, commands, game time, and the central seeded random source.
+- Use simple original geometry and artwork. Preserve Critterstead's own identity; do not imitate commercial-game characters or assets.
+- Prefer platform features and existing dependencies. Avoid speculative frameworks, new abstractions, backend services, or network implementations.
+- Improve the care → training → gathering → homestead loop before adding breadth. Breeding, town management, full tournaments, and multiplayer remain deferred.
 
-1. **Preserve PWA & Deployment Infrastructure**:
-   - Keep the Angular Service Worker (`@angular/service-worker`, `ngsw-config.json`), Web App Manifest (`public/manifest.webmanifest`), and GitHub Actions Pages deployment workflows intact unless a project requirement explicitly dictates modifying them.
-   - Maintain the SPA 404 fallback mechanism (`scripts/prepare-pages.mjs`) to ensure client-side routing survives direct navigation and browser refreshes on GitHub Pages.
+## Preserve the platform
 
-2. **Replace Placeholder UI**:
-   - The initial components (`src/app/home/` and `src/app/status/`) and header branding are demonstration placeholders meant to be replaced with your application's domain UI.
-   - Update branding metadata in `src/index.html`, `public/manifest.webmanifest`, and app icons in `public/icons/`.
+- Keep the service worker, manifest, installed-app icons, GitHub Actions workflow, and `scripts/prepare-pages.mjs` SPA fallback working.
+- Keep deployment repository-independent. The workflow gets its base path from `actions/configure-pages`; never hard-code the repository path into assets or application logic.
+- Preserve accessible focus indicators, reduced-motion support, safe-area insets, and touch targets of at least 44px. Check narrow and wide viewports for overflow.
+- Serialize local saves and preserve an unreadable or newer save rather than silently overwriting it. A developer reset must be deliberate.
 
-3. **Preserve Responsive & Accessibility Standards**:
-   - Adhere to the mobile-first foundations defined in `src/styles.scss` (system font stack, accessible `:focus-visible` outlines, touch targets >= 44px, safe-area insets, and reduced-motion support).
-   - Prevent accidental horizontal overflow across all viewports (phone portrait, phone landscape, tablet, desktop).
+## Validate and hand off
 
-4. **Run Quality & Validation Gates**:
-   Before completing substantial changes, verify that the suite passes cleanly:
+Run the formatter before the check, then the applicable quality gates:
 
-   ```bash
-   npm run lint          # ESLint static analysis
-   npm run format:check  # Prettier formatting verification
-   npm test              # Vitest unit test suite
-   npm run build         # Production Angular bundle
-   npm run e2e           # Playwright multi-viewport smoke tests
-   ```
+```sh
+npm run format
+npm run format:check
+npm run lint
+npm test -- --watch=false
+npm run build:pages
+npm run e2e
+```
 
-5. **Document Architectural Changes**:
-   - Keep `README.md` accurate if you alter deployment patterns, add major dependencies, or change project structure.
-   - Avoid adding unnecessary external libraries or layers of abstraction without clear justification (YAGNI).
+Start the app locally and inspect real browser rendering at desktop and narrow viewports for visual changes. Test the actual interaction loop and reload persistence, not only a successful build. Report separately what was checked locally, tested in a browser, and deployed.
+
+Keep `README.md` and `docs/ASTRA-HANDOFF.md` accurate. Record known defects, intentionally simplified behavior, deferred systems, and exact next actions. Commit useful runnable checkpoints.
