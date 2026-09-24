@@ -81,13 +81,22 @@ test('keeps care and day progression across a reload', async ({ page }) => {
   await expect(page.locator('body')).toContainText(/Day\s+2/);
 });
 
-// Read the same developer coordinates available to a player; movement always uses real keys.
+// Read precise development state without changing it; walking still uses real key input.
+interface DebugGameWindow extends Window {
+  ng?: {
+    getComponent(element: Element): {
+      state(): { player: { position: { x: number; z: number } } };
+    };
+  };
+}
+
 async function position(page: Page): Promise<{ x: number; z: number }> {
-  await page.keyboard.press('Backquote');
-  const coordinates = await page.locator('dl dd').nth(1).innerText();
-  await page.getByRole('button', { name: 'Close panel', exact: true }).click();
-  const [x, z] = coordinates.split(',').map(Number);
-  return { x, z };
+  return page.evaluate(() => {
+    const root = document.querySelector('app-root');
+    const game = root && (window as DebugGameWindow).ng?.getComponent(root);
+    if (!game) throw new Error('Angular development diagnostics are unavailable.');
+    return game.state().player.position;
+  });
 }
 
 async function walk(page: Page, x: number, z: number): Promise<void> {
