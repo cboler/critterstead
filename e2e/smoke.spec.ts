@@ -111,8 +111,8 @@ async function walk(page: Page, x: number, z: number): Promise<void> {
       (a, b) => b.x * dx + b.z * dz - (a.x * dx + a.z * dz),
     )[0];
     for (const key of direction.keys) await page.keyboard.down(key);
-    // Holding a key is part of the movement input, not a wait for page readiness.
-    await page.waitForTimeout(Math.min(650, (distance / 4) * 1000));
+    // Ease near a destination so rounded HUD coordinates do not make us overshoot it.
+    await page.waitForTimeout(Math.min(650, (distance / 4) * (distance < 3 ? 400 : 1000)));
     for (const key of direction.keys) await page.keyboard.up(key);
   }
   throw new Error(`Could not walk to ${x}, ${z}; observed ${JSON.stringify(await position(page))}`);
@@ -146,7 +146,7 @@ test('plays a complete day and keeps the improved homestead after reload', async
     testInfo.project.name !== 'desktop',
     'The complete keyboard scenario runs at desktop size.',
   );
-  test.setTimeout(180_000);
+  test.setTimeout(300_000);
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/');

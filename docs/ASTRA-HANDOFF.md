@@ -2,9 +2,9 @@
 
 ## Current state
 
-Repository: https://github.com/cboler/critterstead, created from the Angular PWA starter without changing the starter. The existing main checkpoint is ed4b065. The current working tree adds integrated polish and validation; commit and push it after the final checks. The game launches locally at http://127.0.0.1:4200/.
+Repository: https://github.com/cboler/critterstead, created from the Angular PWA starter without changing the starter. Main contains gameplay polish 0140be9 and validation d0e5fe4; a follow-up corrects a Chromium-only browser-test walking overshoot. The game launches locally at http://127.0.0.1:4200/.
 
-A complete first day is playable: meet and care for Pip, feed her, practice timing at the hoops, plant and water feed, walk together to Clover Glade, show her three sunberry harvests, cue two harvests, watch her independently forage, return to sell berries, mend the shed, harvest the garden, run the Clover Cup time trial, sleep, and reload into day two with the improvements intact. The desktop browser scenario exercises that sequence with real keyboard and button input. It has passed twice, most recently after correcting a test waypoint that entered the cottage collision footprint.
+A complete first day is playable: meet and care for Pip, feed her, practice timing at the hoops, plant and water feed, walk together to Clover Glade, show her three sunberry harvests, cue two harvests, watch her independently forage, return to sell berries, mend the shed, harvest the garden, run the Clover Cup time trial, sleep, and reload into day two with the improvements intact. The desktop browser scenario exercises that sequence with real keyboard and button input. It passes in Edge and, with shorter test steps near landmarks, also passes in Chromium. The cottage test waypoint stays outside its collision footprint.
 
 The procedural Three.js world has interaction and learning sparkles, care hearts, a click destination ring, and movement during training and racing. Nearby actions show the first available action clearly and explain fully blocked actions. Menus trap keyboard focus. The desktop layout was visually checked and fits the world, companion, goals, and satchel without document or side-rail scrolling at 1024×768, 1280×800, 1440×900, and 1920×1080. Responsive portrait and landscape views remain available.
 
@@ -38,7 +38,7 @@ Windows sandboxed Angular compilation can fail with an ancestor-directory access
 
 ## Deployment
 
-GitHub Pages is configured for Actions at https://cboler.github.io/critterstead/. The initial ed4b065 deployment stopped at stale test locators that included visible keyboard badges in accessible button names. The updated tests use resilient locators. The workflow runs formatting, lint, unit tests, production build, browser E2E, and production offline persistence before upload and deployment. After committing and pushing the working tree, verify the workflow and inspect the live page; update this section with the actual result.
+GitHub Pages is configured for Actions at https://cboler.github.io/critterstead/. The initial ed4b065 deployment stopped at stale test locators. Run 35942129610 for d0e5fe4 passed format, lint, unit, build, and 22 browser checks, but the full-day browser test overshot different landmarks in slower CI Chromium; the site was not deployed. The browser helper now eases its key holds near rounded coordinate targets, and the complete-day test passed locally in Chromium with that correction. Its timeout now allows for the observed three-minute Chromium run. The workflow runs formatting, lint, unit tests, production build, browser E2E, and production offline persistence before upload and deployment. Push the follow-up, verify its workflow, and inspect the live page; update this section with the actual result.
 
 ## Next priorities and limits
 
