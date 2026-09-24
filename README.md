@@ -15,7 +15,7 @@ npm ci
 npm start
 ```
 
-Open `http://localhost:4200/`. Use **WASD** or **arrow keys** to walk, approach a landmark or your companion, and use the interaction controls. The interface explains available activities and training timing. The intended day lasts around 30 real minutes; sleeping advances to the next morning.
+Open `http://localhost:4200/`. Use **WASD** or **arrow keys** to walk, **E** to interact, **Space** to cue Pip during training, **J** for the journal, and **Esc** to pause. Clicking the ground also walks there, and touch movement controls appear on small screens. A standard gamepad uses the left stick to walk, **A** to interact or cue Pip, the D-pad to choose nearby actions or menu buttons, **B** to close a menu, **X** for help, **Y** for the journal, and Menu to pause. The interface explains available activities and training timing. The intended day lasts around 30 real minutes; sleeping advances to the next morning.
 
 Your homestead is saved in the current browser profile. Browser storage can be cleared or evicted, and another browser or device has a separate save. There is no cloud backup. A damaged or newer save is reported rather than silently replaced. Resetting the homestead deliberately erases that local progress.
 

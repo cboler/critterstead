@@ -57,6 +57,9 @@ jobs:
       - name: Run Playwright E2E smoke tests
         run: npm run e2e
 
+      - name: Verify production offline play and persistence
+        run: npm run check:pwa
+
       - name: Upload GitHub Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:

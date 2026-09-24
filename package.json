@@ -11,7 +11,8 @@
     "lint": "ng lint",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "check:pwa": "node scripts/check-pwa.mjs"
   },
   "private": true,
   "packageManager": "npm@11.19.0",

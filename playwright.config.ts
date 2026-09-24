@@ -8,7 +8,8 @@ export default defineConfig({
   workers: process.env['CI'] ? 1 : undefined,
   reporter: 'list',
   use: {
-    baseURL: 'http://localhost:4200',
+    baseURL: 'http://127.0.0.1:4200',
+    channel: process.env['PLAYWRIGHT_CHANNEL'] || undefined,
     trace: 'on-first-retry',
   },
   projects: [
@@ -38,8 +39,8 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'npm start',
-    url: 'http://localhost:4200',
+    command: 'npm start -- --host 127.0.0.1',
+    url: 'http://127.0.0.1:4200',
     reuseExistingServer: !process.env['CI'],
     timeout: 120 * 1000,
   },

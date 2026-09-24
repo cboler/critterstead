@@ -2,40 +2,46 @@
 
 ## Current state
 
-Repository created from `cboler/angular-pwa-starter`: https://github.com/cboler/critterstead. The integrated game now launches locally at `http://127.0.0.1:4200/`. Original procedural Three.js diorama, direct movement, Pip following/care, timing training, crops, glade gathering and learning, market, shed upgrade, race, clock, sleep and IndexedDB persistence are implemented. Full-day browser testing is underway; do not claim it complete yet.
+Repository: https://github.com/cboler/critterstead, created from the Angular PWA starter without changing the starter. The existing main checkpoint is ed4b065. The current working tree adds integrated polish and validation; commit and push it after the final checks. The game launches locally at http://127.0.0.1:4200/.
 
-Verified so far: all 23 domain/storage tests pass via `npm test -- --watch=false`; ESLint clean; production `npm run build:pages` succeeds (887 kB raw, about 205 kB transferred), service worker and manifest present, SPA fallback generated. Browser screenshot inspected at desktop and narrow layout; care interaction visibly raises bond and mood. Windows sandbox blocks Angular ancestor-directory reads; these commands have worked with normal elevated tool execution. Initial direct `vitest` call omitted Angular's globals setup for storage tests; use the npm test command above.
+A complete first day is playable: meet and care for Pip, feed her, practice timing at the hoops, plant and water feed, walk together to Clover Glade, show her three sunberry harvests, cue two harvests, watch her independently forage, return to sell berries, mend the shed, harvest the garden, run the Clover Cup time trial, sleep, and reload into day two with the improvements intact. The desktop browser scenario exercises that sequence with real keyboard and button input. It has passed twice, most recently after correcting a test waypoint that entered the cottage collision footprint.
 
-## Agreed architecture
+The procedural Three.js world has interaction and learning sparkles, care hearts, a click destination ring, and movement during training and racing. Nearby actions show the first available action clearly and explain fully blocked actions. Menus trap keyboard focus. The desktop layout was visually checked and fits the world, companion, goals, and satchel without document or side-rail scrolling at 1024×768, 1280×800, 1440×900, and 1920×1080. Responsive portrait and landscape views remain available.
 
-- `src/app/game/model.ts`: shared pure TypeScript state and command contract.
-- `src/app/game/content.ts`: authored areas and content.
-- `src/app/game/host.ts`: local authoritative simulation, command validation, seeded outcomes, clock, learning.
-- `src/app/game/storage.ts`: one versioned save behind a storage interface.
-- `src/app/game/world.ts`: Three.js presentation only.
-- Angular application: HUD, input routing, menus. Animation loop outside Angular.
+## Architecture to preserve
 
-First companion: Pip, a Brindlekin, an original small moss-tailed creature. Areas: homestead and berry glade. Aim: care, timing training, crops, learning through shared gathering, market, shed improvement, sleep and persistence. Racing only after those are coherent.
+- src/app/game/model.ts defines the state and command contract.
+- src/app/game/content.ts holds authored areas and content.
+- src/app/game/host.ts owns the pure TypeScript local authoritative simulation, command validation, deterministic outcomes, time, collision, and learning.
+- src/app/game/storage.ts owns one versioned IndexedDB save behind a storage interface. Web Locks permit only one active writing tab; invalid or newer saves remain intact until explicit reset.
+- src/app/game/world.ts presents the world with Three.js; it does not own gameplay rules.
+- Angular owns HUD, menus, and input routing. Gamepad polling and keyboard input dispatch into the same host commands. The animation loop runs outside Angular.
 
-## Commands
+The host remains a seam for future authority elsewhere; no remote host exists.
 
-`npm start`, `npm test -- --watch=false`, `npm run lint`, `npm run format`, `npm run format:check`, `npm run build:pages`, `npm run e2e`.
+## Controls and behavior
+
+Keyboard: WASD/arrows move, E interacts, Space cues Pip during training and racing, J opens the journal, Escape pauses or closes a menu, and backtick opens developer save tools. Click or tap the ground to walk. Touch movement buttons appear on small screens. Standard gamepad: left stick moves, A interacts or cues, D-pad selects nearby actions or menu buttons, B closes, X opens help, Y opens journal, and Menu pauses. A connected controller changes on-screen hints. Controller input was verified with a mocked standard Gamepad API in a real Edge browser; physical hardware remains to be checked.
+
+One in-game day lasts about thirty real minutes, while activities also advance time. Menus and hidden tabs pause the clock. Commands save immediately; autonomous journal/day changes also save, with periodic active-play saves. A second tab cannot overwrite the owner. A blocked second tab asks for a reload after the owner closes.
+
+## Verification
+
+- npm run format:check and npm run lint pass.
+- npm test -- --watch=false passes 23 simulation/storage tests.
+- npm run build:pages passes; manifest, Angular service worker, and SPA fallback are present.
+- Playwright covers responsive smoke, desktop no-scroll layout, controller navigation, complete-day progress, reload, multi-tab ownership, and damaged/newer save protection. The final Edge browser suite passes: 23 tests passed and nine intentionally skipped across four viewport projects. The complete-day test runs on desktop; controller and no-scroll checks are desktop-specific, while responsive smoke and save tests cover smaller viewports.
+- npm run check:pwa passed with base / and with the actual /critterstead/ Pages subpath. Both checks used a production build, active service worker, offline reload, rendered world, and retained Pip care.
+- Browser visuals were inspected locally; the deployed site must be checked after the next successful GitHub Actions run.
+
+Windows sandboxed Angular compilation can fail with an ancestor-directory access denial; the same commands pass when run with the required elevated workspace access. For local Edge tests, set PLAYWRIGHT_CHANNEL=msedge. CI installs Chromium. The Playwright configuration uses 127.0.0.1; CI runs one worker to avoid contention.
 
 ## Deployment
 
-Repository created public as required for template Pages hosting. Pages configuration and first game deployment still pending. Preserve repository-independent base path, service worker and SPA fallback.
+GitHub Pages is configured for Actions at https://cboler.github.io/critterstead/. The initial ed4b065 deployment stopped at stale test locators that included visible keyboard badges in accessible button names. The updated tests use resilient locators. The workflow runs formatting, lint, unit tests, production build, browser E2E, and production offline persistence before upload and deployment. After committing and pushing the working tree, verify the workflow and inspect the live page; update this section with the actual result.
 
-## Next actions
+## Next priorities and limits
 
-1. Validate full miniature-day loop and persistence with real browser input; finish E2E tests.
-2. Polish action/learning feedback and protect autosave for autonomous changes.
-3. Run all quality gates, commit checkpoints, push and verify Pages.
-4. Update this document with actual validation and precise remaining limitations.
+Play through with a physical controller, then tune Pip's animation/personality, interaction approach and navigation around solid buildings, feedback/audio, and pacing from fresh-player observation. The time trial is deliberately tiny; expand it only after the care, training, and gathering loop feels good. One Brindlekin companion, one crop, and six renewable berry bushes are authored. Movement has solid cottage/shed collision and direct walking, but no pathfinding around obstacles. The working title has no trademark clearance. Browser storage is local to the profile and has no cloud backup.
 
-## Controls and current limitations
-
-WASD/arrows move relative to the camera, click ground walks directly, E performs a nearby action, Space cues training, J journal, Escape pause/menu close, backtick developer kit. Touch arrows also available. Local menus/hidden tabs pause simulation. Save after commands and every eight active seconds. Simple movement has building collision and direct walking; no pathfinding around obstacles. One authored species/companion, one crop and six regenerating berry bushes. Working title has no trademark clearance. No remote account/sync. Stay in one game tab until simultaneous-tab ownership is addressed.
-
-## Deliberately deferred
-
-Backend, multiplayer, breeding mechanics, chimeras, guild/town management, combat, deep economy, final artwork, native packaging and broad content. No new framework is needed. Three.js is the only new runtime dependency.
+Do not add backend services, networking, town/guild systems, breeding/genetics, combat, or a broad economy during this slice. Keep changes integrated and playful, update this file with verified evidence, and make logical commits.
