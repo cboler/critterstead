@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import type { GameState } from '../src/app/game/model';
 
 test('opens a responsive, playable homestead without runtime errors', async ({
   page,
@@ -85,18 +86,22 @@ test('keeps care and day progression across a reload', async ({ page }) => {
 interface DebugGameWindow extends Window {
   ng?: {
     getComponent(element: Element): {
-      state(): { player: { position: { x: number; z: number } } };
+      state(): GameState;
     };
   };
 }
 
-async function position(page: Page): Promise<{ x: number; z: number }> {
+async function developmentState(page: Page): Promise<GameState> {
   return page.evaluate(() => {
     const root = document.querySelector('app-root');
     const game = root && (window as DebugGameWindow).ng?.getComponent(root);
     if (!game) throw new Error('Angular development diagnostics are unavailable.');
-    return game.state().player.position;
+    return game.state();
   });
+}
+
+async function position(page: Page): Promise<{ x: number; z: number }> {
+  return (await developmentState(page)).player.position;
 }
 
 async function walk(page: Page, x: number, z: number): Promise<void> {
@@ -120,7 +125,7 @@ async function walk(page: Page, x: number, z: number): Promise<void> {
       (a, b) => b.x * dx + b.z * dz - (a.x * dx + a.z * dz),
     )[0];
     for (const key of direction.keys) await page.keyboard.down(key);
-    // Ease near a destination so rounded HUD coordinates do not make us overshoot it.
+    // Ease near a destination so frame timing cannot make us overshoot it.
     await page.waitForTimeout(Math.min(650, (distance / 4) * (distance < 3 ? 400 : 1000)));
     for (const key of direction.keys) await page.keyboard.up(key);
   }
@@ -132,12 +137,15 @@ async function activity(page: Page, name: RegExp): Promise<void> {
     await expect
       .poll(
         async () => {
-          const left = await page
-            .locator('.timing-track i')
-            .evaluate((element) => parseFloat((element as HTMLElement).style.left));
-          return left > 40 && left < 60;
+          const training = (await developmentState(page)).training;
+          return (
+            !!training &&
+            training.elapsed - (training.lastHitAt ?? 0) > 0.35 &&
+            training.phase > 0.3 &&
+            training.phase < 0.7
+          );
         },
-        { timeout: 8000, intervals: [50] },
+        { timeout: 15_000, intervals: [50] },
       )
       .toBe(true);
     await page.getByRole('button', { name }).click();
