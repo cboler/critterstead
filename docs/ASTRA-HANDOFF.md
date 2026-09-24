@@ -2,7 +2,7 @@
 
 ## Current state
 
-Repository: https://github.com/cboler/critterstead, created from the Angular PWA starter without changing the starter. Main contains gameplay polish 0140be9, validation d0e5fe4, and browser reliability commits ba90c08 and 7f01434. The current follow-up checks training cue phase and cooldown through read-only Angular development state, while still using actual UI buttons. The game launches locally at http://127.0.0.1:4200/.
+Repository: https://github.com/cboler/critterstead, created from the Angular PWA starter without changing the starter. Main is 06aa91e, deployed on GitHub Pages. Gameplay polish, controller support, full-day validation, and Chromium test reliability are committed. The game launches locally at http://127.0.0.1:4200/ and publicly at https://cboler.github.io/critterstead/.
 
 A complete first day is playable: meet and care for Pip, feed her, practice timing at the hoops, plant and water feed, walk together to Clover Glade, show her three sunberry harvests, cue two harvests, watch her independently forage, return to sell berries, mend the shed, harvest the garden, run the Clover Cup time trial, sleep, and reload into day two with the improvements intact. The desktop browser scenario exercises that sequence with real keyboard and button input. It passes in Edge and Chromium. The test uses real keyboard movement and button interactions; precise read-only development state shortens the Chromium scenario to about 1.1 minutes with phase-aware cue checks. The cottage waypoint stays outside its collision footprint.
 
@@ -32,13 +32,15 @@ One in-game day lasts about thirty real minutes, while activities also advance t
 - npm run build:pages passes; manifest, Angular service worker, and SPA fallback are present.
 - Playwright covers responsive smoke, desktop no-scroll layout, controller navigation, complete-day progress, reload, multi-tab ownership, and damaged/newer save protection. The final Edge browser suite passes: 23 tests passed and nine intentionally skipped across four viewport projects. The complete-day test runs on desktop; controller and no-scroll checks are desktop-specific, while responsive smoke and save tests cover smaller viewports.
 - npm run check:pwa passed with base / and with the actual /critterstead/ Pages subpath. Both checks used a production build, active service worker, offline reload, rendered world, and retained Pip care.
-- Browser visuals were inspected locally; the deployed site must be checked after the next successful GitHub Actions run.
+- Browser visuals were inspected locally and the published Pages URL was opened in a browser. A separate Chromium check on the published URL rendered the world, cared for Pip, and retained that care through an offline reload after the first service-worker cache finished installing (about ten seconds on that run).
 
 Windows sandboxed Angular compilation can fail with an ancestor-directory access denial; the same commands pass when run with the required elevated workspace access. For local Edge tests, set PLAYWRIGHT_CHANNEL=msedge. CI installs Chromium. The Playwright configuration uses 127.0.0.1; CI runs one worker to avoid contention.
 
 ## Deployment
 
-GitHub Pages is configured for Actions at https://cboler.github.io/critterstead/. The initial ed4b065 deployment stopped at stale test locators. Run 35942129610 for d0e5fe4 passed format, lint, unit, build, and 22 browser checks, but the full-day browser test overshot different landmarks in slower CI Chromium; the site was not deployed. The browser helper now eases its key holds near rounded coordinate targets, and the complete-day test passed locally in Chromium with that correction. Its timeout now allows for the observed three-minute Chromium run. The workflow runs formatting, lint, unit tests, production build, browser E2E, and production offline persistence before upload and deployment. Run 35943304246 for ba90c08 passed the other 22 browser checks but failed the full-day test in CI: the old visual marker poll missed training timing windows, and one retry still overshot a waypoint. Commit 7f01434 replaced rounded waypoint reads with precise read-only development state; its run 35944345613 is in progress. The next follow-up also reads the simulation phase and cue cooldown without changing game rules; the full-day scenario passes locally in Chromium in about 1.1 minutes. Push it, verify Pages, and inspect the live page; update this section with the actual result.
+GitHub Pages is live at https://cboler.github.io/critterstead/. Workflow run 35944702796 deployed commit 06aa91e after passing format, lint, 23 unit tests, 23 browser tests (nine intentional viewport skips), the production offline/persistence check, and artifact upload. The published page was opened in a browser; a separate Chromium check rendered the world, cared for Pip, then reloaded offline with that care retained.
+
+On a first visit, stay online for a few seconds while the service worker fills its initial asset cache. Its control event can precede completion of that cache. Earlier failed deployment attempts exposed rounded-waypoint and visual-timing issues in the browser harness; the current tests use precise read-only development state for those observations while keeping real player input.
 
 ## Next priorities and limits
 
