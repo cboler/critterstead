@@ -306,7 +306,7 @@ export class LocalGameHost {
           id,
           title: 'A little practice, a little progress',
           description:
-            'Three encouraging cues. Tap when the leaf reaches the center. Care, timing, and endurance shape Pip’s progress.',
+            'Three encouraging cues. Tap when the marker reaches the center. Care, timing, and endurance shape Pip’s progress.',
           actions: [
             action(
               'train',

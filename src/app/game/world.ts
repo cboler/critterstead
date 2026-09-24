@@ -43,6 +43,12 @@ export class GameWorld {
   private readonly crops = new THREE.Group();
   private readonly smoke = new THREE.Group();
   private readonly shedRoof = new THREE.Group();
+  private readonly affection = new THREE.Group();
+  private readonly delight = new THREE.Group();
+  private readonly walkMarker = this.mesh(
+    this.keep(new THREE.RingGeometry(0.22, 0.29, 32)),
+    '#fff3c5',
+  );
   private readonly reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   private area = '';
   private clock = 0;
@@ -51,6 +57,12 @@ export class GameWorld {
   private lastPlayer = new THREE.Vector2();
   private lastCritter = new THREE.Vector2();
   private permanentGeometryCount = 0;
+  private feedbackTime = 0;
+  private markerTime = 0;
+  private cueTime = 10;
+  private lastCueCount = 0;
+  private lastJournal: string | undefined;
+  private raceProgress = 0;
 
   constructor(
     private readonly container: HTMLElement,
@@ -93,6 +105,7 @@ export class GameWorld {
     this.scene.add(backdrop);
     this.buildFarmer();
     this.buildCritter();
+    this.buildFeedback();
     this.permanentGeometryCount = this.geometries.length;
     this.renderer.domElement.addEventListener('pointerdown', this.walk);
     this.observer = new ResizeObserver(() => this.resize());
@@ -103,11 +116,14 @@ export class GameWorld {
   render(state: GameState, dtSeconds: number): void {
     const dt = Math.min(Math.max(dtSeconds, 0), 0.1);
     this.clock += this.reducedMotion ? 0 : dt;
+    this.cueTime += dt;
     if (this.area !== state.areaId) {
       this.area = state.areaId;
       this.buildArea(state);
       this.lastPlayer.set(state.player.position.x, state.player.position.z);
       this.lastCritter.set(state.critter.position.x, state.critter.position.z);
+      this.walkMarker.visible = false;
+      this.markerTime = 0;
     }
     const playerMoving = this.animateActor(
       this.farmer,
@@ -116,9 +132,36 @@ export class GameWorld {
       this.farmerLegs,
       0.32,
     );
+    let visualCritterPosition = state.critter.position;
+    let jumpHeight = 0;
+    if (state.training) {
+      if (state.training.hits.length !== this.lastCueCount) this.cueTime = 0;
+      if (state.training.kind === 'race') {
+        const progress = (state.training.hits.length + state.training.phase * 0.2) / 3;
+        this.raceProgress +=
+          (Math.max(progress, this.raceProgress) - this.raceProgress) * Math.min(1, dt * 7);
+        visualCritterPosition = {
+          x: 1.7 + this.raceProgress * 0.6,
+          z: 4.1 + this.raceProgress * 3.3,
+        };
+      } else {
+        const jump = Math.min(1, this.cueTime / 0.65);
+        const towardsFront = state.training.hits.length % 2 === 1;
+        const across = state.training.hits.length === 0 ? 0 : towardsFront ? jump : 1 - jump;
+        visualCritterPosition = { x: 3, z: 1.1 + across * 1.8 };
+        jumpHeight =
+          this.reducedMotion || state.training.hits.length === 0
+            ? 0
+            : Math.sin(jump * Math.PI) * 0.65;
+      }
+      this.lastCueCount = state.training.hits.length;
+    } else {
+      this.lastCueCount = 0;
+      this.raceProgress = 0;
+    }
     const critterMoving = this.animateActor(
       this.critter,
-      state.critter.position,
+      visualCritterPosition,
       this.lastCritter,
       this.critterLegs,
       0.16,
@@ -128,13 +171,20 @@ export class GameWorld {
       critterMoving || state.training
         ? Math.abs(Math.sin(this.clock * 12)) * 0.11
         : Math.sin(this.clock * 2.4) * 0.025;
+    this.critter.position.y = jumpHeight;
+    if (state.training?.kind === 'race' && !this.reducedMotion) {
+      this.critterLegs.forEach((leg, index) => {
+        leg.rotation.x = Math.sin(this.clock * 17 + index * Math.PI) * 0.6;
+      });
+    }
     this.tail.rotation.z = Math.sin(this.clock * 3.2) * 0.12;
     this.tail.rotation.x = Math.sin(this.clock * 2.1) * 0.07;
     this.critterLabel.textContent = state.critter.name;
     this.positionLabel(
       this.critterLabel,
-      this.projection.set(state.critter.position.x, 1.9, state.critter.position.z),
+      this.projection.set(visualCritterPosition.x, 1.9 + jumpHeight, visualCritterPosition.z),
     );
+    this.animateFeedback(state, dt);
     for (const [id, cluster] of this.berries) {
       cluster.visible = state.resources.find((node) => node.id === id)?.available ?? false;
     }
@@ -174,6 +224,9 @@ export class GameWorld {
   dispose(): void {
     this.observer.disconnect();
     this.renderer.domElement.removeEventListener('pointerdown', this.walk);
+    this.scenery.traverse((object) => {
+      if (object instanceof THREE.InstancedMesh) object.dispose();
+    });
     this.geometries.forEach((geometry) => geometry.dispose());
     this.materials.forEach((material) => material.dispose());
     this.renderer.dispose();
@@ -190,10 +243,14 @@ export class GameWorld {
     );
     this.raycaster.setFromCamera(this.pointer, this.camera);
     if (this.raycaster.ray.intersectPlane(this.ground, this.intersection)) {
-      this.onWalk({
+      const destination = {
         x: THREE.MathUtils.clamp(this.intersection.x, -8.8, 8.8),
         z: THREE.MathUtils.clamp(this.intersection.z, -8.8, 8.8),
-      });
+      };
+      this.walkMarker.position.set(destination.x, 0.075, destination.z);
+      this.markerTime = 1.3;
+      this.walkMarker.visible = true;
+      this.onWalk(destination);
     }
   };
 
@@ -452,10 +509,10 @@ export class GameWorld {
       [2.8, -7.2, 1.2],
       [6.8, -6.2, 1.35],
       [7.8, -2.6, 1],
-      [-6.9, 5, 1.1],
+      [-7.4, 5.8, 0.85],
       [-4, 7, 0.9],
-      [0, 7.4, 1.25],
-      [6.5, 6.6, 1.2],
+      [-0.8, 8, 0.85],
+      [7, 7.2, 0.9],
       [8, 3.5, 1.1],
     ];
     trees.forEach(([x, z, scale], index) => this.tree(x, z, scale, index));
@@ -491,7 +548,7 @@ export class GameWorld {
         group.add(berries);
         this.berries.set(node.id, berries);
         this.scenery.add(group);
-        if (index < 3) this.label('Brambleberries', node.position.x, 1.7, node.position.z);
+        if (index < 3) this.label('Sunberries', node.position.x, 1.7, node.position.z);
       });
     const stones: [number, number][] = [
       [-5, -3.5],
@@ -1060,6 +1117,86 @@ export class GameWorld {
     }
     body.add(this.tail);
     this.critter.rotation.y = 0.6;
+  }
+
+  private buildFeedback(): void {
+    const heart = new THREE.Shape();
+    heart.moveTo(0, -0.22);
+    heart.bezierCurveTo(-0.3, -0.03, -0.28, 0.19, -0.14, 0.21);
+    heart.bezierCurveTo(-0.05, 0.24, 0, 0.16, 0, 0.1);
+    heart.bezierCurveTo(0, 0.16, 0.05, 0.24, 0.14, 0.21);
+    heart.bezierCurveTo(0.28, 0.19, 0.3, -0.03, 0, -0.22);
+    const heartGeometry = this.keep(new THREE.ShapeGeometry(heart));
+    const sparkle = new THREE.Shape();
+    for (let point = 0; point < 8; point++) {
+      const angle = (point / 8) * Math.PI * 2;
+      const radius = point % 2 ? 0.055 : 0.2;
+      const x = Math.cos(angle) * radius;
+      const y = Math.sin(angle) * radius;
+      if (point === 0) sparkle.moveTo(x, y);
+      else sparkle.lineTo(x, y);
+    }
+    sparkle.closePath();
+    const sparkleGeometry = this.keep(new THREE.ShapeGeometry(sparkle));
+    for (let particle = 0; particle < 3; particle++) {
+      this.affection.add(this.mesh(heartGeometry, '#c17c7c'));
+    }
+    for (let particle = 0; particle < 5; particle++) {
+      this.delight.add(this.mesh(sparkleGeometry, '#ebc66d'));
+    }
+    for (const color of ['#c17c7c', '#ebc66d', '#fff3c5']) {
+      const material = this.material(color);
+      material.transparent = true;
+      material.depthWrite = false;
+    }
+    this.affection.visible = false;
+    this.delight.visible = false;
+    this.walkMarker.visible = false;
+    this.walkMarker.rotation.x = -Math.PI / 2;
+    this.walkMarker.castShadow = false;
+    this.scene.add(this.affection, this.delight, this.walkMarker);
+  }
+
+  private animateFeedback(state: GameState, dt: number): void {
+    const message = state.journal[0];
+    if (this.lastJournal !== undefined && message !== this.lastJournal) {
+      // Journal language chooses an ephemeral expression, never a gameplay outcome.
+      const care = /trill|crunches|nibble|soft bedding/i.test(message);
+      const achievement = /sunberries|watches|learn|rhythm|practice|gains|ribbon/i.test(message);
+      if (care || achievement) {
+        this.feedbackTime = 1.8;
+        this.affection.visible = care;
+        this.delight.visible = !care;
+      }
+    }
+    this.lastJournal = message;
+    this.feedbackTime = Math.max(0, this.feedbackTime - dt);
+    const elapsed = 1.8 - this.feedbackTime;
+    for (const group of [this.affection, this.delight]) {
+      if (this.feedbackTime === 0) group.visible = false;
+      if (!group.visible) continue;
+      group.position.copy(this.critter.position);
+      group.position.y += 1.75;
+      group.quaternion.copy(this.camera.quaternion);
+      group.children.forEach((particle, index) => {
+        particle.position.set(
+          Math.sin(index * 2.5) * 0.7,
+          index * 0.18 + (this.reducedMotion ? 0 : elapsed * 0.55),
+          0,
+        );
+        particle.rotation.z = this.reducedMotion ? 0 : Math.sin(elapsed * 3 + index) * 0.2;
+        (
+          particle as THREE.Mesh<THREE.BufferGeometry, THREE.MeshStandardMaterial>
+        ).material.opacity = Math.min(1, this.feedbackTime / 0.6);
+      });
+    }
+    if (this.affection.visible && !this.reducedMotion && !state.training) {
+      this.critterBody.rotation.z = Math.sin(elapsed * 8) * 0.065;
+    } else this.critterBody.rotation.z = 0;
+    this.markerTime = Math.max(0, this.markerTime - dt);
+    this.walkMarker.visible = this.markerTime > 0;
+    this.material('#fff3c5').opacity = Math.min(1, this.markerTime / 0.6);
+    this.walkMarker.scale.setScalar(this.reducedMotion ? 1 : 1 + (1.3 - this.markerTime) * 0.4);
   }
 
   private animateActor(

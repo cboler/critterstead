@@ -59,6 +59,10 @@ button:disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }
+button.pad-selected {
+  outline: 3px solid #b98745;
+  outline-offset: 3px;
+}
 button.primary {
   background: #486c50;
   border-color: #486c50;

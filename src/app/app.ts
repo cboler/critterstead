@@ -27,6 +27,7 @@ interface InstallPrompt extends Event {
 export class App implements AfterViewInit, OnDestroy {
   @ViewChild('world', { static: true }) private worldElement!: ElementRef<HTMLElement>;
   private readonly zone = inject(NgZone);
+  private readonly element: ElementRef<HTMLElement> = inject(ElementRef);
   private host = new LocalGameHost();
   private readonly storage = new IndexedDbStorage();
   private world?: GameWorld;
@@ -35,9 +36,11 @@ export class App implements AfterViewInit, OnDestroy {
   private refreshElapsed = 0;
   private saveElapsed = 0;
   private readonly keys = new Set<string>();
+  private gamepadButtons: boolean[] = [];
   private walkTo: Point | null = null;
   private destroyed = false;
   private saveBlocked = false;
+  private releaseOwnership?: () => void;
   private audio?: AudioContext;
   private installPrompt?: InstallPrompt;
   protected readonly state = signal<GameState>(structuredClone(this.host.state));
@@ -50,11 +53,14 @@ export class App implements AfterViewInit, OnDestroy {
   protected readonly sound = signal(false);
   protected readonly canInstall = signal(false);
   protected readonly resetArmed = signal(false);
+  protected readonly sessionBusy = signal(false);
+  protected readonly controllerConnected = signal(false);
+  protected readonly gamepadAction = signal<string | null>(null);
   protected readonly knowledgeStage = knowledgeStage;
   protected readonly areas = AREAS;
   protected readonly statNames = ['strength', 'endurance', 'speed', 'intelligence'] as const;
   protected readonly goals = [
-    { flag: 'cared', title: 'A little care', description: 'Give Pip something good to eat.' },
+    { flag: 'cared', title: 'A little care', description: 'Spend a moment caring for Pip.' },
     { flag: 'trained', title: 'Find your rhythm', description: 'Try the training hoop together.' },
     {
       flag: 'gathered',
@@ -65,12 +71,41 @@ export class App implements AfterViewInit, OnDestroy {
   ];
 
   async ngAfterViewInit(): Promise<void> {
+    // Only one local authority may write the same homestead at a time.
+    if (navigator.locks) {
+      const ownsSave = await new Promise<boolean>((resolve, reject) => {
+        void navigator.locks
+          .request('critterstead-active-game', { ifAvailable: true }, (lock) => {
+            resolve(!!lock);
+            if (!lock) return;
+            return new Promise<void>((release) => {
+              this.releaseOwnership = release;
+            });
+          })
+          .catch(reject);
+      });
+      if (this.destroyed) {
+        this.releaseOwnership?.();
+        return;
+      }
+      if (!ownsSave) {
+        this.saveBlocked = true;
+        this.sessionBusy.set(true);
+        this.error.set(
+          'Your homestead is open in another tab. Close that tab and reload this one to continue.',
+        );
+        this.saveStatus.set('Open in another tab');
+        return;
+      }
+    }
     window.addEventListener('keydown', this.keyDown);
     window.addEventListener('keyup', this.keyUp);
     window.addEventListener('blur', this.blur);
     window.addEventListener('pagehide', this.pageHide);
     document.addEventListener('visibilitychange', this.visibility);
     window.addEventListener('beforeinstallprompt', this.beforeInstall);
+    window.addEventListener('gamepadconnected', this.controllerChange);
+    window.addEventListener('gamepaddisconnected', this.controllerChange);
     try {
       const saved = await this.storage.load();
       if (this.destroyed) return;
@@ -105,6 +140,7 @@ export class App implements AfterViewInit, OnDestroy {
     if (this.destroyed) return;
     const dt = this.previousTime ? Math.min((time - this.previousTime) / 1000, 0.1) : 0;
     this.previousTime = time;
+    const stick = document.hidden ? { x: 0, z: 0 } : this.pollGamepad();
     if (!this.paused() && !this.panel() && !document.hidden) {
       let x = 0;
       let z = 0;
@@ -124,6 +160,8 @@ export class App implements AfterViewInit, OnDestroy {
         x += 0.8;
         z -= 0.6;
       }
+      x += stick.x;
+      z += stick.z;
       if (x || z) this.walkTo = null;
       else if (this.walkTo) {
         x = this.walkTo.x - this.host.state.player.position.x;
@@ -135,16 +173,22 @@ export class App implements AfterViewInit, OnDestroy {
         }
       }
       if (x || z) this.host.dispatch({ type: 'move', x, z, seconds: dt });
+      const previousJournal = this.host.state.journal;
+      const previousDay = this.host.state.day;
       this.host.update(dt);
       this.saveElapsed += dt;
-      if (this.saveElapsed > 8) {
+      if (
+        this.saveElapsed > 8 ||
+        previousJournal !== this.host.state.journal ||
+        previousDay !== this.host.state.day
+      ) {
         this.saveElapsed = 0;
         void this.save();
       }
     }
     this.world?.render(this.host.state, dt);
     this.refreshElapsed += dt;
-    if (this.refreshElapsed >= 0.08) {
+    if (this.refreshElapsed >= (this.host.state.training ? 1 / 60 : 0.1)) {
       this.refreshElapsed = 0;
       this.zone.run(() => this.refresh());
     }
@@ -153,7 +197,127 @@ export class App implements AfterViewInit, OnDestroy {
 
   private refresh(): void {
     this.state.set(structuredClone(this.host.state));
-    this.nearby.set(this.host.interaction());
+    const interaction = this.host.interaction();
+    this.nearby.set(interaction);
+    if (
+      !interaction?.actions.some((action) => action.id === this.gamepadAction() && !action.disabled)
+    )
+      this.gamepadAction.set(null);
+  }
+
+  private readonly controllerChange = (): void => {
+    this.zone.run(() =>
+      this.controllerConnected.set(!!navigator.getGamepads?.().find((pad) => pad?.connected)),
+    );
+  };
+
+  private pollGamepad(): Point {
+    const pad = navigator.getGamepads?.().find((candidate) => candidate?.connected);
+    if (this.controllerConnected() !== !!pad)
+      this.zone.run(() => this.controllerConnected.set(!!pad));
+    if (!pad) {
+      this.gamepadButtons = [];
+      return { x: 0, z: 0 };
+    }
+    const pressed = pad.buttons.map((button) => button.pressed);
+    const newlyPressed = pressed.map((value, index) => value && !this.gamepadButtons[index]);
+    const edge = (index: number) => newlyPressed[index];
+    this.gamepadButtons = pressed;
+    if (edge(9))
+      this.zone.run(() => {
+        if (this.panel()) this.openPanel(null);
+        else this.togglePause();
+      });
+    if (edge(1))
+      this.zone.run(() => {
+        if (this.panel()) this.openPanel(null);
+        else if (this.paused()) this.togglePause();
+        else this.clearGamepadSelection();
+      });
+    if (edge(2)) this.zone.run(() => this.openPanel(this.panel() === 'help' ? null : 'help'));
+    if (edge(3)) this.zone.run(() => this.openPanel(this.panel() === 'journal' ? null : 'journal'));
+    if (edge(12) || edge(14)) this.zone.run(() => this.navigateGamepad(-1));
+    if (edge(13) || edge(15)) this.zone.run(() => this.navigateGamepad(1));
+    if (edge(0)) this.zone.run(() => this.activateGamepad());
+    if (this.paused() || this.panel() || this.host.state.training) return { x: 0, z: 0 };
+    const horizontal = pad.axes[0] ?? 0;
+    const vertical = pad.axes[1] ?? 0;
+    if (Math.hypot(horizontal, vertical) < 0.18) return { x: 0, z: 0 };
+    return { x: horizontal * 0.8 + vertical * 0.6, z: vertical * 0.8 - horizontal * 0.6 };
+  }
+
+  private clearGamepadSelection(): void {
+    this.gamepadAction.set(null);
+    this.element.nativeElement
+      .querySelectorAll('.pad-selected')
+      .forEach((button) => button.classList.remove('pad-selected'));
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+  }
+
+  private navigateGamepad(step: number): void {
+    if (this.panel()) {
+      const buttons = Array.from(
+        this.element.nativeElement.querySelectorAll<HTMLButtonElement>(
+          '.journal-modal button:not(:disabled)',
+        ),
+      );
+      if (!buttons.length) return;
+      const selected = buttons.indexOf(document.activeElement as HTMLButtonElement);
+      const next = buttons[(selected + step + buttons.length) % buttons.length];
+      buttons.forEach((button) => button.classList.remove('pad-selected'));
+      next.classList.add('pad-selected');
+      next.focus();
+      return;
+    }
+    if (this.paused()) {
+      this.element.nativeElement.querySelector<HTMLButtonElement>('.pause-message button')?.focus();
+      return;
+    }
+    if (this.host.state.training) {
+      this.element.nativeElement.querySelector<HTMLButtonElement>('.training-card button')?.focus();
+      return;
+    }
+    const actions = this.host.interaction()?.actions.filter((action) => !action.disabled) ?? [];
+    if (!actions.length) return;
+    const selected = actions.findIndex((action) => action.id === this.gamepadAction());
+    const next =
+      actions[
+        selected < 0
+          ? step < 0
+            ? actions.length - 1
+            : 0
+          : (selected + step + actions.length) % actions.length
+      ];
+    this.gamepadAction.set(next.id);
+    const all = this.host.interaction()?.actions ?? [];
+    const buttons = this.element.nativeElement.querySelectorAll<HTMLButtonElement>(
+      '.interaction-actions button',
+    );
+    buttons[all.findIndex((action) => action.id === next.id)]?.focus();
+  }
+
+  private activateGamepad(): void {
+    if (this.panel()) {
+      const focused = document.activeElement;
+      if (
+        focused instanceof HTMLButtonElement &&
+        this.element.nativeElement.querySelector('.journal-modal')?.contains(focused)
+      )
+        focused.click();
+      return;
+    }
+    if (this.paused()) {
+      this.togglePause();
+      return;
+    }
+    if (this.host.state.training) {
+      this.act();
+      return;
+    }
+    const action = this.host
+      .interaction()
+      ?.actions.find((item) => item.id === this.gamepadAction() && !item.disabled);
+    this.act(action?.id);
   }
   protected act(action?: string): void {
     if (!this.ready() || this.paused() || this.panel()) return;
@@ -173,6 +337,22 @@ export class App implements AfterViewInit, OnDestroy {
     void this.save();
   }
   private readonly keyDown = (event: KeyboardEvent): void => {
+    if (this.panel() && event.key === 'Tab') {
+      const buttons = Array.from(
+        this.element.nativeElement.querySelectorAll<HTMLButtonElement>(
+          '.journal-modal button:not(:disabled)',
+        ),
+      );
+      const first = buttons[0];
+      const last = buttons[buttons.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last?.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first?.focus();
+      }
+    }
     const target = event.target as HTMLElement;
     if (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return;
     const key = event.key.toLowerCase();
@@ -228,6 +408,13 @@ export class App implements AfterViewInit, OnDestroy {
     this.panel.set(panel);
     this.resetArmed.set(false);
     this.blur();
+    this.clearGamepadSelection();
+    if (panel)
+      setTimeout(() =>
+        this.element.nativeElement
+          .querySelector<HTMLButtonElement>('.journal-modal button')
+          ?.focus(),
+      );
   }
   protected direction(key: string, pressed: boolean): void {
     if (pressed) this.keys.add(key);
@@ -268,6 +455,13 @@ export class App implements AfterViewInit, OnDestroy {
   protected completed(flag: string): boolean {
     return this.state().flags.includes(flag);
   }
+  protected primaryAction(id: string): boolean {
+    return this.nearby()?.actions.find((action) => !action.disabled)?.id === id;
+  }
+  protected blockedReason(): string {
+    const actions = this.nearby()?.actions ?? [];
+    return actions.every((action) => action.disabled) ? (actions[0]?.reason ?? '') : '';
+  }
   protected async save(): Promise<void> {
     if (this.saveBlocked) return;
     try {
@@ -281,6 +475,7 @@ export class App implements AfterViewInit, OnDestroy {
     this.command({ type: 'debug', action });
   }
   protected async reset(): Promise<void> {
+    if (this.sessionBusy()) return;
     if (!this.resetArmed()) {
       this.resetArmed.set(true);
       return;
@@ -301,6 +496,7 @@ export class App implements AfterViewInit, OnDestroy {
     this.destroyed = true;
     cancelAnimationFrame(this.frame);
     this.world?.dispose();
+    this.releaseOwnership?.();
     void this.audio?.close();
     window.removeEventListener('keydown', this.keyDown);
     window.removeEventListener('keyup', this.keyUp);
@@ -308,5 +504,7 @@ export class App implements AfterViewInit, OnDestroy {
     window.removeEventListener('pagehide', this.pageHide);
     document.removeEventListener('visibilitychange', this.visibility);
     window.removeEventListener('beforeinstallprompt', this.beforeInstall);
+    window.removeEventListener('gamepadconnected', this.controllerChange);
+    window.removeEventListener('gamepaddisconnected', this.controllerChange);
   }
 }

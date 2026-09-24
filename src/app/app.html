@@ -1,5 +1,5 @@
 <a class="skip-link" href="#game-controls">Skip to game controls</a>
-<div class="game-shell">
+<div class="game-shell" [attr.inert]="panel() ? '' : null">
   <header class="masthead">
     <a class="brand" href="./" aria-label="Critterstead home"
       ><img src="icons/critterstead.svg" alt="" class="brand-mark" /><span
@@ -71,7 +71,10 @@
       }
       @if (error()) {
         <div class="error-message" role="alert">
-          {{ error() }}<button (click)="openPanel('developer')">Open save tools</button>
+          {{ error() }}
+          @if (!sessionBusy()) {
+            <button (click)="openPanel('developer')">Open save tools</button>
+          }
         </div>
       }
       @if (paused()) {
@@ -92,14 +95,18 @@
               activity.kind === 'race' ? 'Cheer Pip across the line!' : 'Find your rhythm together'
             }}
           </h2>
-          <p>Press <kbd>Space</kbd> when the marker reaches the green patch.</p>
+          <p>
+            Press <kbd>{{ controllerConnected() ? 'A' : 'Space' }}</kbd> when the marker reaches the
+            green patch.
+          </p>
           <div class="timing-track">
             <span class="sweet-spot"></span><i [style.left.%]="activity.phase * 100"></i>
           </div>
           <div class="training-footer">
             <span>{{ activity.hits.length }} / 3 beats</span
             ><button class="primary" (click)="act()">
-              {{ activity.kind === 'race' ? 'Cheer!' : 'Hop, Pip!' }} <kbd>Space</kbd>
+              {{ activity.kind === 'race' ? 'Cheer!' : 'Hop, Pip!' }}
+              <kbd>{{ controllerConnected() ? 'A' : 'Space' }}</kbd>
             </button>
           </div>
         </div>
@@ -111,20 +118,24 @@
             <p>{{ target.description }}</p>
           </div>
           <div class="interaction-actions">
-            @for (action of target.actions; track action.id; let first = $first) {
+            @for (action of target.actions; track action.id) {
               <button
-                [class.primary]="first"
+                [class.primary]="primaryAction(action.id)"
+                [class.pad-selected]="gamepadAction() === action.id"
                 [disabled]="action.disabled || paused()"
                 [title]="action.reason || action.label"
                 (click)="act(action.id)"
               >
                 {{ action.label }}
-                @if (first) {
-                  <kbd>E</kbd>
+                @if (primaryAction(action.id)) {
+                  <kbd>{{ controllerConnected() ? 'A' : 'E' }}</kbd>
                 }
               </button>
             }
           </div>
+          @if (blockedReason()) {
+            <p class="action-reason">{{ blockedReason() }}</p>
+          }
         </div>
       } @else {
         <div class="walk-prompt" id="game-controls">
@@ -133,8 +144,13 @@
         </div>
       }
       <div class="movement-hint">
-        <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move</span
-        ><span>Click the ground to walk</span>
+        @if (controllerConnected()) {
+          <span>Controller connected · left stick move · <kbd>A</kbd> act</span>
+          <span>D-pad choose · <kbd>X</kbd> help · <kbd>Y</kbd> journal · Menu pause</span>
+        } @else {
+          <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move</span
+          ><span>Click the ground to walk</span>
+        }
       </div>
       <div class="touch-controls" aria-label="Movement controls">
         <button
@@ -344,8 +360,10 @@
         </div>
         <p class="help-note">
           One full day lasts about 30 minutes; activities also take time. Menus and hidden tabs
-          pause the clock. <kbd>Esc</kbd> pauses · <kbd>J</kbd> opens your journal. This early
-          prototype is best on a desktop with a keyboard.
+          pause the clock. <kbd>Esc</kbd> pauses · <kbd>J</kbd> opens your journal. With a
+          controller, use the left stick to move, <kbd>A</kbd> to act or cue Pip, the D-pad to
+          choose actions or menu buttons, <kbd>B</kbd> to close, <kbd>X</kbd> for help,
+          <kbd>Y</kbd> for the journal, and Menu to pause. Keyboard and touch controls still work.
         </p>
         <button class="primary" (click)="openPanel(null)">
           Let’s meet Pip <span aria-hidden="true">→</span>
