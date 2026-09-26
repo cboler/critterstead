@@ -7,7 +7,7 @@ refined when evidence makes them useful, rather than predesigned in detail now.
 | Stage                                   | Playable outcome                                                                                                                      | Exit evidence                                                                                                                       |
 | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | 0 — Repository memory                   | Shared design, honest implementation map, short tool entrypoints, recoverable plans                                                   | [Completed bootstrap record](exec-plans/completed/000-repository-memory-bootstrap.md)                                               |
-| 1 — Make one critter worth raising      | A player can make understandable care/work/training/recovery choices, see useful learning, and want another day                       | Save-safe architecture preparation; several days of coherent play; observed choices, friction, and motivation recorded and reviewed |
+| 1 — Deepen the One-Critter Daily Loop   | A player can make understandable care/work/training/recovery choices, see useful learning, and want another day                       | Save-safe architecture preparation; several days of coherent play; observed choices, friction, and motivation recorded and reviewed |
 | 2 — Establish the household and opening | Grandpa/Pip demonstration, walk to town, individual starter encounters, exactly one chosen starter, return/sleep/first guided morning | Complete opening flows into the proven daily game; NPC ownership and existing saves stay coherent                                   |
 | 3 — Earn wider responsibility           | Housing/visible upgrades, a three-critter active group, richer farming/jobs and recurring Colosseum events                            | Added companions change planning without multiplying chores into tedium; non-player companions remain distinct from ownership       |
 | 4 — Develop lineages                    | Natural breeding plus expensive ordinary gene-combination services; authored family-pair morphology and stable lineages               | Meaningful inheritance, fertility rules, individual histories, and useful work niches; no random-parts art shortcut                 |
@@ -21,7 +21,7 @@ simulator to ship before Pip can appear in the opening.
 
 ## Current campaign
 
-[001 — Make One Critter Worth Raising](exec-plans/active/001-make-one-critter-worth-raising.md)
+[001 — Deepen the One-Critter Daily Loop](exec-plans/active/001-deepen-one-critter-daily-loop.md)
 is prepared, **not implemented**. The bootstrap did not expand gameplay.
 
 The campaign begins with bounded identity/ownership and learned-behavior changes,

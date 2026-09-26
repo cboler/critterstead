@@ -90,7 +90,7 @@ resetting the player's homestead to make a new model work.
 
 Exact TypeScript structures and schema versions are implementation decisions made
 within the active milestone. The first bounded changes are specified in the
-[one-critter plan](exec-plans/active/001-make-one-critter-worth-raising.md).
+[one-critter plan](exec-plans/active/001-deepen-one-critter-daily-loop.md).
 
 ## Verification and release seams
 

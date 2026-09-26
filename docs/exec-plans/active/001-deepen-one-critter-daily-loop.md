@@ -1,10 +1,8 @@
-# 001 — Make One Critter Worth Raising
+# 001 — Deepen the One-Critter Daily Loop
 
-**Status:** ready for the next implementation session; all gameplay milestones
-below are not started. Prepared 2026-09-26 against source baseline `e60c5b7`.
-The repository-memory bootstrap authorized planning, not gameplay expansion.
-On a request to continue this plan, execute **M1** and stop at its stable boundary
-unless the request explicitly authorizes more.
+**Status:** M1 in progress, authorized on 2026-09-26. M2–M6 are not started.
+Source baseline: `3a346fc` (documentation bootstrap on gameplay `06aa91e`).
+This session executes M1 only and stops at its stable boundary.
 
 ## Outcome and scope
 
@@ -30,9 +28,9 @@ playtest is a pending product gate, not a claim of failure or success.
 
 ## Milestones
 
-### M1 — Decouple the playable individual from Pip's narrative role
+### M1 — Establish distinct critter identity and ownership
 
-**Status:** not started. This is the next bounded implementation task.
+**Status:** in progress (2026-09-26). Baseline browser walkthrough and model/migration preparation underway.
 
 Prepare the minimum representation of persistent individuals, ownership, and a
 selected working companion needed to evolve the one-critter loop. Keep one

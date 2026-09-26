@@ -7,6 +7,13 @@ discussion. This describes the intended game, not a list of shipped features.
 
 ## Core promise and priority
 
+**A critter’s usefulness and a critter’s value are not the same thing.** Critters
+are persistent individuals first, not disposable stat packages. Optimization,
+specialization, breeding, and competition can matter without implying that
+less-useful or less-optimal critters are less worthy of care. Evaluate the quality
+of the daily play experience, not whether a companion has earned care through
+performance.
+
 Raise persistent, individual critters whose care, training, learned behaviors, and
 family histories change life on a growing stead. The player should enjoy spending
 time with one creature before wanting, and feeling ready for, several. Progress

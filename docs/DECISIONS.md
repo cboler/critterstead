@@ -26,6 +26,15 @@ contradictory instructions alive.
 | D13 | Preserve local authority, persistent identity, deterministic outcomes, and protected saves.           | These are verified prototype boundaries worth keeping. A future server is not current work. [Architecture](ARCHITECTURE.md).                                                             |
 | D14 | Shared project docs, thin tool entrypoints, bounded execution plans.                                  | Avoid duplicated truth and repeatedly loading unrelated context. [Plan conventions](exec-plans/README.md).                                                                               |
 
+### D15 — Individual value is independent of usefulness (accepted 2026-09-26)
+
+A critter’s usefulness and a critter’s value are not the same thing. Raising,
+breeding, specialization, and competition may reward different abilities while
+care remains appropriate for every individual. The campaign is named **Deepen the
+One-Critter Daily Loop**, and M1 is **Establish distinct critter identity and
+ownership**. This wording correction changes neither scope nor acceptance
+criteria. The principle belongs to the [core game promise](GAME-DESIGN.md#core-promise-and-priority).
+
 ## Open or exploratory — do not invent canon
 
 | Question                                                                                    | Current boundary / when it matters                                                                                                                     |

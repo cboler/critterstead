@@ -19,16 +19,16 @@ are part of this conversion. Final validation is recorded below.
 
 ## Where existing knowledge moved
 
-| Previous material                                                        | Current owner                                                                                                       |
-| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
-| `INSTRUCTIONS.md` host, deterministic outcomes, individuality/save rules | [ARCHITECTURE.md](../../ARCHITECTURE.md)                                                                            |
-| `INSTRUCTIONS.md` platform, accessibility, validation, checkpoints       | [DEVELOPMENT.md](../../DEVELOPMENT.md) and [plan conventions](../README.md)                                         |
-| `ASTRA-HANDOFF.md` implementation/boundaries/limitations                 | [ARCHITECTURE.md](../../ARCHITECTURE.md)                                                                            |
-| Handoff setup, browser configuration, PWA/Windows diagnostics            | [DEVELOPMENT.md](../../DEVELOPMENT.md)                                                                              |
-| Handoff controls and local-save explanation                              | [README.md](../../../README.md)                                                                                     |
-| Handoff previous verification/deployment results                         | Historical evidence below                                                                                           |
-| Handoff next priorities and old slice exclusions                         | Superseded by [ROADMAP.md](../../ROADMAP.md) and [active campaign](../active/001-make-one-critter-worth-raising.md) |
-| September design discussion                                              | [GAME-DESIGN.md](../../GAME-DESIGN.md) and [DECISIONS.md](../../DECISIONS.md)                                       |
+| Previous material                                                        | Current owner                                                                                                      |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| `INSTRUCTIONS.md` host, deterministic outcomes, individuality/save rules | [ARCHITECTURE.md](../../ARCHITECTURE.md)                                                                           |
+| `INSTRUCTIONS.md` platform, accessibility, validation, checkpoints       | [DEVELOPMENT.md](../../DEVELOPMENT.md) and [plan conventions](../README.md)                                        |
+| `ASTRA-HANDOFF.md` implementation/boundaries/limitations                 | [ARCHITECTURE.md](../../ARCHITECTURE.md)                                                                           |
+| Handoff setup, browser configuration, PWA/Windows diagnostics            | [DEVELOPMENT.md](../../DEVELOPMENT.md)                                                                             |
+| Handoff controls and local-save explanation                              | [README.md](../../../README.md)                                                                                    |
+| Handoff previous verification/deployment results                         | Historical evidence below                                                                                          |
+| Handoff next priorities and old slice exclusions                         | Superseded by [ROADMAP.md](../../ROADMAP.md) and [active campaign](../active/001-deepen-one-critter-daily-loop.md) |
+| September design discussion                                              | [GAME-DESIGN.md](../../GAME-DESIGN.md) and [DECISIONS.md](../../DECISIONS.md)                                      |
 
 Original documents remain available in Git history at `e60c5b7`; no duplicate
 archive of the old, conflicting priorities is needed in the current reading path.
@@ -91,7 +91,7 @@ design. Open questions stay explicit; no numeric life spans, finalized machine
 name, or complete party/housing progression was invented.
 
 The first implementation session should execute M1 in the
-[active campaign](../active/001-make-one-critter-worth-raising.md): minimal
+[active campaign](../active/001-deepen-one-critter-daily-loop.md): minimal
 individual/ownership preparation with protected legacy progress, while keeping
 one playable companion. No gameplay milestone is complete. The active plan is
 the durable continuation point; the old model-specific handoff is retired.

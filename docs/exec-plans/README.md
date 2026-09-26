@@ -5,10 +5,10 @@ Read the relevant active plan, not every historical handoff.
 
 ## Index
 
-| Plan                                                                                 | Status                             | Next action                                                                            |
-| ------------------------------------------------------------------------------------ | ---------------------------------- | -------------------------------------------------------------------------------------- |
-| [001 — Make One Critter Worth Raising](active/001-make-one-critter-worth-raising.md) | Ready; gameplay work not started   | On the next implementation request, execute M1 only unless broader scope is requested. |
-| [000 — Repository memory bootstrap](completed/000-repository-memory-bootstrap.md)    | Completed documentation conversion | Historical audit and verification evidence; no further bootstrap work planned.         |
+| Plan                                                                                   | Status                             | Next action                                                                    |
+| -------------------------------------------------------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------ |
+| [001 — Deepen the One-Critter Daily Loop](active/001-deepen-one-critter-daily-loop.md) | M1 in progress; M2–M6 not started  | Finish M1 verification and handoff; stop before M2.                            |
+| [000 — Repository memory bootstrap](completed/000-repository-memory-bootstrap.md)      | Completed documentation conversion | Historical audit and verification evidence; no further bootstrap work planned. |
 
 ## Working contract
 
