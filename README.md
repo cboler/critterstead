@@ -16,11 +16,17 @@ explore Clover Glade, teach berry gathering through observation and cues, watch
 independent foraging, sell produce, improve the shed, run a small daily time trial,
 and sleep into another day. There are two areas, one crop, and six berry bushes.
 
-The prototype calls the player's young novice companion **Pip**. In the intended
-story, Pip is Grandpa's ancient, experienced critter. That narrative, a separate
-player starter, ownership/rosters, breeding, seasons, and the Colosseum are
-**planned, not implemented**. The next priority is a compelling one-critter daily
-loop, with only the necessary architectural preparation before the full prologue.
+Fresh games in this revision begin with **Mallow**, a provisional player-owned
+Brindlekin for testing the daily loop. Version-1 saves retain their original
+individual, including a companion named Pip, and all existing progress. The model
+now distinguishes identity, ownership, and the selected companion; play still
+uses just one companion.
+
+In the intended story, Pip is Grandpa's ancient, experienced critter. The opening,
+roster management, breeding, seasons, and the Colosseum remain **planned**. The
+priority is a compelling one-critter daily loop before the full prologue. See the
+[active plan](docs/exec-plans/active/001-deepen-one-critter-daily-loop.md) for local
+verification and publication status; the public site may be an earlier revision.
 
 ## Play and develop
 

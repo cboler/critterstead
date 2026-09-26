@@ -1,5 +1,8 @@
 import { AreaDefinition, AreaId, Point } from './model';
 
+// Provisional loop-testing starter, separate from Grandpa’s narrative Pip.
+export const STARTER = { id: 'critter-mallow', name: 'Mallow' } as const;
+
 export const GAME_CONFIG = {
   realSecondsPerDay: 30 * 60,
   interactionDistance: 2.35,
@@ -29,7 +32,7 @@ export const AREAS: Record<AreaId, AreaDefinition> = {
     spawn: { x: 0, z: 0 },
     objects: [
       { id: 'house', kind: 'house', name: 'Your cottage', position: { x: -5, z: -4 }, radius: 1.9 },
-      { id: 'shed', kind: 'shed', name: 'Pip’s nook', position: { x: 4, z: -4 }, radius: 1.5 },
+      { id: 'shed', kind: 'shed', name: 'Companion nook', position: { x: 4, z: -4 }, radius: 1.5 },
       { id: 'crop', kind: 'crop', name: 'Feed garden', position: { x: -5, z: 2 }, radius: 1.25 },
       {
         id: 'training',

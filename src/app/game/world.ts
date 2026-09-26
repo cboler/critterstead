@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { AREAS } from './content';
-import type { GameState, Point } from './model';
+import { activeCritter, type GameState, type Point } from './model';
 
 interface WorldLabel {
   element: HTMLDivElement;
@@ -87,7 +87,7 @@ export class GameWorld {
       'position:absolute;inset:0;overflow:hidden;pointer-events:none;user-select:none;';
     this.labelLayer.setAttribute('aria-hidden', 'true');
     this.container.appendChild(this.labelLayer);
-    this.critterLabel = this.makeLabel('Pip', true);
+    this.critterLabel = this.makeLabel('', true);
     this.scene.background = new THREE.Color('#dce9e3');
     this.scene.fog = new THREE.Fog('#dce9e3', 49, 95);
     this.camera.position.set(17, 22, 25);
@@ -114,6 +114,7 @@ export class GameWorld {
   }
 
   render(state: GameState, dtSeconds: number): void {
+    const companion = activeCritter(state);
     const dt = Math.min(Math.max(dtSeconds, 0), 0.1);
     this.clock += this.reducedMotion ? 0 : dt;
     this.cueTime += dt;
@@ -121,7 +122,7 @@ export class GameWorld {
       this.area = state.areaId;
       this.buildArea(state);
       this.lastPlayer.set(state.player.position.x, state.player.position.z);
-      this.lastCritter.set(state.critter.position.x, state.critter.position.z);
+      this.lastCritter.set(companion.position.x, companion.position.z);
       this.walkMarker.visible = false;
       this.markerTime = 0;
     }
@@ -132,7 +133,7 @@ export class GameWorld {
       this.farmerLegs,
       0.32,
     );
-    let visualCritterPosition = state.critter.position;
+    let visualCritterPosition = companion.position;
     let jumpHeight = 0;
     if (state.training) {
       if (state.training.hits.length !== this.lastCueCount) this.cueTime = 0;
@@ -179,7 +180,7 @@ export class GameWorld {
     }
     this.tail.rotation.z = Math.sin(this.clock * 3.2) * 0.12;
     this.tail.rotation.x = Math.sin(this.clock * 2.1) * 0.07;
-    this.critterLabel.textContent = state.critter.name;
+    this.critterLabel.textContent = companion.name;
     this.positionLabel(
       this.critterLabel,
       this.projection.set(visualCritterPosition.x, 1.9 + jumpHeight, visualCritterPosition.z),

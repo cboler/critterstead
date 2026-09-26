@@ -1,14 +1,15 @@
 # 001 — Deepen the One-Critter Daily Loop
 
-**Status:** M1 in progress, authorized on 2026-09-26. M2–M6 are not started.
-Source baseline: `3a346fc` (documentation bootstrap on gameplay `06aa91e`).
+**Status:** M1 complete on 2026-09-26. M2–M6 are not started.
+Source baseline: `3a346fc` (documentation bootstrap on gameplay `06aa91e`),
+identical in content to the published bootstrap `7e14cac`.
 This session executes M1 only and stops at its stable boundary.
 
 ## Outcome and scope
 
 Make care, training, useful work, recovery, farming, and the existing small contest
 support several enjoyable days with one individual critter. Minimal preparation
-must stop the current novice Pip and berry-only assumptions from spreading.
+must stop the original novice Pip and berry-only assumptions from spreading.
 
 Use [GAME-DESIGN.md](../../GAME-DESIGN.md) for gameplay semantics,
 [ARCHITECTURE.md](../../ARCHITECTURE.md) for current boundaries and saves, and
@@ -30,7 +31,7 @@ playtest is a pending product gate, not a claim of failure or success.
 
 ### M1 — Establish distinct critter identity and ownership
 
-**Status:** in progress (2026-09-26). Baseline browser walkthrough and model/migration preparation underway.
+**Status:** complete (2026-09-26). All acceptance criteria below verified; see evidence and environment limitations.
 
 Prepare the minimum representation of persistent individuals, ownership, and a
 selected working companion needed to evolve the one-critter loop. Keep one
@@ -39,29 +40,29 @@ the prologue. Choose simple data structures within the current host boundary.
 
 Acceptance criteria:
 
-- [ ] Record a short baseline browser walkthrough of care, training, gathering,
+- [x] Record a short baseline browser walkthrough of care, training, gathering,
       farming, racing, sleep, and reload. Note concrete friction rather than
       asserting the existing loop is fun because its end-to-end test passes.
-- [ ] Individual identity, owner, and selection are distinguishable. A fixture
+- [x] Individual identity, owner, and selection are distinguishable. A fixture
       can represent a future Grandpa-owned Pip separately from a player-owned
       starter; commands/rewards cannot accidentally update the other individual.
       This fixture does not require spawning Grandpa or implementing NPC AI.
-- [ ] Fresh games use a clearly provisional player starter distinct from narrative
+- [x] Fresh games use a clearly provisional player starter distinct from narrative
       Pip. UI/interaction text for that companion derives from its identity rather
       than assuming every critter is Pip. Retain existing original geometry unless
       a small identity change is necessary; new species art is outside this slice.
-- [ ] A populated version-1 save migrates explicitly, retaining the legacy critter's
+- [x] A populated version-1 save migrates explicitly, retaining the legacy critter's
       ID/name, age, stats, care, berry progress, skills, traits, history/results,
       world/economy/crop/upgrade progress, and random seed. Do not silently turn the
       old novice Pip into Grandpa's expert. Record the schema decision and the
       treatment of any in-progress training activity.
-- [ ] Migration/reload is stable on repeated loads; malformed and future-version
+- [x] Migration/reload is stable on repeated loads; malformed and future-version
       saves remain intact, with saving blocked as appropriate. The single-writer
       behavior is preserved where supported.
-- [ ] Existing care → practice → gather/learn → garden → trial → sleep remains
+- [x] Existing care → practice → gather/learn → garden → trial → sleep remains
       playable through normal input, persists after reload, and works at narrow
       and desktop sizes with the established input routes.
-- [ ] Relevant unit/persistence/browser checks, lint, build, and formatting pass
+- [x] Relevant unit/persistence/browser checks, lint, build, and formatting pass
       or have concrete pre-existing blockers recorded. Update the implemented
       architecture, decision notes, and this plan; commit the stable milestone.
 
@@ -154,22 +155,104 @@ evidence. Keep the experiment small; document chosen parameters as provisional.
 Later milestone details may change based on observations. Record any scope change;
 do not quietly replace the campaign's outcome with a larger feature list.
 
+## M1 evidence — 2026-09-26
+
+### Baseline walkthrough
+
+Ran the unchanged gameplay at `3a346fc` (gameplay `06aa91e`) with Playwright's
+normal-input complete-day scenario at 1280×800. It petted/fed Pip, practiced three
+cues, planted/watered feed, walked to Clover Glade, demonstrated three harvests,
+issued two gathering cues, observed autonomous foraging, sold berries, improved
+the shed, harvested feed, ran the Clover Cup, slept, reloaded, and inspected the
+journal. One scenario passed in 1.6 minutes. The test reads Angular development
+state to observe position/timing, never to grant progress; this is an automated
+walkthrough with screenshot inspection, not a fresh human pacing/fun assessment.
+
+Observed friction and feedback:
+
+- The interaction card covers nearby characters/world space in the glade. The
+  independent-forager label, seven learning marks, and journal note clearly show
+  learning; depleted bushes give an explicit wait/recovery explanation.
+- Day two retains a completed four-item starter checklist. It provides little
+  direction about what to pursue next, despite renewed energy and a new trial.
+  The screenshot shows day 2 at 08:00, age 19, energy 100, bond 32, shed improvement,
+  six feed, and persisted independent foraging. M5 should investigate tomorrow's
+  purpose; M1 does not invent a goal system.
+- Learning can reach autonomy during this first scripted day. This establishes
+  continuity, not a desirable pace. Travel used precise keyboard guidance, so this
+  run does not measure how a new player discovers routes or manages fatigue.
+
+Baseline trace and screenshots were captured as `m1-baseline` in the working
+session; the observations above are the durable record. No new art or balance
+changes were made from these observations.
+
+### Implementation and verification
+
+- Schema v2, provisional Mallow, explicit ownership and selection, per-individual
+  petting, participant-bound activities, and identity-derived UI/world text are
+  implemented. See [D16](../../DECISIONS.md#d16--minimal-identity-model-and-save-v2-implemented-2026-09-26).
+- The frozen populated v1 fixture includes an unfinished paid activity, needs,
+  stats, traits/genetics/pedigree, berry knowledge/skills, history/results, crop,
+  upgrades, inventory, respawning resources, economy, and seed. Migration preserves
+  all fields; golden training/race continuations match the old host. Unit fixtures
+  put Grandpa-owned Pip first in the array to detect accidental selection by order.
+- 35 host/storage tests passed. Browser suite: 36 passed, 8 intentional viewport
+  skips, zero failures (5.1 minutes). Full normal-input day and reload pass at
+  390×844 and 1280×800; save migration, protection/reset, and single-writer checks
+  pass at those sizes plus 844×390 and 768×1024. Mocked controller navigation passes.
+- Inspected actual day-two narrow/desktop screenshots: Mallow's card, learning,
+  prompts, journal, and world label retain the individual name and fit their layout.
+  Narrow play remains vertically scrollable; the interaction card still obscures
+  much of the diorama. That existing friction is recorded, not claimed resolved.
+- Production build, lint, formatting, and whitespace checks pass. Offline production
+  reload renders the world and retains care. The PWA script now asserts the care
+  action and waits for its IndexedDB write before reloading; its former immediate
+  reload raced pending work in this environment. No save data was repaired or
+  injected to make that check pass. Pages subpath/release configuration is unchanged.
+- The baseline/current renderer logs the existing `PCFSoftShadowMap` fallback
+  warning. No runtime page errors occurred in the full-day scenarios.
+- Browser environment: the locked Playwright Chromium 153 download was unavailable
+  (empty/forbidden archive). Used an official Chromium headless-shell 134 build and
+  SwiftShader. Native gamepad discovery crashes in this container, including on
+  baseline. Temporary test copies suppress native gamepad discovery/events for all
+  tabs; the controller scenario supplies its own standard-map pad. Application
+  code and CI browser configuration are unchanged. Physical controller testing
+  remains pending; this does not verify hardware connection events.
+- Initial regression run found reset assertions still expecting v1 (updated to
+  v2), and a short fixed controller button hold could be missed by slow rendering,
+  also reproduced on baseline. The fixture now holds press/release across frames.
+  The isolated browser adaptation was also extended to secondary tabs.
+
+Commands used (Node 24.19.0; local run on 2026-09-26):
+
+| Check           | Command / outcome                                                                                                                                                                                    |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Baseline        | In the detached bootstrap worktree: `npx playwright test --config=tmp/playwright.local.config.ts --project=desktop -g 'plays a complete day' --trace on`; 1 passed.                                  |
+| Unit            | `npm test -- --watch=false`; 35 passed.                                                                                                                                                              |
+| Lint/build      | `npm run lint`; passed. `npm run build:pages`; passed, SPA fallback/manifest/service worker found, 902.13 kB initial raw bundle.                                                                     |
+| Browser         | `npx playwright test --config=tmp/playwright.local.config.ts --workers=1 --trace on`; 36 passed, 8 intentional skips. Temporary config/copies apply only the environment adaptation described above. |
+| Offline         | `node tmp/check-pwa.local.mjs`; same production check with the browser-launch/native-gamepad adaptation, passed at base `/`.                                                                         |
+| Formatting/docs | `npm run format:check`, `git diff --check`, local Markdown link and retired-name audit; passed.                                                                                                      |
+
+The standard Chromium 153 commands must still run in normal CI once published;
+these adapted local results do not claim an unmodified browser run or deployment.
+No physical-pad or fresh-human fun assessment was performed.
+
 ## Current handoff
 
-- **Completed:** documentation bootstrap only; no M1–M6 implementation.
-- **Evidence:** source audit and checks in the
-  [bootstrap record](../completed/000-repository-memory-bootstrap.md). Earlier
-  successful tests describe the prototype, not these new acceptance criteria.
-- **Known gaps:** singular novice Pip, no ownership/migration layer, hardcoded berry
-  learning and UI, limited recovery/variety, no physical-controller playtest.
-- **Decision notes:** retain prototype identities during migration; a fresh-game
-  provisional starter is not final acquisition content. M3–M5 mechanics are
-  experiments, not newly settled narrative or economic rules.
-- **Exact next action:** inspect Git status/recent commits and this plan's baseline,
-  run the M1 walkthrough, then implement the minimum identity/ownership/selection
-  change with a populated v1 migration fixture. Finish M1 validation, update this
-  handoff and architecture, commit, and stop before M2 unless authorized further.
-
-During implementation replace this handoff with current commit IDs, completed
-criteria, command/browser evidence, blockers, and the next concrete action. Update
-it at stable sub-slices, not only when the session is about to end.
+- **Completed:** campaign/M1 wording cleanup and canonical individual-value
+  principle; M1 identity/ownership/selection, fresh Mallow, v1 migration, loop
+  preservation, and acceptance verification. Publication is pending the delivery
+  step after the milestone commit. Bootstrap is already on `origin/main` as
+  `7e14cac`; it must not be applied a second time.
+- **Known limits:** hardcoded berry learning and one rendered/simulated companion;
+  other stored individuals dormant; narrow interaction-card occlusion; repeated-day
+  motivation and physical controller unproven. No new mechanics or story systems.
+- **Next delivery action:** publish completed commits to `origin/main` without
+  force and verify its ref. If blocked, retain local commits and export a git-am
+  patch based on `7e14cac`.
+- **Exact next gameplay action:** when continuing this campaign, start **M2 —
+  Generalize learning while retaining the berry experience**. Inspect current
+  status/commits, then trace `berryKnowledge` and its stage thresholds into a small
+  authored behavior plus per-individual progress, with v2 save migration and the
+  current berry arc preserved. M2 has not begun in this session; stop here.

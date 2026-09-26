@@ -1,7 +1,7 @@
 import { createServer } from 'node:http';
 import { readFile, mkdir } from 'node:fs/promises';
 import { resolve, extname, sep } from 'node:path';
-import { chromium } from '@playwright/test';
+import { chromium, expect } from '@playwright/test';
 
 // Exercise the real production service worker, including repository subpath builds.
 const root = resolve('dist/browser');
@@ -54,22 +54,50 @@ try {
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto(`http://127.0.0.1:${server.address().port}${base}`);
   await page.locator('.world-canvas canvas').waitFor({ state: 'visible' });
-  await page.getByRole('button', { name: /Give a little scritch/ }).click();
+  const care = page.getByRole('button', { name: /Give a little scritch/ });
+  await care.click();
+  await expect(care).toBeDisabled();
+  // Reload only after the async write commits; canvas visibility is not save completion.
+  await expect
+    .poll(() =>
+      page.evaluate(async () => {
+        const database = await new Promise((resolve, reject) => {
+          const request = indexedDB.open('critterstead', 1);
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = () => reject(request.error);
+        });
+        try {
+          return await new Promise((resolve, reject) => {
+            const request = database.transaction('saves').objectStore('saves').get('homestead');
+            request.onsuccess = () => {
+              const saved = request.result;
+              const companion = saved?.critters?.find(
+                (critter) => critter.id === saved.activeCritterId,
+              );
+              resolve(Boolean(companion && companion.lastPettedDay === saved.day));
+            };
+            request.onerror = () => reject(request.error);
+          });
+        } finally {
+          database.close();
+        }
+      }),
+    )
+    .toBe(true);
   await page.waitForFunction(() => navigator.serviceWorker.controller !== null, undefined, {
     timeout: 60000,
   });
   await context.setOffline(true);
   await page.reload();
   await page.locator('.world-canvas canvas').waitFor({ state: 'visible' });
-  if (!(await page.getByRole('button', { name: /Give a little scritch/ }).isDisabled()))
-    throw new Error('Care did not survive an offline reload.');
+  await expect(care, 'Care survives an offline reload').toBeDisabled();
   if ((await page.locator('.save-state').innerText()).includes('Could not'))
     throw new Error('Offline save failed.');
   if (errors.length) throw new Error(errors.join('\n'));
   await mkdir('test-results', { recursive: true });
   await page.screenshot({ path: 'test-results/pwa-offline.png', fullPage: true });
   console.log(
-    `Production PWA passed: base ${base}, service worker controlling, offline reload renders the world, and Pip’s care persists.`,
+    `Production PWA passed: base ${base}, service worker controlling, offline reload renders the world, and companion care persists.`,
   );
 } finally {
   await browser?.close();

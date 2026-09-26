@@ -7,10 +7,11 @@ import {
   ViewChild,
   inject,
   signal,
+  computed,
 } from '@angular/core';
 import { AREAS } from './game/content';
 import { LocalGameHost, knowledgeStage } from './game/host';
-import { GameCommand, GameState, Interaction, Point } from './game/model';
+import { activeCritter, GameCommand, GameState, Interaction, Point } from './game/model';
 import { IndexedDbStorage } from './game/storage';
 import { GameWorld } from './game/world';
 
@@ -45,6 +46,7 @@ export class App implements AfterViewInit, OnDestroy {
   private installPrompt?: InstallPrompt;
   protected readonly state = signal<GameState>(structuredClone(this.host.state));
   protected readonly nearby = signal<Interaction | null>(null);
+  protected readonly companion = computed(() => activeCritter(this.state()));
   protected readonly ready = signal(false);
   protected readonly paused = signal(false);
   protected readonly panel = signal<'journal' | 'help' | 'developer' | null>(null);
@@ -60,14 +62,22 @@ export class App implements AfterViewInit, OnDestroy {
   protected readonly areas = AREAS;
   protected readonly statNames = ['strength', 'endurance', 'speed', 'intelligence'] as const;
   protected readonly goals = [
-    { flag: 'cared', title: 'A little care', description: 'Spend a moment caring for Pip.' },
+    {
+      flag: 'cared',
+      title: 'A little care',
+      description: 'Spend a moment caring for your companion.',
+    },
     { flag: 'trained', title: 'Find your rhythm', description: 'Try the training hoop together.' },
     {
       flag: 'gathered',
       title: 'Beyond the garden gate',
       description: 'Pick sunberries in the glade.',
     },
-    { flag: 'improved', title: 'Room to grow', description: 'Sell berries and mend Pip’s shed.' },
+    {
+      flag: 'improved',
+      title: 'Room to grow',
+      description: 'Sell berries and mend the companion nook.',
+    },
   ];
 
   async ngAfterViewInit(): Promise<void> {

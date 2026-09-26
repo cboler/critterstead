@@ -2,18 +2,20 @@ import { expect, test, type Page } from '@playwright/test';
 
 // A standard-mapping gamepad fixture exercises the same browser polling path as a physical pad.
 async function button(page: Page, index: number): Promise<void> {
-  await page.evaluate((value) => {
-    (window as unknown as { testPad: { buttons: { pressed: boolean }[] } }).testPad.buttons[
-      value
-    ].pressed = true;
-  }, index);
-  await page.waitForTimeout(200);
-  await page.evaluate((value) => {
-    (window as unknown as { testPad: { buttons: { pressed: boolean }[] } }).testPad.buttons[
-      value
-    ].pressed = false;
-  }, index);
-  await page.waitForTimeout(100);
+  // Hold each edge across rendered frames so a slow software GPU cannot miss it.
+  for (const pressed of [true, false]) {
+    await page.evaluate(
+      async ({ index, pressed }) => {
+        (window as unknown as { testPad: { buttons: { pressed: boolean }[] } }).testPad.buttons[
+          index
+        ].pressed = pressed;
+        await new Promise<void>((resolve) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+        );
+      },
+      { index, pressed },
+    );
+  }
 }
 
 test('standard controller moves, chooses actions, and navigates menus', async ({
@@ -57,7 +59,7 @@ test('standard controller moves, chooses actions, and navigates menus', async ({
   await button(page, 2); // X: help
   await expect(page.getByRole('dialog')).toContainText('left stick to move');
   await button(page, 13); // D-pad down: focus primary help action
-  await expect(page.getByRole('button', { name: /Let’s meet Pip/ })).toHaveClass(/pad-selected/);
+  await expect(page.getByRole('button', { name: /Let’s meet Mallow/ })).toHaveClass(/pad-selected/);
   await button(page, 0); // A: activate focused help action
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await button(page, 9); // Menu: pause

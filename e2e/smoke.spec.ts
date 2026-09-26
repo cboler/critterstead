@@ -10,7 +10,7 @@ test('opens a responsive, playable homestead without runtime errors', async ({
   await expect(page).toHaveTitle(/Critterstead/);
   await expect(page.locator('.brand')).toContainText('Critterstead');
   await expect(page.locator('.world-canvas canvas')).toBeVisible();
-  await expect(page.locator('.companion-card')).toContainText('Pip');
+  await expect(page.locator('.companion-card')).toContainText('Mallow');
   await expect(page.locator('.save-state')).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
@@ -160,8 +160,8 @@ test('plays a complete day and keeps the improved homestead after reload', async
   page,
 }, testInfo) => {
   test.skip(
-    testInfo.project.name !== 'desktop',
-    'The complete keyboard scenario runs at desktop size.',
+    !['desktop', 'phone-portrait'].includes(testInfo.project.name),
+    'The complete keyboard scenario runs at narrow and desktop sizes.',
   );
   test.setTimeout(300_000);
   const errors: string[] = [];
@@ -172,7 +172,7 @@ test('plays a complete day and keeps the improved homestead after reload', async
   await page.getByRole('button', { name: /Offer feed/ }).click();
   await walk(page, 3, 2);
   await page.getByRole('button', { name: /Practice hoops/ }).click();
-  await activity(page, /Hop, Pip!/);
+  await activity(page, /Hop, Mallow!/);
   await expect(page.locator('.intentions li').nth(1)).toHaveClass(/done/);
   await walk(page, -5, 2);
   await page.getByRole('button', { name: /Plant feed seeds/ }).click();
@@ -194,11 +194,11 @@ test('plays a complete day and keeps the improved homestead after reload', async
     [5, -1.5],
   ]) {
     await walk(page, x, z);
-    await page.getByRole('button', { name: /^Ask Pip to gather/ }).click();
+    await page.getByRole('button', { name: /^Ask Mallow to gather/ }).click();
   }
   await expect(page.locator('.learning')).toContainText('Independent forager');
   await walk(page, 4, 4.5);
-  await expect(page.locator('.recent-note')).toContainText(/All on her own, Pip/);
+  await expect(page.locator('.recent-note')).toContainText(/On their own, Mallow/);
   await page.screenshot({ path: testInfo.outputPath('independent-forager.png'), fullPage: true });
   await walk(page, -8, 0);
   await page.getByRole('button', { name: /Return to Bramblewick/ }).click();

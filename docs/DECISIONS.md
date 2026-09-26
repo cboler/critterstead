@@ -35,20 +35,36 @@ One-Critter Daily Loop**, and M1 is **Establish distinct critter identity and
 ownership**. This wording correction changes neither scope nor acceptance
 criteria. The principle belongs to the [core game promise](GAME-DESIGN.md#core-promise-and-priority).
 
+### D16 — Minimal identity model and save v2 (implemented 2026-09-26)
+
+Store individuals in `critters`, ownership in each `ownerId`, and the one playable
+selection in `activeCritterId`. Resolve by ID, never array position. Per-individual
+care and participant-bound training prevent one individual's actions from changing
+another. Other individuals remain dormant; no roster UI or NPC simulation is implied.
+Fresh games use provisional Mallow without settling final starter acquisition.
+
+Migrate populated v1 saves explicitly, keeping their original player-owned individual
+and all progress. Bind unfinished practice/race to that same ID and resume without
+recharging or rerolling. Validate before normal saving; rejected records remain
+intact. This is the smallest boundary needed for the next learning milestone,
+not a broad party/story framework. [Architecture](ARCHITECTURE.md#save-contract)
+owns the exact contract; the [M1 record](exec-plans/active/001-deepen-one-critter-daily-loop.md#m1-evidence--2026-09-26)
+owns verification and limitations.
+
 ## Open or exploratory — do not invent canon
 
-| Question                                                                                    | Current boundary / when it matters                                                                                                                     |
-| ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Exact years, playable weeks, seasonal calendar, and timeskip pacing                         | Rough childhood span is settled; ratios and event cadence are not. Resolve for the prologue/calendar campaign.                                         |
-| First winter after Grandpa's death                                                          | Promising thematic note, not mandatory.                                                                                                                |
-| Lifespans, aging effects, care influence, and Pip's eventual death timing                   | Natural death/long genetic variation is accepted; no numeric balance is settled. Prototype 1200-day data is not a decision.                            |
-| Pip's exact ancestry and final presentation                                                 | The conversation used different pronouns; current prototype is female. Avoid changing saved sex or asserting finalized ancestry from that placeholder. |
-| Party unlock steps, housing capacities, and inactive critter routines                       | Three active is the target; housing expands ownership. Exact unlock rules are open.                                                                    |
-| Natural compatibility and stabilization/fertility rules                                     | Technology permits any parental pairing; viable offspring does not itself settle fertility of every offspring.                                         |
-| Gene-combination price, access timing, facilities, name, and multi-family morphology        | Normal-but-expensive is settled. “Gene-Loom” is provisional; no origin explanation is required.                                                        |
-| Training disciplines, recovery model, day pacing, and repeatable competition incentives     | Evaluate in the one-critter campaign. Proposed milestone mechanics are experiments, not permanent product promises.                                    |
-| Full farming/work economy, building trees, event rotation, and starter candidates           | Develop in playable stages after the daily-loop evidence.                                                                                              |
-| Character customization, cousin detail, dangerous exploration, multiplayer, Steam packaging | Optional/deferred; no implementation should be inferred from their mention.                                                                            |
+| Question                                                                                    | Current boundary / when it matters                                                                                                                         |
+| ------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Exact years, playable weeks, seasonal calendar, and timeskip pacing                         | Rough childhood span is settled; ratios and event cadence are not. Resolve for the prologue/calendar campaign.                                             |
+| First winter after Grandpa's death                                                          | Promising thematic note, not mandatory.                                                                                                                    |
+| Lifespans, aging effects, care influence, and Pip's eventual death timing                   | Natural death/long genetic variation is accepted; no numeric balance is settled. Prototype 1200-day data is not a decision.                                |
+| Pip's exact ancestry and final presentation                                                 | The conversation used different pronouns; legacy prototype Pip was female. Avoid changing saved sex or asserting finalized ancestry from that placeholder. |
+| Party unlock steps, housing capacities, and inactive critter routines                       | Three active is the target; housing expands ownership. Exact unlock rules are open.                                                                        |
+| Natural compatibility and stabilization/fertility rules                                     | Technology permits any parental pairing; viable offspring does not itself settle fertility of every offspring.                                             |
+| Gene-combination price, access timing, facilities, name, and multi-family morphology        | Normal-but-expensive is settled. “Gene-Loom” is provisional; no origin explanation is required.                                                            |
+| Training disciplines, recovery model, day pacing, and repeatable competition incentives     | Evaluate in the one-critter campaign. Proposed milestone mechanics are experiments, not permanent product promises.                                        |
+| Full farming/work economy, building trees, event rotation, and starter candidates           | Develop in playable stages after the daily-loop evidence.                                                                                                  |
+| Character customization, cousin detail, dangerous exploration, multiplayer, Steam packaging | Optional/deferred; no implementation should be inferred from their mention.                                                                                |
 
 Bootstrap implementation policy: preserve a migrated prototype individual and its
 progress even if named Pip. Do not silently convert that novice into Grandpa's

@@ -92,7 +92,9 @@
           }}</span>
           <h2>
             {{
-              activity.kind === 'race' ? 'Cheer Pip across the line!' : 'Find your rhythm together'
+              activity.kind === 'race'
+                ? 'Cheer ' + companion().name + ' across the line!'
+                : 'Find your rhythm together'
             }}
           </h2>
           <p>
@@ -105,7 +107,7 @@
           <div class="training-footer">
             <span>{{ activity.hits.length }} / 3 beats</span
             ><button class="primary" (click)="act()">
-              {{ activity.kind === 'race' ? 'Cheer!' : 'Hop, Pip!' }}
+              {{ activity.kind === 'race' ? 'Cheer!' : 'Hop, ' + companion().name + '!' }}
               <kbd>{{ controllerConnected() ? 'A' : 'Space' }}</kbd>
             </button>
           </div>
@@ -140,7 +142,7 @@
       } @else {
         <div class="walk-prompt" id="game-controls">
           <span class="footsteps" aria-hidden="true">⌁</span> A good day starts with a little
-          exploring.<small>Walk close to a place or Pip to interact.</small>
+          exploring.<small>Walk close to a place or {{ companion().name }} to interact.</small>
         </div>
       }
       <div class="movement-hint">
@@ -200,29 +202,27 @@
           <img
             class="portrait"
             src="icons/critterstead.svg"
-            alt="Pip, an apricot Brindlekin with a moss-green tail"
+            [alt]="companion().name + ', a Brindlekin companion'"
           />
           <div>
             <h2>
-              {{ state().critter.name
-              }}<span>{{ state().critter.sex === 'female' ? '♀' : '♂' }}</span>
+              {{ companion().name }}<span>{{ companion().sex === 'female' ? '♀' : '♂' }}</span>
             </h2>
-            <p>Brindlekin · {{ state().critter.ageDays }} days old</p>
-            <span class="temperament">{{ state().critter.personality }}</span>
+            <p>Brindlekin · {{ companion().ageDays }} days old</p>
+            <span class="temperament">{{ companion().personality }}</span>
           </div>
         </div>
         <div class="meter-label">
-          <span>Energy</span
-          ><strong>{{ round(state().critter.stamina) }}<small> / 100</small></strong>
+          <span>Energy</span><strong>{{ round(companion().stamina) }}<small> / 100</small></strong>
         </div>
-        <div class="meter"><i [style.width.%]="state().critter.stamina"></i></div>
+        <div class="meter"><i [style.width.%]="companion().stamina"></i></div>
         <div class="care-row">
           <span
-            ><i class="heart">♥</i> Bond <strong>{{ round(state().critter.bond) }}</strong></span
+            ><i class="heart">♥</i> Bond <strong>{{ round(companion().bond) }}</strong></span
           ><span>{{
-            state().critter.happiness > 70
+            companion().happiness > 70
               ? '✿ Feeling lovely'
-              : state().critter.happiness > 40
+              : companion().happiness > 40
                 ? '✿ Doing alright'
                 : '♡ Needs some care'
           }}</span>
@@ -231,27 +231,27 @@
           @for (stat of statNames; track stat) {
             <div>
               <span>{{ stat }}</span
-              ><strong>{{ round(state().critter.stats[stat]) }}</strong>
+              ><strong>{{ round(companion().stats[stat]) }}</strong>
             </div>
           }
         </div>
         <div class="learning">
           <div>
             <span aria-hidden="true">❧</span
-            ><strong>{{ knowledgeStage(state().critter.berryKnowledge) }}</strong>
+            ><strong>{{ knowledgeStage(companion().berryKnowledge) }}</strong>
           </div>
           <p>
             {{
-              state().critter.berryKnowledge < 3
-                ? 'Pip learns by watching you gather sunberries.'
-                : state().critter.berryKnowledge < 7
-                  ? 'Try asking Pip to gather a nearby sunberry bush.'
-                  : 'Pip recognizes ripe sunberries and can help independently.'
+              companion().berryKnowledge < 3
+                ? companion().name + ' learns by watching you gather sunberries.'
+                : companion().berryKnowledge < 7
+                  ? 'Try asking ' + companion().name + ' to gather a nearby sunberry bush.'
+                  : companion().name + ' recognizes ripe sunberries and can help independently.'
             }}
           </p>
           <div class="knowledge-track">
             @for (step of [1, 2, 3, 4, 5, 6, 7]; track step) {
-              <i [class.learned]="state().critter.berryKnowledge >= step"></i>
+              <i [class.learned]="companion().berryKnowledge >= step"></i>
             }
           </div>
         </div>
@@ -274,7 +274,12 @@
       </section>
       <div class="recent-note" aria-live="polite">
         <span aria-hidden="true">✧</span>
-        <p>{{ state().journal[0] || 'Pip is waiting to meet you. Walk over and say hello.' }}</p>
+        <p>
+          {{
+            state().journal[0] ||
+              companion().name + ' is waiting to meet you. Walk over and say hello.'
+          }}
+        </p>
       </div>
     </aside>
   </main>
@@ -285,7 +290,7 @@
         <span class="item-icon berries">●</span><span>Sunberries</span
         ><strong>{{ count('berry') }}</strong>
       </div>
-      <div title="Feed keeps Pip happy and restores energy">
+      <div [title]="'Feed keeps ' + companion().name + ' happy and restores energy'">
         <span class="item-icon feed">❧</span><span>Feed</span><strong>{{ count('feed') }}</strong>
       </div>
       <div title="Plant seeds in the garden plot">
@@ -325,8 +330,8 @@
       </div>
       @if (currentPanel === 'help') {
         <p>
-          Meet Pip, your curious Brindlekin. Good food, a little practice, and time together are the
-          start of something wonderful.
+          Meet {{ companion().name }}, your curious Brindlekin. Good food, a little practice, and
+          time together are the start of something wonderful.
         </p>
         <div class="help-grid">
           <article>
@@ -339,15 +344,17 @@
           <article>
             <h3>02 · Grow together</h3>
             <p>
-              Feed Pip, try the hoop, and plant a little feed crop. During training, press
-              <kbd>Space</kbd> in the green patch. Three well-timed beats make a good session.
+              Feed {{ companion().name }}, try the hoop, and plant a little feed crop. During
+              training, press <kbd>Space</kbd> in the green patch. Three well-timed beats make a
+              good session.
             </p>
           </article>
           <article>
             <h3>03 · Follow your curiosity</h3>
             <p>
-              The east gate leads to Clover Glade. Gather berries while Pip watches. With
-              experience, Pip learns to harvest when asked, then helps independently.
+              The east gate leads to Clover Glade. Gather berries while
+              {{ companion().name }} watches. With experience, {{ companion().name }} learns to
+              harvest when asked, then helps independently.
             </p>
           </article>
           <article>
@@ -361,18 +368,17 @@
         <p class="help-note">
           One full day lasts about 30 minutes; activities also take time. Menus and hidden tabs
           pause the clock. <kbd>Esc</kbd> pauses · <kbd>J</kbd> opens your journal. With a
-          controller, use the left stick to move, <kbd>A</kbd> to act or cue Pip, the D-pad to
-          choose actions or menu buttons, <kbd>B</kbd> to close, <kbd>X</kbd> for help,
+          controller, use the left stick to move, <kbd>A</kbd> to act or cue {{ companion().name }},
+          the D-pad to choose actions or menu buttons, <kbd>B</kbd> to close, <kbd>X</kbd> for help,
           <kbd>Y</kbd> for the journal, and Menu to pause. Keyboard and touch controls still work.
         </p>
         <button class="primary" (click)="openPanel(null)">
-          Let’s meet Pip <span aria-hidden="true">→</span>
+          Let’s meet {{ companion().name }} <span aria-hidden="true">→</span>
         </button>
       } @else if (currentPanel === 'journal') {
         <div class="journal-summary">
           <span>Day {{ state().day }}</span
-          ><span
-            >{{ state().critter.name }} · {{ knowledgeStage(state().critter.berryKnowledge) }}</span
+          ><span>{{ companion().name }} · {{ knowledgeStage(companion().berryKnowledge) }}</span
           ><span>Shed level {{ state().shedLevel }}</span>
         </div>
         <ol class="journal-entries">
@@ -391,10 +397,10 @@
             >
           }
         </div>
-        @if (state().critter.competitions.length) {
+        @if (companion().competitions.length) {
           <h3>Clover Cup memories</h3>
           <ul>
-            @for (race of state().critter.competitions; track $index) {
+            @for (race of companion().competitions; track $index) {
               <li>Day {{ race.day }} · {{ race.time }}s · {{ race.medal }}</li>
             }
           </ul>
@@ -412,11 +418,11 @@
           <dt>Seed</dt>
           <dd>{{ state().seed }}</dd>
           <dt>Berry knowledge</dt>
-          <dd>{{ state().critter.berryKnowledge }}</dd>
+          <dd>{{ companion().berryKnowledge }}</dd>
           <dt>Health / wellbeing / hunger</dt>
           <dd>
-            {{ round(state().critter.health) }} / {{ round(state().critter.happiness) }} /
-            {{ round(state().critter.hunger) }}
+            {{ round(companion().health) }} / {{ round(companion().happiness) }} /
+            {{ round(companion().hunger) }}
           </dd>
         </dl>
         <div class="developer-actions">

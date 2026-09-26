@@ -22,7 +22,9 @@ simulator to ship before Pip can appear in the opening.
 ## Current campaign
 
 [001 — Deepen the One-Critter Daily Loop](exec-plans/active/001-deepen-one-critter-daily-loop.md)
-is prepared, **not implemented**. The bootstrap did not expand gameplay.
+has **M1 — Establish distinct critter identity and ownership** complete. Identity, ownership, selected-companion presentation, and v1
+migration preserve the existing one-companion game. M2–M6 remain unstarted; the
+campaign's repeated-day product outcome has not yet been demonstrated.
 
 The campaign begins with bounded identity/ownership and learned-behavior changes,
 each preserving the current playable loop. Then it tests meaningful recovery and

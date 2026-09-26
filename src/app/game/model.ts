@@ -11,6 +11,8 @@ export interface Stats {
 }
 export interface Critter {
   id: string;
+  ownerId: string;
+  lastPettedDay: number | null;
   name: string;
   speciesId: string;
   ageDays: number;
@@ -51,6 +53,7 @@ export interface Crop {
   readyAt: number | null;
 }
 export interface Training {
+  critterId: string;
   phase: number;
   hits: number[];
   elapsed: number;
@@ -58,7 +61,7 @@ export interface Training {
   kind: 'training' | 'race';
 }
 export interface GameState {
-  version: 1;
+  version: 2;
   seed: number;
   day: number;
   minute: number;
@@ -66,7 +69,8 @@ export interface GameState {
   areaId: AreaId;
   areaInstanceId: string;
   player: { id: string; position: Point; stamina: number; coins: number };
-  critter: Critter;
+  critters: Critter[];
+  activeCritterId: string;
   inventory: InventoryItem[];
   resources: ResourceNode[];
   crop: Crop;
@@ -106,4 +110,12 @@ export interface AreaDefinition {
   halfSize: number;
   objects: WorldObject[];
   spawn: Point;
+}
+
+/** The one currently playable companion. Other individuals remain dormant in this slice. */
+export function activeCritter(state: GameState): Critter {
+  const critter = state.critters.find((individual) => individual.id === state.activeCritterId);
+  if (!critter || critter.ownerId !== state.player.id)
+    throw new Error('The selected companion must be a player-owned individual.');
+  return critter;
 }

@@ -1,5 +1,7 @@
-import { AREAS, BERRY_NODES, GAME_CONFIG } from './content';
+import { AREAS, BERRY_NODES, GAME_CONFIG, STARTER } from './content';
 import {
+  activeCritter,
+  Critter,
   GameCommand,
   GameState,
   Interaction,
@@ -21,7 +23,7 @@ export function knowledgeStage(knowledge: number): string {
 
 export function createInitialState(): GameState {
   return {
-    version: 1,
+    version: 2,
     seed: 240921,
     day: 1,
     minute: 480,
@@ -29,28 +31,33 @@ export function createInitialState(): GameState {
     areaId: 'homestead',
     areaInstanceId: 'local-homestead',
     player: { id: 'player-local', position: { x: 0, z: 0 }, stamina: 100, coins: 6 },
-    critter: {
-      id: 'critter-pip',
-      name: 'Pip',
-      speciesId: 'brindlekin',
-      ageDays: 18,
-      sex: 'female',
-      personality: 'Curious · food-motivated · quietly brave',
-      position: { x: -1, z: 0.6 },
-      stats: { strength: 3, endurance: 5, speed: 4, intelligence: 6 },
-      stamina: 100,
-      health: 100,
-      happiness: 70,
-      bond: 20,
-      hunger: 35,
-      berryKnowledge: 0,
-      skills: { harvesting: 0, racing: 0 },
-      visualTraits: { coat: 'peach', accent: 'moss' },
-      pedigree: { parentIds: [] },
-      genetics: { coat: 'peach/peach', crest: 'fern/fern' },
-      history: ['Day 1: A new home at Bramblewick Yard.'],
-      competitions: [],
-    },
+    activeCritterId: STARTER.id,
+    critters: [
+      {
+        id: STARTER.id,
+        name: STARTER.name,
+        ownerId: 'player-local',
+        lastPettedDay: null,
+        speciesId: 'brindlekin',
+        ageDays: 18,
+        sex: 'female',
+        personality: 'Curious · food-motivated · quietly brave',
+        position: { x: -1, z: 0.6 },
+        stats: { strength: 3, endurance: 5, speed: 4, intelligence: 6 },
+        stamina: 100,
+        health: 100,
+        happiness: 70,
+        bond: 20,
+        hunger: 35,
+        berryKnowledge: 0,
+        skills: { harvesting: 0, racing: 0 },
+        visualTraits: { coat: 'peach', accent: 'moss' },
+        pedigree: { parentIds: [] },
+        genetics: { coat: 'peach/peach', crest: 'fern/fern' },
+        history: ['Day 1: A new home at Bramblewick Yard.'],
+        competitions: [],
+      },
+    ],
     inventory: [
       { id: 'stack-feed-1', itemId: 'feed', quantity: 4, quality: 1 },
       { id: 'stack-seed-1', itemId: 'seed', quantity: 3, quality: 1 },
@@ -66,7 +73,7 @@ export function createInitialState(): GameState {
     shedLevel: 0,
     flags: [],
     journal: [
-      'Welcome to Bramblewick. Pip is waiting to meet you. Walk close, then offer a little care.',
+      `Welcome to Bramblewick. ${STARTER.name} is waiting to meet you. Walk close, then offer a little care.`,
     ],
     training: null,
   };
@@ -84,12 +91,16 @@ export class LocalGameHost {
     return this.current;
   }
 
+  get critter(): Critter {
+    return activeCritter(this.state);
+  }
+
   dispatch(command: GameCommand): boolean {
     if (command.type === 'debug') {
       if (command.action === 'next-day') this.sleep();
       else if (command.action === 'restore') {
         this.state.player.stamina = 100;
-        this.state.critter.stamina = 100;
+        this.critter.stamina = 100;
         this.note('Developer: restored stamina.');
       } else return false;
       return true;
@@ -134,7 +145,7 @@ export class LocalGameHost {
     );
     // Give scenery precedence so a faithfully following companion never blocks a station.
     if (candidates.length) return this.describe(candidates[0].id);
-    return this.inReach(state.critter.id) ? this.describe(state.critter.id) : null;
+    return this.inReach(activeCritter(state).id) ? this.describe(activeCritter(state).id) : null;
   }
 
   private inReach(id: string): boolean {
@@ -147,9 +158,10 @@ export class LocalGameHost {
           : GAME_CONFIG.interactionDistance;
       return distance(object.position, state.player.position) <= reach;
     }
-    if (id === state.critter.id)
+    if (id === activeCritter(state).id)
       return (
-        distance(state.critter.position, state.player.position) <= GAME_CONFIG.interactionDistance
+        distance(activeCritter(state).position, state.player.position) <=
+        GAME_CONFIG.interactionDistance
       );
     const node = state.resources.find((item) => item.id === id && item.areaId === state.areaId);
     return (
@@ -159,7 +171,7 @@ export class LocalGameHost {
 
   private describe(id: string): Interaction | null {
     const state = this.state;
-    const critter = state.critter;
+    const critter = activeCritter(state);
     const action = (id: string, label: string, reason?: string): InteractionAction => ({
       id,
       label,
@@ -170,18 +182,20 @@ export class LocalGameHost {
       state.player.stamina < player
         ? 'You need some rest.'
         : critter.stamina < companion
-          ? 'Pip needs some rest.'
+          ? `${critter.name} needs some rest.`
           : undefined;
     if (id === critter.id)
       return {
         id,
-        title: 'A moment with Pip',
-        description: `${knowledgeStage(critter.berryKnowledge)}. ${critter.hunger > 55 ? 'Her tummy is rumbling.' : 'She leans into your company.'}`,
+        title: `A moment with ${critter.name}`,
+        description: `${knowledgeStage(critter.berryKnowledge)}. ${critter.hunger > 55 ? 'Their tummy is rumbling.' : 'Your companion leans into your company.'}`,
         actions: [
           action(
             'pet',
             'Give a little scritch',
-            state.flags.includes('petted-today') ? 'Pip has had her daily scritches.' : undefined,
+            critter.lastPettedDay === state.day
+              ? `${critter.name} has had today’s scritches.`
+              : undefined,
           ),
           action(
             'feed',
@@ -189,7 +203,7 @@ export class LocalGameHost {
             this.quantity('feed') < 1
               ? 'Grow feed in your garden or buy it at the stall.'
               : critter.hunger < 10
-                ? 'Pip is comfortably full.'
+                ? `${critter.name} is comfortably full.`
                 : undefined,
           ),
           action(
@@ -198,7 +212,7 @@ export class LocalGameHost {
             this.quantity('berry') < 1
               ? 'Gather a berry in Clover Glade.'
               : critter.hunger < 10
-                ? 'Pip is comfortably full.'
+                ? `${critter.name} is comfortably full.`
                 : undefined,
           ),
         ],
@@ -209,7 +223,7 @@ export class LocalGameHost {
         id,
         title: 'Sunberry bush',
         description: node.available
-          ? `Sweet little berries. Pip’s knowledge: ${critter.berryKnowledge}/7. Watch three harvests, then try giving her a cue.`
+          ? `Sweet little berries. ${critter.name}’s knowledge: ${critter.berryKnowledge}/7. Watch three harvests, then try giving a cue.`
           : `Picked clean. Fresh berries in ${Math.max(1, Math.ceil(node.respawnAt - state.totalMinutes))} game minutes.`,
         actions: [
           action(
@@ -219,15 +233,15 @@ export class LocalGameHost {
           ),
           action(
             'critter-gather',
-            'Ask Pip to gather · 8 Pip energy · 20 min',
+            `Ask ${critter.name} to gather · 8 ${critter.name} energy · 20 min`,
             !node.available
               ? 'These berries are growing back.'
               : critter.berryKnowledge < GAME_CONFIG.commandedKnowledge
-                ? 'Let Pip watch you harvest three times.'
+                ? `Let ${critter.name} watch you harvest three times.`
                 : critter.hunger > 80
-                  ? 'Feed Pip before asking for more work.'
+                  ? `Feed ${critter.name} before asking for more work.`
                   : distance(critter.position, node.position) > 5
-                    ? 'Wait for Pip to catch up.'
+                    ? `Wait for ${critter.name} to catch up.`
                     : energy(2, 8),
           ),
         ],
@@ -239,16 +253,15 @@ export class LocalGameHost {
         return {
           id,
           title: 'Your little cottage',
-          description:
-            'Rest until 8:00 tomorrow. Energy returns, crops grow, and Pip gets a little older.',
+          description: `Rest until 8:00 tomorrow. Energy returns, crops grow, and ${critter.name} gets a little older.`,
           actions: [action('sleep', 'Turn in for the night')],
         };
       case 'shed':
         return {
           id,
-          title: state.shedLevel ? 'A proper snug little nook' : 'Pip’s weathered nook',
+          title: state.shedLevel ? 'A proper snug little nook' : `${critter.name}’s weathered nook`,
           description: state.shedLevel
-            ? 'Fresh timber, a warm roof, and a softer bed. Pip wakes happier here.'
+            ? `Fresh timber, a warm roof, and a softer bed. ${critter.name} wakes happier here.`
             : 'Give your companion a warm roof and a cozy bed. A small start for a happy homestead.',
           actions: [
             action(
@@ -290,8 +303,8 @@ export class LocalGameHost {
           id,
           title: ready ? 'Dinner is growing!' : 'The garden is growing',
           description: ready
-            ? 'A pocketful of fresh feed for Pip.'
-            : `Ready in ${Math.max(1, Math.ceil((crop.readyAt ?? state.totalMinutes) - state.totalMinutes))} game minutes. Take Pip for a walk while it grows.`,
+            ? `A pocketful of fresh feed for ${critter.name}.`
+            : `Ready in ${Math.max(1, Math.ceil((crop.readyAt ?? state.totalMinutes) - state.totalMinutes))} game minutes. Take ${critter.name} for a walk while it grows.`,
           actions: [
             action(
               'harvest',
@@ -305,13 +318,12 @@ export class LocalGameHost {
         return {
           id,
           title: 'A little practice, a little progress',
-          description:
-            'Three encouraging cues. Tap when the marker reaches the center. Care, timing, and endurance shape Pip’s progress.',
+          description: `Three encouraging cues. Tap when the marker reaches the center. Care, timing, and endurance shape ${critter.name}’s progress.`,
           actions: [
             action(
               'train',
-              'Practice hoops · 15 Pip energy · 5 energy',
-              critter.hunger > 80 ? 'Pip is too hungry to concentrate.' : energy(5, 15),
+              `Practice hoops · 15 ${critter.name} energy · 5 energy`,
+              critter.hunger > 80 ? `${critter.name} is too hungry to concentrate.` : energy(5, 15),
             ),
           ],
         };
@@ -344,7 +356,7 @@ export class LocalGameHost {
           title: object.name,
           description:
             state.areaId === 'homestead'
-              ? 'Follow the path with Pip. There are sunberries waiting beyond the fence.'
+              ? `Follow the path with ${critter.name}. There are sunberries waiting beyond the fence.`
               : 'A cozy nook and a familiar garden are just down the path.',
           actions: [
             action(
@@ -357,16 +369,15 @@ export class LocalGameHost {
         return {
           id,
           title: 'The Clover Cup',
-          description:
-            'One friendly time trial each day. Three well-timed cues help Pip run her best. Speed, endurance, and good care matter.',
+          description: `One friendly time trial each day. Three well-timed cues help ${critter.name} run at their best. Speed, endurance, and good care matter.`,
           actions: [
             action(
               'race',
-              'Run the trial · 20 Pip energy · 5 energy',
+              `Run the trial · 20 ${critter.name} energy · 5 energy`,
               critter.competitions.some((result) => result.day === state.day)
                 ? 'Today’s trial is complete. Come back tomorrow.'
                 : critter.hunger > 80
-                  ? 'Pip needs a meal before racing.'
+                  ? `${critter.name} needs a meal before racing.`
                   : energy(5, 20),
             ),
           ],
@@ -376,15 +387,18 @@ export class LocalGameHost {
 
   private interact(id: string, action: string): boolean {
     const state = this.state;
-    const critter = state.critter;
+    const critter = activeCritter(state);
     switch (action) {
       case 'pet':
         critter.bond = clamp(critter.bond + 5);
         critter.happiness = clamp(critter.happiness + 8);
+        critter.lastPettedDay = state.day;
         this.flag('petted-today');
         this.flag('cared');
         this.advanceMinutes(5);
-        this.note('Pip closes her eyes and makes a pleased little trill. Your bond grows.');
+        this.note(
+          `${critter.name} closes their eyes and makes a pleased little trill. Your bond grows.`,
+        );
         return true;
       case 'feed':
       case 'treat':
@@ -397,7 +411,7 @@ export class LocalGameHost {
         this.advanceMinutes(5);
         this.note(
           action === 'feed'
-            ? 'Pip crunches her feed with great seriousness. A happy, well-fed companion.'
+            ? `${critter.name} crunches the feed with great seriousness. A happy, well-fed companion.`
             : 'A sunberry disappears in one delighted nibble.',
         );
         return true;
@@ -410,7 +424,9 @@ export class LocalGameHost {
         this.flag('improved');
         this.advanceMinutes(60);
         critter.happiness = clamp(critter.happiness + 12);
-        this.note('A warm roof, fresh wood, and soft bedding. Pip’s nook is finally a home.');
+        this.note(
+          `A warm roof, fresh wood, and soft bedding. ${critter.name}’s nook is finally a home.`,
+        );
         return true;
       case 'plant':
         this.take('seed', 1);
@@ -445,6 +461,7 @@ export class LocalGameHost {
         state.player.stamina -= 5;
         critter.stamina -= action === 'train' ? 15 : 20;
         state.training = {
+          critterId: critter.id,
           phase: 0,
           hits: [],
           elapsed: 0,
@@ -453,8 +470,8 @@ export class LocalGameHost {
         };
         this.note(
           action === 'train'
-            ? 'Pip crouches at the first hoop. Give three cues near the center!'
-            : 'Pip takes her place on the starting line. Three good cues; one happy runner.',
+            ? `${critter.name} crouches at the first hoop. Give three cues near the center!`
+            : `${critter.name} takes a place on the starting line. Three good cues; one happy runner.`,
         );
         return true;
       case 'sell': {
@@ -485,8 +502,8 @@ export class LocalGameHost {
         this.flag('explored');
         this.note(
           state.areaId === 'glade'
-            ? 'Clover Glade smells of warm grass and sunberries. Pip’s ears perk up.'
-            : 'Home again. The honesty stall takes berries, and Pip’s nook could use some love.',
+            ? `Clover Glade smells of warm grass and sunberries. ${critter.name}’s ears perk up.`
+            : `Home again. The honesty stall takes berries, and ${critter.name}’s nook could use some love.`,
         );
         return true;
       case 'gather':
@@ -527,12 +544,17 @@ export class LocalGameHost {
   private trainingHit(): boolean {
     const state = this.state;
     const training = state.training;
-    if (!training || training.elapsed - (training.lastHitAt ?? 0) < 0.3) return false;
+    if (
+      !training ||
+      training.critterId !== state.activeCritterId ||
+      training.elapsed - (training.lastHitAt ?? 0) < 0.3
+    )
+      return false;
     training.hits.push(clamp(1 - Math.abs(training.phase - 0.5) * 2, 0, 1));
     training.lastHitAt = training.elapsed;
     if (training.hits.length < 3) return true;
     const accuracy = training.hits.reduce((sum, value) => sum + value, 0) / 3;
-    const critter = state.critter;
+    const critter = activeCritter(state);
     const care = (critter.happiness + critter.bond + (100 - critter.hunger)) / 300;
     if (training.kind === 'training') {
       const gain =
@@ -545,7 +567,7 @@ export class LocalGameHost {
       this.flag('trained');
       this.advanceMinutes(40);
       this.note(
-        `${accuracy > 0.75 ? 'Lovely rhythm!' : accuracy > 0.4 ? 'Good practice!' : 'Every little try counts.'} Pip gains ${gain.toFixed(2)} speed. Let her rest between sessions.`,
+        `${accuracy > 0.75 ? 'Lovely rhythm!' : accuracy > 0.4 ? 'Good practice!' : 'Every little try counts.'} ${critter.name} gains ${gain.toFixed(2)} speed. Allow some rest between sessions.`,
       );
     } else {
       const time =
@@ -569,7 +591,7 @@ export class LocalGameHost {
       critter.history.push(`Day ${state.day}: ${medal} in the Clover Cup (${time}s).`);
       this.advanceMinutes(45);
       this.note(
-        `${time.toFixed(1)} seconds! Pip earns a ${medal} ribbon and ${coins} coins. Today’s trial is complete.`,
+        `${time.toFixed(1)} seconds! ${critter.name} earns a ${medal} ribbon and ${coins} coins. Today’s trial is complete.`,
       );
     }
     critter.happiness = clamp(critter.happiness + 3);
@@ -579,7 +601,7 @@ export class LocalGameHost {
 
   private gather(node: ResourceNode, actor: 'player' | 'command' | 'autonomous'): void {
     const state = this.state;
-    const critter = state.critter;
+    const critter = activeCritter(state);
     const before = knowledgeStage(critter.berryKnowledge);
     const quality =
       actor === 'player'
@@ -608,7 +630,7 @@ export class LocalGameHost {
       if (distance(critter.position, node.position) < 5) critter.berryKnowledge += 1;
       this.advanceMinutes(15);
       this.note(
-        `You pick ${amount} sunberries. ${distance(critter.position, node.position) < 5 ? 'Pip watches your hands carefully.' : 'Pip was too far away to watch this time.'}`,
+        `You pick ${amount} sunberries. ${distance(critter.position, node.position) < 5 ? `${critter.name} watches your hands carefully.` : `${critter.name} was too far away to watch this time.`}`,
       );
     } else {
       critter.stamina -= 8;
@@ -621,7 +643,7 @@ export class LocalGameHost {
       }
       this.flag(actor === 'command' ? 'directed' : 'assisted');
       this.note(
-        `${actor === 'autonomous' ? 'All on her own, Pip' : 'At your cue, Pip'} gathers ${amount} ${quality > 1 ? 'fine ' : ''}sunberries. Good work, little one!`,
+        `${actor === 'autonomous' ? `On their own, ${critter.name}` : `At your cue, ${critter.name}`} gathers ${amount} ${quality > 1 ? 'fine ' : ''}sunberries. Good work, little one!`,
       );
     }
     this.flag('gathered');
@@ -630,17 +652,17 @@ export class LocalGameHost {
       critter.history.push(`Day ${state.day}: ${after}.`);
       this.note(
         after === 'Harvests on cue'
-          ? 'Pip understands! You can now ask her to gather berries near a bush.'
+          ? `${critter.name} understands! You can now ask for a harvest of berries near a bush.`
           : after === 'Independent forager'
-            ? 'A little light goes on. Pip will now gather nearby berries herself when rested and well-fed.'
-            : 'Pip is learning what sunberries are for. Keep gathering together.',
+            ? `A little light goes on. ${critter.name} will now gather nearby berries independently when rested and well-fed.`
+            : `${critter.name} is learning what sunberries are for. Keep gathering together.`,
       );
     }
   }
 
   private companion(seconds: number): void {
     const state = this.state;
-    const critter = state.critter;
+    const critter = activeCritter(state);
     let target: Point = state.player.position;
     let harvest: ResourceNode | undefined;
     if (
@@ -681,9 +703,9 @@ export class LocalGameHost {
     state.totalMinutes += minutes;
     state.day = Math.floor(state.totalMinutes / 1440) + 1;
     state.minute = state.totalMinutes % 1440;
-    state.critter.hunger = clamp(state.critter.hunger + minutes * 0.025);
+    activeCritter(state).hunger = clamp(activeCritter(state).hunger + minutes * 0.025);
     if (state.day > previousDay) {
-      state.critter.ageDays += state.day - previousDay;
+      activeCritter(state).ageDays += state.day - previousDay;
       state.flags = state.flags.filter((flag) => flag !== 'petted-today');
     }
     for (const node of state.resources)
@@ -696,10 +718,12 @@ export class LocalGameHost {
     state.areaId = 'homestead';
     state.areaInstanceId = 'local-homestead';
     state.player.position = { ...AREAS.homestead.spawn };
-    state.critter.position = { x: -1, z: 0.6 };
+    activeCritter(state).position = { x: -1, z: 0.6 };
     state.player.stamina = 100;
-    state.critter.stamina = 100;
-    state.critter.happiness = clamp(state.critter.happiness + (state.shedLevel ? 8 : 2));
+    activeCritter(state).stamina = 100;
+    activeCritter(state).happiness = clamp(
+      activeCritter(state).happiness + (state.shedLevel ? 8 : 2),
+    );
     state.training = null;
     this.flag('slept');
     this.note(
