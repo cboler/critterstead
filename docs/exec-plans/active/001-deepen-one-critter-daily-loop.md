@@ -238,21 +238,40 @@ The standard Chromium 153 commands must still run in normal CI once published;
 these adapted local results do not claim an unmodified browser run or deployment.
 No physical-pad or fresh-human fun assessment was performed.
 
+### Commit and publication record
+
+The published bootstrap `7e14cac` has the same tree as the earlier local `3a346fc`.
+Rebased only the new work onto it, retaining an unchanged final tree. Stable commits:
+
+- `6f65e7c` — campaign language and individual-value principle.
+- `9cf27dc` — complete M1 implementation, migration, verification, and canonical docs.
+- This delivery-note commit records the publishing blocker and continuation point.
+
+`git push origin HEAD:main` failed because this environment has no Git HTTPS
+credentials. The connected GitHub write path also returned **403: Resource not
+accessible by integration** when creating the reviewed tree. No remote ref was
+changed. `git ls-remote origin refs/heads/main` still reports
+`7e14cacba8d6a0f0bfd1afc1a11b3880bc17fbbe`. Local verification is not a deployment.
+
+Fallback deliverable: `critterstead-m1.patch`, exported with `git format-patch`
+from `7e14cac..HEAD`, including language, M1, and this handoff. Apply with
+`git am critterstead-m1.patch` on a branch based on the published bootstrap, then
+push through an authorized checkout. It does not repeat the bootstrap commit.
+
 ## Current handoff
 
 - **Completed:** campaign/M1 wording cleanup and canonical individual-value
   principle; M1 identity/ownership/selection, fresh Mallow, v1 migration, loop
-  preservation, and acceptance verification. Publication is pending the delivery
-  step after the milestone commit. Bootstrap is already on `origin/main` as
-  `7e14cac`; it must not be applied a second time.
+  preservation, and acceptance verification. Stable commits are recorded above.
+  Publication is blocked; preserve the local commits and apply the exported patch
+  through an authorized checkout. Bootstrap must not be applied a second time.
 - **Known limits:** hardcoded berry learning and one rendered/simulated companion;
   other stored individuals dormant; narrow interaction-card occlusion; repeated-day
-  motivation and physical controller unproven. No new mechanics or story systems.
-- **Next delivery action:** publish completed commits to `origin/main` without
-  force and verify its ref. If blocked, retain local commits and export a git-am
-  patch based on `7e14cac`.
+  motivation and physical controller unproven. Standard Chromium CI/deployment
+  verification awaits publication. No new mechanics or story systems.
 - **Exact next gameplay action:** when continuing this campaign, start **M2 —
   Generalize learning while retaining the berry experience**. Inspect current
-  status/commits, then trace `berryKnowledge` and its stage thresholds into a small
-  authored behavior plus per-individual progress, with v2 save migration and the
-  current berry arc preserved. M2 has not begun in this session; stop here.
+  status/commits and reconcile publication first, then trace `berryKnowledge` and
+  its stage thresholds into a small authored behavior plus per-individual progress,
+  with v2 save migration and the current berry arc preserved. M2 has not begun in
+  this session; stop here.
