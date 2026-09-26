@@ -2,55 +2,82 @@
 
 **A little care. A little adventure.**
 
-An original cozy game about making a home with one small creature and growing together. Care for your brindlekin, practice together, explore a berry glade, and gradually teach your companion to lend a paw. This is the first playable vertical slice; Critterstead is a working title, not a claim of trademark clearance.
+An original critter-raising game about caring, learning, useful work, and making a
+home together. Critterstead is a working title, not a claim of trademark clearance.
+The current browser PWA is an early playable vertical slice, with an orthographic
+Three.js world made from original procedural geometry.
 
-The world is an orthographic Three.js diorama, built from original procedural geometry. The game runs entirely in the browser, with one local, versioned homestead save in IndexedDB. There is no account, backend, or multiplayer service.
+[Play the prototype](https://cboler.github.io/critterstead/).
+
+## What you can play today
+
+Care for one Brindlekin companion, practice timed cues, plant and water feed,
+explore Clover Glade, teach berry gathering through observation and cues, watch
+independent foraging, sell produce, improve the shed, run a small daily time trial,
+and sleep into another day. There are two areas, one crop, and six berry bushes.
+
+The prototype calls the player's young novice companion **Pip**. In the intended
+story, Pip is Grandpa's ancient, experienced critter. That narrative, a separate
+player starter, ownership/rosters, breeding, seasons, and the Colosseum are
+**planned, not implemented**. The next priority is a compelling one-critter daily
+loop, with only the necessary architectural preparation before the full prologue.
 
 ## Play and develop
 
-Use Node.js 24 and npm. Install and start the development server:
+Use Node.js 24 and npm:
 
 ```sh
 npm ci
 npm start
 ```
 
-Open `http://localhost:4200/`. Use **WASD** or **arrow keys** to walk, **E** to interact, **Space** to cue Pip during training, **J** for the journal, and **Esc** to pause. Clicking the ground also walks there, and touch movement controls appear on small screens. A standard gamepad uses the left stick to walk, **A** to interact or cue Pip, the D-pad to choose nearby actions or menu buttons, **B** to close a menu, **X** for help, **Y** for the journal, and Menu to pause. The interface explains available activities and training timing. The intended day lasts around 30 real minutes; sleeping advances to the next morning.
+Open `http://localhost:4200/`. WASD or arrow keys move; **E** interacts; **Space**
+cues the companion during training and racing; **J** opens the journal; **Esc**
+pauses or closes a menu. Click/tap the ground to walk. Small screens expose touch
+movement buttons. Backtick opens developer save tools, including deliberate reset.
 
-Your homestead is saved in the current browser profile. Browser storage can be cleared or evicted, and another browser or device has a separate save. There is no cloud backup. A damaged or newer save is reported rather than silently replaced. Resetting the homestead deliberately erases that local progress.
+A standard gamepad uses the left stick to move, **A** to interact/cue, the D-pad to
+select actions/menu buttons, **B** to close, **X** for help, **Y** for the journal,
+and Menu to pause. On-screen hints adapt to a connected controller. Automated
+controller coverage uses a mocked Gamepad API; physical hardware still needs a
+playtest.
 
-## Architecture
+The clock covers a full game day in about 30 real minutes; activities also advance
+time. Menus and hidden tabs pause the simulation. Sleeping advances to the next
+morning. Your homestead uses one versioned IndexedDB save in this browser profile.
+Storage can be cleared/evicted; other browsers/devices have separate saves. There
+is no account, backend, cloud backup, or multiplayer. Unreadable or newer saves are
+reported and retained rather than silently replaced. Reset erases local progress.
 
-- `src/app/game/model.ts` defines persistent individuals, stable entity IDs, world state, commands, and the versioned save model.
-- `src/app/game/` contains the TypeScript simulation, declarative content, local authority, and storage boundary. Gameplay rules belong here, separate from Angular and Three.js presentation.
-- The renderer turns authoritative state into a small, animated world. It does not own economy, training rewards, or progression rules.
-- Angular presents interaction controls, the companion's condition, activity feedback, and the game journal.
-- `public/icons/critterstead.svg` is original vector artwork. Eight original PNG sizes and `public/favicon.ico` provide the installed app identity. `scripts/generate-icons.ps1` reproduces the raster icons with Windows' native drawing API, without an added dependency.
-- `docs/ASTRA-HANDOFF.md` records the current implementation, validation, limitations, and ordered next steps. Read it before continuing development.
+## Project documentation
 
-The host is a seam for moving authority later, not an implementation of a remote server. Breeding, pedigrees beyond foundational data, additional species, tournaments, town management, multiplayer, and a broad crafting economy remain future work.
+Read the relevant document for the task, not every file before every edit.
 
-## Validation
+| Document                                     | Purpose                                                                     |
+| -------------------------------------------- | --------------------------------------------------------------------------- |
+| [Game design](docs/GAME-DESIGN.md)           | Intended game and narrative, including story spoilers                       |
+| [Architecture](docs/ARCHITECTURE.md)         | Actual implementation, boundaries, save contract, and gaps                  |
+| [Development](docs/DEVELOPMENT.md)           | Setup details, validation commands, accessibility, PWA and Pages procedures |
+| [Roadmap](docs/ROADMAP.md)                   | Staged playable development and product gates                               |
+| [Decisions](docs/DECISIONS.md)               | Settled rationale and genuinely unresolved questions                        |
+| [Execution plans](docs/exec-plans/README.md) | Active milestones, verified progress, and exact continuation point          |
 
-```sh
-npm run format
-npm run format:check
-npm run lint
-npm test -- --watch=false
-npm run build:pages
-npx playwright install chromium
-npm run e2e
-```
-
-Playwright provides browser validation; simulation tests cover meaningful gameplay and persistence invariants. Visual changes also require starting the application and inspecting actual browser rendering. A successful source check alone does not verify deployment or playability.
+[AGENTS.md](AGENTS.md) and [GEMINI.md](GEMINI.md) are thin tool-specific entrypoints
+into this shared knowledge. The former `INSTRUCTIONS.md` and `ASTRA-HANDOFF.md`
+remain as compatibility pointers. Current work belongs in the active plan.
 
 ## PWA and deployment
 
-The Angular service worker, manifest, responsive foundations, GitHub Actions, and SPA fallback were inherited from [cboler's Angular PWA foundation](https://github.com/cboler/angular-pwa-starter). The game uses its own application identity and original visuals.
+The PWA/platform foundations came from
+[cboler's Angular PWA starter](https://github.com/cboler/angular-pwa-starter); the
+game has its own identity and original visuals. Pages derives its base path from
+`actions/configure-pages`, and pushes to `main` run quality gates and deployment.
+The repository's Pages setting must use GitHub Actions. Production offline play
+requires a first online visit long enough to finish the initial asset cache.
 
-The Pages workflow resolves its deployment base path through `actions/configure-pages`; no repository path is hard-coded. Pushing to `main` runs quality gates and builds for the configured Pages destination. The repository must have **Settings → Pages → Build and deployment → GitHub Actions** enabled. Deployment is confirmed only after the workflow succeeds and the deployed page is inspected.
-
-`npm run build:pages` creates the production bundle and its `404.html` routing fallback. To test a specific deployment subpath locally, supply that path to `npm run build -- --base-href /your-path/`, then run `node scripts/prepare-pages.mjs`. Service workers need HTTPS or localhost and are enabled only in production builds. Initial installation needs a network connection; static assets are then cached for subsequent visits. A development server alone does not validate offline behavior.
+See [Development](docs/DEVELOPMENT.md) for builds, SPA fallback, subpath/offline
+verification, icon generation, and deployment evidence requirements. A local
+build or branch commit does not establish that the public site was deployed.
 
 ## License
 
