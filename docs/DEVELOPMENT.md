@@ -58,6 +58,42 @@ outcomes, date, and relevant commit/environment in the active plan. Historical
 test counts are evidence from that run, not a permanent expected total. Tests can
 prove behavior and save safety; they cannot certify that the daily loop is fun.
 
+### Verification workflow and remote CI
+
+Implementation sessions must not spend active reasoning time polling or waiting
+for GitHub Actions after equivalent local verification checks have already passed.
+The intended delivery workflow is:
+
+1. **Verify locally first**: Run the relevant quality gates for the scope of the change
+   (e.g., formatting, lint, unit tests, production build, browser/E2E, and offline checks).
+2. **Commit and push**: Once local checks pass, commit the stable slice and push to `main`
+   (or the active branch).
+3. **Report status immediately**: State the pushed commit SHA, the specific local checks
+   performed, any environment limitations, and list remote CI/Pages status as pending if
+   it has not completed.
+4. **Do not poll**: Stop the session rather than idling or polling GitHub Actions unless
+   the task explicitly requires deployment verification or CI troubleshooting.
+
+Remote CI remains vital independent verification and catches platform differences, but
+there is a clear distinction between:
+
+- **Local verification complete**: the code satisfies quality gates in the working environment.
+- **Remote CI/release verification complete**: the remote pipeline has finished building and deploying.
+
+### Human testing: fresh-start vs. migration instructions
+
+When a milestone requires evaluating new-game or fresh-start behavior, human test
+instructions must explicitly explain how to create a clean save and distinguish fresh-start
+testing from migration testing:
+
+- **IndexedDB persistence**: A browser hard refresh (such as `Shift+F5`) does **not** create
+  a fresh homestead save because save state is stored in IndexedDB.
+- **Developer reset**: Open the developer field kit using the backtick key (`` ` ``), select
+  **Reset saved game**, and confirm. The homestead will cleanly reinitialize with the
+  provisional starter (Mallow in current builds).
+- **Migration testing**: Evaluates how an existing legacy save (such as a v1 homestead with
+  Pip) loads and behaves without being overwritten.
+
 ## Presentation and platform constraints
 
 - Use original geometry, artwork, and character identity. Commercial games may
@@ -65,6 +101,10 @@ prove behavior and save safety; they cannot certify that the daily loop is fun.
 - Preserve accessible focus indicators and menu focus handling, reduced-motion
   support, safe-area insets, and touch targets of at least 44px. Check horizontal
   overflow on narrow screens and usable layout on desktop.
+- Keep ordinary proximity interaction UI compact and low-profile (e.g. a bottom
+  interaction dock). It must not substantially obscure the player, companion,
+  navigation path, or surrounding explorable area. Dedicated activity UIs (such as
+  training) may occupy more space since the activity is the focal task.
 - Keep keyboard, pointer/touch, and controller inputs functional. Mocked Gamepad
   API tests do not constitute physical controller verification.
 - Preserve manifest, service worker, installed-app icons, CI/Pages workflows,

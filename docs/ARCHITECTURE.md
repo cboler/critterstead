@@ -32,17 +32,17 @@ frameworks, services, or abstractions.
 
 ## What exists today
 
-| Area             | Implemented                                                                                                                                                                                            | Limit / planned distinction                                                                                                                                      |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Companions       | `GameState.critters`, each with stable ID and `ownerId`; `activeCritterId` selects one player-owned companion. Fresh games use provisional Mallow (`critter-mallow`), female, age 18 days, Brindlekin. | No roster/selection UI, multiple visible companions, Grandpa actor, cousin, or starter acquisition. Other stored individuals are dormant, not an NPC simulation. |
-| Individuality    | Name/ID, age counter, sex, personality string, four stats, needs, bond, skills, visual traits, history, results                                                                                        | No renaming UI or developed personality/life-stage simulation. Health is stored; no complete health/mortality system.                                            |
-| Genetics         | Parent ID list and string-valued genetics/traits in saves                                                                                                                                              | No breeding, inheritance, cross-family generator, or fertility model. `lifespanDays: 1200` is authored placeholder data, not implemented death or canon balance. |
-| Learning         | Authored `BEHAVIORS` stages and per-individual `learnedBehaviors`; observation, cued harvest, opportunity recognition, autonomy, and visible waiting reasons                                           | Only sunberry foraging is authored. Explicit host work rules; no planning engine, extra job, or critter-to-critter teaching.                                     |
-| Care/work        | Petting, feed/treats, hunger, player/critter stamina, timing practice, berry gathering/selling                                                                                                         | Repeated-day depth is unproven. Strength lacks a meaningful activity in this slice.                                                                              |
-| Farming/upgrades | One feed crop: plant, water, grow, harvest; one shed upgrade with visual change and happiness effect                                                                                                   | No barn capacity, broader crops, construction system, or house upgrade tree.                                                                                     |
-| Competition      | Once-per-day Clover Cup time trial using three cues, recorded result and coin reward                                                                                                                   | No Colosseum, opponents, combat, schedule, festivals, or tournament system.                                                                                      |
-| World            | Bramblewick Yard and Clover Glade, six renewable berry bushes, cottage/shed collision                                                                                                                  | Direct walking, no obstacle pathfinding; one critter render model. No town, story scenes, seasons, or narrative timeskips.                                       |
-| Platform         | Angular 22, Three.js, responsive PWA, local saves, standard gamepad mapping, optional synthesized chime                                                                                                | No account, analytics service, cloud backup, multiplayer, Steam package, or localization system. Physical controller validation remains outstanding.             |
+| Area             | Implemented                                                                                                                                                                                            | Limit / planned distinction                                                                                                                                                                                                                                                                                                                                          |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Companions       | `GameState.critters`, each with stable ID and `ownerId`; `activeCritterId` selects one player-owned companion. Fresh games use provisional Mallow (`critter-mallow`), female, age 18 days, Brindlekin. | No roster/selection UI, multiple visible companions, Grandpa actor, cousin, or starter acquisition. Other stored individuals are dormant, not an NPC simulation. Legal owner, party membership, and active working companion are distinct concepts; requiring player ownership for the active companion is a temporary Stage-1 implementation limit, not game canon. |
+| Individuality    | Name/ID, age counter, sex, personality string, four stats, needs, bond, skills, visual traits, history, results                                                                                        | No renaming UI or developed personality/life-stage simulation. Health is stored; no complete health/mortality system.                                                                                                                                                                                                                                                |
+| Genetics         | Parent ID list and string-valued genetics/traits in saves                                                                                                                                              | No breeding, inheritance, cross-family generator, or fertility model. `lifespanDays: 1200` is authored placeholder data, not implemented death or canon balance.                                                                                                                                                                                                     |
+| Learning         | Authored `BEHAVIORS` stages and per-individual `learnedBehaviors`; observation, cued harvest, opportunity recognition, autonomy, and visible waiting reasons                                           | Only sunberry foraging is authored. Explicit host work rules; no planning engine, extra job, or critter-to-critter teaching.                                                                                                                                                                                                                                         |
+| Care/work        | Petting, feed/treats, hunger, player/critter stamina, timing practice, berry gathering/selling                                                                                                         | Repeated-day depth is unproven. M3 introduces daytime "Rest together" recovery at the nook, retuned energy constraints, and a compact bottom interaction dock replacing the obscuring nearby card.                                                                                                                                                                   |
+| Farming/upgrades | One feed crop: plant, water, grow, harvest; one shed upgrade with visual change and happiness effect                                                                                                   | No barn capacity, broader crops, construction system, or house upgrade tree.                                                                                                                                                                                                                                                                                         |
+| Competition      | Once-per-day Clover Cup time trial using three cues, recorded result and coin reward                                                                                                                   | No Colosseum, opponents, combat, schedule, festivals, or tournament system.                                                                                                                                                                                                                                                                                          |
+| World            | Bramblewick Yard and Clover Glade, six renewable berry bushes, cottage/shed collision                                                                                                                  | Direct walking, no obstacle pathfinding; one critter render model. No town, story scenes, seasons, or narrative timeskips.                                                                                                                                                                                                                                           |
+| Platform         | Angular 22, Three.js, responsive PWA, local saves, standard gamepad mapping, optional synthesized chime                                                                                                | No account, analytics service, cloud backup, multiplayer, Steam package, or localization system. Physical controller validation remains outstanding.                                                                                                                                                                                                                 |
 
 The clock models a full 24-hour game day in about 30 real minutes; actions also
 advance game minutes, so a player's day can be shorter. Menus, pause, and hidden
@@ -59,6 +59,15 @@ that individual. Other records are retained unchanged; world-wide aging and NPC
 routines are future work. `ownerId` can reference an NPC identity such as `grandpa`
 without creating an actor registry. The tests represent Grandpa-owned Pip beside
 Mallow; neither Grandpa nor narrative Pip is spawned in the playable game.
+
+A critter's legal or personal owner (`ownerId`), party membership (inclusion in
+the traveling party), and status as the active working companion (`activeCritterId`)
+are conceptually separate. Pip can remain Grandpa-owned while later accompanying
+the player, joining the active party, and potentially serving as the current
+working companion. The current Stage-1 one-critter constraint requiring the active
+companion to be player-owned (`critter.ownerId === state.player.id`) is a
+temporary implementation limitation, not permanent game canon or an architectural
+invariant.
 
 Per-individual `lastPettedDay` controls daily scritches. The old `petted-today` flag
 is retained for legacy compatibility but does not grant or deny care. Training and
@@ -145,13 +154,16 @@ to make a new model work.
 
 ## Evolution needed, not yet implemented
 
-1. M3 next evaluates care, effort, and recovery choices. M4 may then add one useful
-   job using the authored learning model. Neither has begun; M2 preserves berry
-   costs and pace without claiming the repeated-day balance is proven.
-2. Later milestones may add story/NPC state, household schedules, housing/party
-   occupancy, calendar/life stages, and genetic morphology. The stored individuals
-   and one selected companion are preparation, not those systems. Do not build
-   them merely to prepare for the one-critter campaign.
+1. M1 and M2 established the foundational identity and learning abstractions.
+   M3 makes care, effort, and recovery produce a daily choice: daytime "Rest
+   together" at the companion's nook, retuned energy constraints, legible cost
+   and consequence communication, and a compact bottom interaction dock
+   replacing the obscuring nearby card.
+2. Later milestones and stages add a second useful learned job (M4), next-day
+   purpose (M5), multi-critter party membership, non-player-owned active
+   companions, housing capacity progression, calendar/life stages, and genetic
+   morphology. The stored individuals and one selected companion are
+   preparation, not those complete systems.
 
 The next bounded changes are specified in the
 [one-critter plan](exec-plans/active/001-deepen-one-critter-daily-loop.md).

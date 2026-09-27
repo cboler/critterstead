@@ -22,16 +22,28 @@ simulator to ship before Pip can appear in the opening.
 ## Current campaign
 
 [001 — Deepen the One-Critter Daily Loop](exec-plans/active/001-deepen-one-critter-daily-loop.md)
-has **M1 — Establish distinct critter identity and ownership** complete. Identity, ownership, selected-companion presentation, and v1
-migration preserve the existing one-companion game. M2 authored learning and v3
-migration are complete and verified; M3–M6 remain unstarted. The
-campaign's repeated-day product outcome has not yet been demonstrated.
+has **M1 — Establish distinct critter identity and ownership** and **M2 — Generalize
+learning while retaining the berry experience** complete and published. M1 (identity,
+ownership, save v2) and M2 (authored behaviors, generalized learning, save v3) were
+intentionally foundational, providing underlying architecture and save migration with
+minimal visible gameplay change.
 
-The campaign begins with bounded identity/ownership and learned-behavior changes,
-each preserving the current playable loop. Then it tests meaningful recovery and
-daily choices, one additional useful learned job, and repeated-day goals through
-the existing small competition and homestead. No full prologue, town buildout,
-breeding engine, mortality system, or broad economy is required for this evidence.
+Following these foundational milestones, the campaign enforces the **player-visible
+milestone rule**: each subsequent implementation milestone must produce a clear,
+observable consequence during ordinary play. Architectural preparation that does not
+surface a player-facing change belongs in supporting subtasks rather than being
+represented as a complete product milestone.
+
+The sequencing for the campaign's milestones reflects this principle:
+
+- **M1 & M2**: Intentionally foundational with minimal player-visible change.
+- **M3**: Makes an ordinary day materially different from the currently published build
+  via energy allocation choices, daytime recovery (**Rest together** at the nook),
+  retuned costs, and a compact bottom interaction dock replacing the obscuring nearby card.
+- **M4**: Adds a second useful learned job that changes what the player personally needs to do.
+- **M5**: Gives today's choices an understandable consequence or purpose for tomorrow.
+- **M6**: Evaluates whether the repeated one-critter loop is actually enjoyable enough
+  to proceed to the opening.
 
 Do not confuse a full-day browser test passing with a player wanting to play for
 several days. Agent inspection can find friction and verify alternatives; fresh

@@ -1,11 +1,9 @@
 # 001 — Deepen the One-Critter Daily Loop
 
-**Status:** M1 and M2 complete and published on 2026-09-26. M2 implementation: `6b7cf49`.
-M3–M6 are not started.
+**Status:** M1 and M2 complete and published on 2026-09-26 (M1: `122a6ea`, M2: `6b7cf49`).
+M3 defined and ready, not started; M4–M6 remain future work.
 Source baseline: `3a346fc` (documentation bootstrap on gameplay `06aa91e`),
 identical in content to the published bootstrap `7e14cac`.
-This session starts from published `346b232`, executes M2 only, and stops at its
-stable boundary before M3.
 
 ## Outcome and scope
 
@@ -17,6 +15,23 @@ Use [GAME-DESIGN.md](../../GAME-DESIGN.md) for gameplay semantics,
 [ARCHITECTURE.md](../../ARCHITECTURE.md) for current boundaries and saves, and
 [DEVELOPMENT.md](../../DEVELOPMENT.md) for verification. These are linked context,
 not documents to copy into this plan on every continuation.
+
+### Player-visible milestone rule
+
+Following foundational milestones M1 and M2, each implementation milestone must
+produce a clear, player-observable consequence during ordinary play. If work only
+prepares architecture for a later player-facing change, it should normally be
+treated as a supporting subtask rather than represented as the complete product
+milestone.
+
+Milestone player-visible expectations:
+
+- **M1**: Intentionally minimal player-visible change (foundational identity and save v2).
+- **M2**: Intentionally minimal player-visible change (foundational learning structure).
+- **M3**: Must make an ordinary day materially different from the currently published build.
+- **M4**: Adds a second useful learned job that changes what the player personally needs to do.
+- **M5**: Gives today's choices an understandable consequence or purpose for tomorrow.
+- **M6**: Evaluates whether the repeated one-critter loop is actually enjoyable enough to proceed to the opening.
 
 **Non-goals:** full opening/Grandpa NPC/dialogue/town, cousin storyline, multi-critter
 management UI, three companions rendered at once, barn capacity progression,
@@ -34,6 +49,7 @@ playtest is a pending product gate, not a claim of failure or success.
 ### M1 — Establish distinct critter identity and ownership
 
 **Status:** complete (2026-09-26). All acceptance criteria below verified; see evidence and environment limitations.
+**Player-visible expectation:** intentionally minimal player-visible change (foundational identity and save isolation).
 
 Prepare the minimum representation of persistent individuals, ownership, and a
 selected working companion needed to evolve the one-critter loop. Keep one
@@ -76,7 +92,8 @@ before making an incomplete broad refactor.
 
 ### M2 — Generalize learning while retaining the berry experience
 
-**Status:** complete and published (2026-09-26) as `6b7cf49`, based on published M1. Verification and publication record below.
+**Status:** complete and published (2026-09-26) as `6b7cf49`, based on published M1. Verification, publication record, and human playtest findings below.
+**Player-visible expectation:** intentionally minimal player-visible change (foundational learning structure).
 
 - [x] Replace berry-only knowledge assumptions with a small authored behavior
       definition and per-individual learned progress. Do not create a general AI
@@ -91,25 +108,91 @@ before making an incomplete broad refactor.
 
 ### M3 — Make care, effort, and recovery produce a daily choice
 
-**Status:** not started; balance/mechanics below are experiments to refine using M1 observations.
+**Status:** defined and ready; not started. Concrete mechanics and acceptance criteria specified below so the next session can execute without inventing its own design.
+**Player-visible expectation:** must make an ordinary day materially different from the currently published build.
 
-- [ ] Introduce or tune one understandable recovery option and work/training
-      costs so at least two sensible daily routines have different tradeoffs.
-      Explain costs and condition effects before commitment and results afterward.
-- [ ] A player can recover from an ordinary exhausted/poorly scheduled day through
-      normal play without a developer reset, compulsory grind, or critter death.
-- [ ] Autonomous work respects condition and communicates its impact; learning
-      does not turn the companion into an unexplained stamina drain.
-- [ ] Record comparisons of two routines from comparable starting states, including
-      what was sacrificed, gained, and carried into tomorrow. Test consequential
-      host rules and persistence; browser-check the player-facing explanation.
+The core daily choice is whose energy to spend, what to preserve energy for, and
+whether spending time recovering is worthwhile.
 
-Do not settle the final day length or add a simulation-wide fatigue system without
-evidence. Keep the experiment small; document chosen parameters as provisional.
+#### Daily choice and recovery design
+
+- **Daytime recovery action ("Rest together")**:
+  - Located at the companion's nook in Bramblewick Yard.
+  - Consumes a substantial amount of game time (provisional starting range: 90–120 game minutes).
+  - Restores both player energy (provisional: ~+30) and active-critter energy (provisional: ~+35),
+    capped at the normal maximum.
+  - Does not reduce hunger, reset once-per-day activities, advance to tomorrow, or replace overnight sleep.
+  - Consumable recovery items are anticipated as a possible later system, but are explicitly **not** part of M3.
+- **Retune work and training costs**:
+  - Energy must become a meaningful daily constraint rather than an abundant resource.
+  - Provisional starting tuning parameters (not immutable balance canon):
+    - Practice: roughly 30 critter energy.
+    - Clover Cup: roughly 35 critter energy.
+    - Critter sunberry work: roughly 12 critter energy.
+    - Player work costs adjusted modestly where needed to make the choice real.
+- **Sensible routines from comparable morning states**:
+  - _Competition-oriented day_: preserve more critter energy for practice and/or the Clover Cup;
+    the player may personally perform more chores.
+  - _Work-oriented day_: allow the critter to contribute more useful work, preserving more of the
+    player's energy but leaving less critter energy for training or competition.
+  - _Rest together_: a player can choose to do more of both, but the clock time consumed makes
+    recovery a meaningful tradeoff rather than a free refill.
+  - There must not be one obviously correct routine.
+  - Learned autonomy must not become "free productivity": a critter helping with work spends condition
+    and energy that the player may have wanted for something else.
+  - A player must be able to recover from an ordinary exhausted or poorly scheduled day through normal
+    play without a developer reset, forced overnight sleep as the only solution, compulsory grind, injury, or death.
+- **Interaction UI requirement (compact bottom interaction dock)**:
+  - The current large ordinary nearby-action card must be replaced during M3 with a compact bottom
+    interaction dock or equivalent low-profile treatment that preserves visibility of the world.
+  - Ordinary proximity interaction must occupy much less vertical space.
+  - Target/status and actions must remain immediately legible.
+  - Disabled/action reasons may use a small secondary line when needed.
+  - The dock must not substantially obscure the player, critter, nearby target, path, or surrounding explorable area.
+  - Responsive/narrow layouts must remain usable.
+  - Dedicated activity UIs (such as training) may remain larger because the activity is the focal task.
+- **Cost and result communication**:
+  - Costs and consequences must be legible before and after commitment.
+  - Where an activity consumes meaningful time or energy, the UI must communicate those costs before starting
+    (resolving inconsistencies such as practice and racing displaying energy but omitting time).
+  - Results must make consequences visible afterward, including remaining condition and energy.
+  - Build descriptively from the existing stamina and condition model rather than adding a redundant fatigue meter.
+- **Guardrails / non-goals**:
+  - Do not add a second learned job in M3 (remains M4).
+  - Do not add Grandpa, the opening, town systems, a party UI, injury, mortality, consumable recovery items,
+    a broad fatigue simulation, a new farming/crafting economy, or major competition expansion.
+  - Do not add a hard once-per-day restriction to ordinary training merely to force balance; repeated
+    training and resting may remain possible so testing can determine whether it becomes degenerate or grindy.
+
+#### Acceptance criteria
+
+- [ ] Add the daytime recovery action **Rest together** at the companion's nook, consuming substantial
+      game time (provisional ~~90–120 game minutes) and restoring both player energy (~~+30) and
+      active-critter energy (~+35, capped at max), without reducing hunger, resetting daily limits,
+      advancing the date, or replacing overnight sleep.
+- [ ] Retune work and training costs (provisional: practice ~30 critter energy, Clover Cup ~35 critter energy,
+      critter sunberry work ~12 critter energy, and modest player work adjustments) so energy is a tangible
+      constraint and critter work visibly spends condition.
+- [ ] Replace the large nearby-action card with a compact bottom interaction dock or equivalent low-profile
+      treatment that keeps targets, statuses, and actions immediately legible without substantially obscuring
+      the player, companion, path, or explorable area on narrow and desktop viewports.
+- [ ] Display activity time and energy costs before commitment, and show consequences (including remaining
+      condition/energy) afterward, using the existing stamina/condition model.
+- [ ] A player can recover from ordinary exhaustion or poor scheduling through normal play without developer
+      reset, forced overnight sleep as the only solution, compulsory grind, injury, or death.
+- [ ] Demonstrate from comparable morning states at least one work-oriented routine and one competition-oriented
+      routine with visibly different tradeoffs and resulting state. A human player encounters meaningful tradeoffs:
+      "Should I do this work myself?", "Should my critter spend energy doing it?", "Should we save that energy
+      for training or competition?", "Is it worth spending part of the day resting so we can do more?"
+      Automated tests alone cannot declare success: if normal play still amounts to blindly performing every
+      available action without meaningful scheduling or resource consideration, M3 product acceptance is not met.
+- [ ] Unit, persistence, and browser checks verify state rules, energy limits, clock progression, persistence,
+      and layout without regressions.
 
 ### M4 — Add one useful learned job
 
 **Status:** not started; choose the job after M2/M3 evidence.
+**Player-visible expectation:** adds a second useful learned job that changes what the player personally needs to do.
 
 - [ ] One additional activity uses the same learning model and has a distinct useful
       outcome in the current farm/work loop. A garden task is a candidate, not a
@@ -125,6 +208,7 @@ evidence. Keep the experiment small; document chosen parameters as provisional.
 ### M5 — Give tomorrow an understandable purpose
 
 **Status:** not started; use the existing trial and homestead before adding venues.
+**Player-visible expectation:** gives today's choices an understandable consequence or purpose for tomorrow.
 
 - [ ] Connect care/training/work to an understandable next-day goal through the
       existing contest and/or a modest visible homestead improvement. The player
@@ -138,6 +222,7 @@ evidence. Keep the experiment small; document chosen parameters as provisional.
 ### M6 — Evaluate and tune the repeated-day experience
 
 **Status:** not started. Product gate before the full prologue.
+**Player-visible expectation:** evaluates whether the repeated one-critter loop is actually enjoyable enough to proceed to the opening.
 
 - [ ] Inspect fresh-start and developed-companion play across at least three days,
       using ordinary inputs and deliberate sleeping rather than developer time
@@ -348,18 +433,66 @@ the longer hosted run was not evidence of a failing M2 check.
 This final documentation-only handoff uses `[skip ci]`; the deployed application
 remains exactly the verified `6b7cf49` implementation. M3 is not started.
 
+## Human playtest findings and process lessons — 2026-09-26
+
+Human playtest evaluation following M1 and M2 yielded the following observations and
+workflow corrections:
+
+### Save migration vs. fresh-start testing
+
+- The first human M2 playthrough initially appeared almost identical to the original
+  prototype because it used a migrated legacy save whose active critter was still Pip.
+- This was expected save-preservation behavior: M1 deliberately preserves an existing
+  critter’s identity instead of silently renaming or replacing it.
+- A fresh homestead, reached through the built-in developer reset, correctly begins with
+  provisional player critter Mallow.
+- **Testing process lesson**: A browser hard refresh (such as `Shift+F5`) does **not**
+  create a fresh Critterstead save because the homestead is persisted in IndexedDB.
+  To test fresh-start behavior, open the developer field kit using the backtick key
+  (`` ` ``), select **Reset saved game**, and confirm. Human test instructions must
+  explicitly explain how to create a fresh save and clearly distinguish fresh-start
+  testing from migration testing.
+
+### Product pacing and player visibility
+
+- Even after inspecting the intended Mallow fresh-start state, the human assessment is
+  that M1 and M2 remain overwhelmingly foundational and produce little visible gameplay
+  change.
+- That is acceptable for those completed milestones, but subsequent milestones in this
+  campaign must start paying off the foundation in ordinary play (codified in the
+  **Player-visible milestone rule**).
+- Subsequent milestones must produce clear player-observable differences in ordinary
+  play, beginning with M3.
+
+### Interaction UI friction
+
+- The existing nearby interaction card was confirmed as significant human-playtest
+  friction. It occupies too much of the lower-center world view and obscures the
+  character, companion, path, and explorable area precisely when the player approaches
+  something to inspect or use.
+- This finding motivates the M3 requirement to replace the card with a compact bottom
+  interaction dock or equivalent low-profile treatment.
+
 ## Current handoff
 
-- **Completed:** M1 publication reconciled with GitHub and successful Pages run;
-  M2 authored learning, per-individual progress, explicit v1/v2 → v3 migration,
-  visible work/condition explanations, preserved berry arc, all verification,
-  and canonical docs/evidence. No M1 patch recovery remains.
-- **Known limits:** only sunberry foraging is authored; one rendered/simulated companion;
-  other stored individuals dormant; narrow interaction-card occlusion; repeated-day
-  motivation and physical controller unproven. No new mechanics or story systems.
-- **Publication:** M2 is on `origin/main` at `6b7cf49`, verified against the actual
-  remote ref, and its Pages workflow succeeded. This documentation-only handoff
-  follows that implementation commit. Stop at this milestone.
-- **Next gameplay action, only on a new continuation request:** start **M3 — Make
-  care, effort, and recovery produce a daily choice**, using the M1/M2 observations
-  to compare routines before changing recovery or costs. M3–M6 remain unstarted.
+- **Completed:** M1 (identity, ownership, save v2, provisional Mallow) and M2 (authored
+  learning, per-individual progress, explicit v1/v2 → v3 migration, published in `6b7cf49`);
+  human playtest findings and testing lessons recorded; M3 concretely specified with daily
+  energy choice, daytime "Rest together", retuned costs, legible pre/post activity feedback,
+  and compact interaction dock; canonical narrative and ownership distinctions reconciled.
+- **Known limits:** single rendered/simulated companion; nearby interaction card obscures
+  world navigation (addressed in M3); physical controller testing pending.
+- **Publication:** M1 and M2 are on `origin/main` (commits `122a6ea`, `346b232`, `6b7cf49`,
+  and `03516a1`). This documentation-only update builds on the published M2 baseline.
+- **Exact next gameplay action:** when continuing this campaign, start **M3 — Make care,
+  effort, and recovery produce a daily choice**. Astra can execute M3 directly using the
+  concrete specification:
+  1. Add **Rest together** action at the companion's nook in Bramblewick Yard (90–120 game
+     minutes, restoring ~+30 player / ~+35 critter energy, capped at max).
+  2. Retune training/practice, Clover Cup, and critter/player work costs so energy becomes a
+     real daily constraint.
+  3. Replace the large nearby interaction card with a compact bottom interaction dock.
+  4. Make time and energy costs legible before commitment and show consequences
+     (including remaining condition/energy) afterward.
+  5. Demonstrate at least one work-oriented routine and one competition-oriented routine
+     from comparable morning states with visibly different tradeoffs and resulting state.

@@ -38,6 +38,18 @@ Grandpa is handing over his old stead; Grandpa and Pip helped maintain the home
 and garden and helped raise the player. The protagonist can be scripted for now.
 Later character customization remains possible but should not drive this phase.
 
+Grandpa was the Colosseum champion before his retirement and is widely known in
+the surrounding community. The player grows up knowing him primarily as Grandpa
+and does not initially understand the full scope of his reputation. Grandpa also
+participated regularly in the markets. The player was not aware that the fortunes
+he accumulated through his accomplished life were ultimately spent on the
+creation of Pip. Later in the game, after Grandpa is gone, people in the community
+may tell the player that they remind them of him and that he would have been proud.
+These are long-term narrative facts; exact dialogue, timing, or revelation order
+must not be prematurely scripted. Do not front-load the full significance of
+Grandpa's championship history, fortune, or Pip's creation into the opening;
+these facts should remain available for organic revelation later.
+
 Roughly two to three narrative years establish competence and attachment through
 playable weeks/seasons, recurring chores, training, and competitions. Scripted
 timeskips are acceptable; exact duration and calendar ratios are unresolved.
@@ -85,6 +97,21 @@ membership and total ownership are different: housing expansion, such as shed or
 barn upgrades, supports a larger owned roster. Critters physically inhabit the
 world; a roster is bookkeeping, not a fiction that stores creatures as items.
 
+A critter's owner, party membership, and status as the currently active or
+working companion are distinct concepts:
+
+- **Owner**: the individual or NPC who holds legal or personal ownership (e.g.
+  Grandpa, the player, or another resident).
+- **Party membership**: inclusion in the traveling group accompanying the player.
+- **Active companion**: the specific critter currently working, being directed,
+  or taking part in activities.
+
+Pip can remain Grandpa-owned while later accompanying the player, joining the
+active party, and potentially serving as the current working companion. The
+current Stage-1 one-critter implementation may continue to require the active
+critter to be player-owned as a temporary implementation limitation, but this is
+not permanent game canon or a long-term model invariant.
+
 A tutorial outing could show Pip, the player's starter, and the cousin's critter
 together without granting the player three owned critters. The exact party unlock
 sequence, housing capacities, and off-party routines remain open.
@@ -105,10 +132,32 @@ model useful behaviors for younger ones. Exact teaching and inheritance mechanic
 are not settled; genetic aptitude and acquired knowledge are distinct concepts.
 
 Care, practice, useful work, and recovery should create understandable choices
-across a day and across repeated days. Automation is a reward for learning and a
-way to change the player's responsibilities. It should remain legible and respect
-the critter's condition, rather than silently draining stamina or making care
-irrelevant. Balance and specific recovery mechanics must be established by play.
+across a day and across repeated days. The core daily choice is whose energy to
+spend, what to preserve energy for, and whether spending time recovering is
+worthwhile. Automation is a reward for learning and a way to change the player's
+responsibilities. Learned autonomy must not become "free productivity"; a critter
+helping with work spends condition and energy that the player may have wanted for
+training, practice, or competition.
+
+A daytime recovery action, **Rest together** at the companion's nook, allows the
+player and active critter to recover condition during the day by spending a
+meaningful amount of game time. It does not reduce hunger, reset once-per-day
+activities, advance the calendar to tomorrow, or replace overnight sleep. A
+player must be able to recover from an ordinary exhausted or poorly scheduled
+day through normal play without a developer reset, forced overnight sleep as
+the only solution, compulsory grind, injury, or death. Consumable recovery
+items are anticipated as a possible future system, but are not part of the
+near-term daily loop.
+
+Activities must communicate their costs and consequences legibly:
+
+- Before commitment, the interaction should display both energy and game-time
+  requirements (e.g., practice and time trials displaying clock-time consumption
+  as well as stamina).
+- After commitment, results should make meaningful consequences visible,
+  including remaining condition and energy.
+- Presentation should build descriptively from the existing stamina and condition
+  model rather than introducing a redundant separate fatigue meter.
 
 Environmental roles can include farming, gathering, construction, woodcutting,
 quarrying, mining, and future activities. All four core stats and all foundational

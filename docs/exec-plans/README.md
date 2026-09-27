@@ -5,10 +5,10 @@ Read the relevant active plan, not every historical handoff.
 
 ## Index
 
-| Plan                                                                                   | Status                             | Next action                                                                    |
-| -------------------------------------------------------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------------ |
-| [001 — Deepen the One-Critter Daily Loop](active/001-deepen-one-critter-daily-loop.md) | M1 and M2 complete and published   | Stop here; M3 requires a new continuation request.                             |
-| [000 — Repository memory bootstrap](completed/000-repository-memory-bootstrap.md)      | Completed documentation conversion | Historical audit and verification evidence; no further bootstrap work planned. |
+| Plan                                                                                   | Status                                   | Next action                                                                        |
+| -------------------------------------------------------------------------------------- | ---------------------------------------- | ---------------------------------------------------------------------------------- |
+| [001 — Deepen the One-Critter Daily Loop](active/001-deepen-one-critter-daily-loop.md) | M1 and M2 complete; M3 defined and ready | M3 is next on continuation: execute daily choice, Rest together, and compact dock. |
+| [000 — Repository memory bootstrap](completed/000-repository-memory-bootstrap.md)      | Completed documentation conversion       | Historical audit and verification evidence; no further bootstrap work planned.     |
 
 ## Working contract
 
