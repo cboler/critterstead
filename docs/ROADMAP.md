@@ -23,7 +23,8 @@ simulator to ship before Pip can appear in the opening.
 
 [001 — Deepen the One-Critter Daily Loop](exec-plans/active/001-deepen-one-critter-daily-loop.md)
 has **M1 — Establish distinct critter identity and ownership** complete. Identity, ownership, selected-companion presentation, and v1
-migration preserve the existing one-companion game. M2–M6 remain unstarted; the
+migration preserve the existing one-companion game. M2 authored learning and v3
+migration are complete and verified; M3–M6 remain unstarted. The
 campaign's repeated-day product outcome has not yet been demonstrated.
 
 The campaign begins with bounded identity/ownership and learned-behavior changes,

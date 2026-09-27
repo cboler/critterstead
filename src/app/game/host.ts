@@ -1,6 +1,8 @@
-import { AREAS, BERRY_NODES, GAME_CONFIG, STARTER } from './content';
+import { AREAS, BEHAVIORS, BERRY_NODES, GAME_CONFIG, STARTER } from './content';
 import {
   activeCritter,
+  BehaviorDefinition,
+  BehaviorStage,
   Critter,
   GameCommand,
   GameState,
@@ -14,16 +16,18 @@ import {
 const clamp = (value: number, min = 0, max = 100) => Math.max(min, Math.min(max, value));
 const distance = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.z - b.z);
 
-export function knowledgeStage(knowledge: number): string {
-  if (knowledge >= GAME_CONFIG.autonomousKnowledge) return 'Independent forager';
-  if (knowledge >= GAME_CONFIG.commandedKnowledge) return 'Harvests on cue';
-  if (knowledge > 0) return 'Learning by watching';
-  return 'Curious companion';
+export function learnedStage(critter: Critter, behavior: BehaviorDefinition): BehaviorStage {
+  const progress = critter.learnedBehaviors[behavior.id] ?? 0;
+  return behavior.stages.reduce((current, stage) =>
+    progress >= stage.threshold ? stage : current,
+  );
 }
+
+const foraging = BEHAVIORS['sunberry-foraging'];
 
 export function createInitialState(): GameState {
   return {
-    version: 2,
+    version: 3,
     seed: 240921,
     day: 1,
     minute: 480,
@@ -49,7 +53,7 @@ export function createInitialState(): GameState {
         happiness: 70,
         bond: 20,
         hunger: 35,
-        berryKnowledge: 0,
+        learnedBehaviors: {},
         skills: { harvesting: 0, racing: 0 },
         visualTraits: { coat: 'peach', accent: 'moss' },
         pedigree: { parentIds: [] },
@@ -93,6 +97,77 @@ export class LocalGameHost {
 
   get critter(): Critter {
     return activeCritter(this.state);
+  }
+
+  learning() {
+    const critter = this.critter;
+    const stage = learnedStage(critter, foraging);
+    const opportunity = this.berryOpportunity();
+    const cueNode = this.state.resources
+      .filter((node) => node.areaId === this.state.areaId && this.inReach(node.id))
+      .sort(
+        (a, b) =>
+          distance(a.position, this.state.player.position) -
+          distance(b.position, this.state.player.position),
+      )[0];
+    const reason = this.berryWorkReason('autonomous');
+    return {
+      name: foraging.name,
+      label: stage.label,
+      progress: critter.learnedBehaviors[foraging.id] ?? 0,
+      goal: foraging.stages[foraging.stages.length - 1].threshold,
+      hint: stage.hint.replaceAll('{name}', critter.name),
+      status:
+        stage.id !== 'autonomous'
+          ? this.state.training
+            ? `${critter.name} is busy with the current activity.`
+            : stage.id === 'cued'
+              ? (this.berryWorkReason('command', cueNode) ??
+                (cueNode
+                  ? 'Ready for your cue at this ripe bush.'
+                  : 'Walk up to a ripe sunberry bush to give a cue.'))
+              : `Gather sunberries nearby so ${critter.name} can watch.`
+          : (reason ??
+            (opportunity
+              ? `${critter.name} spots ripe sunberries and is heading over.`
+              : this.state.areaId !== 'glade'
+                ? 'Find ripe sunberries together in Clover Glade.'
+                : 'No ripe bush nearby. Walk closer or wait for regrowth.')),
+    };
+  }
+
+  private berryWorkReason(mode: 'command' | 'autonomous', node?: ResourceNode): string | undefined {
+    const critter = this.critter;
+    const stage = learnedStage(critter, foraging).id;
+    if (this.state.training) return `${critter.name} is busy with the current activity.`;
+    if (node && (!node.available || node.areaId !== this.state.areaId))
+      return 'These berries are growing back.';
+    if (stage !== 'cued' && stage !== 'autonomous')
+      return `Let ${critter.name} watch you harvest ${foraging.stages.find((stage) => stage.id === 'cued')!.threshold} times.`;
+    if (mode === 'autonomous' && stage !== 'autonomous') return 'Keep practicing with cues.';
+    if (mode === 'autonomous' && critter.bond < 20)
+      return `${critter.name} needs 20 bond to forage independently. Spend some time together.`;
+    if (critter.hunger > 80) return `Feed ${critter.name} before asking for more work.`;
+    if (mode === 'command' && node && distance(critter.position, node.position) > 5)
+      return `Wait for ${critter.name} to catch up.`;
+    if (mode === 'command' && this.state.player.stamina < 2) return 'You need some rest.';
+    if (critter.stamina < 8) return `${critter.name} needs some rest (8 energy to gather).`;
+    return undefined;
+  }
+
+  private berryOpportunity(): ResourceNode | undefined {
+    if (this.berryWorkReason('autonomous')) return undefined;
+    return this.state.resources
+      .filter(
+        (node) =>
+          node.areaId === this.state.areaId &&
+          node.available &&
+          distance(node.position, this.state.player.position) < 4.3,
+      )
+      .sort(
+        (a, b) =>
+          distance(a.position, this.critter.position) - distance(b.position, this.critter.position),
+      )[0];
   }
 
   dispatch(command: GameCommand): boolean {
@@ -188,7 +263,7 @@ export class LocalGameHost {
       return {
         id,
         title: `A moment with ${critter.name}`,
-        description: `${knowledgeStage(critter.berryKnowledge)}. ${critter.hunger > 55 ? 'Their tummy is rumbling.' : 'Your companion leans into your company.'}`,
+        description: `${learnedStage(critter, foraging).label}. ${critter.hunger > 55 ? 'Their tummy is rumbling.' : 'Your companion leans into your company.'}`,
         actions: [
           action(
             'pet',
@@ -223,7 +298,7 @@ export class LocalGameHost {
         id,
         title: 'Sunberry bush',
         description: node.available
-          ? `Sweet little berries. ${critter.name}’s knowledge: ${critter.berryKnowledge}/7. Watch three harvests, then try giving a cue.`
+          ? `${foraging.name}: ${this.learning().label}. ${this.learning().hint} ${distance(critter.position, node.position) < 5 ? `${critter.name} is close enough to watch.` : `Wait for ${critter.name} to catch up to watch.`}`
           : `Picked clean. Fresh berries in ${Math.max(1, Math.ceil(node.respawnAt - state.totalMinutes))} game minutes.`,
         actions: [
           action(
@@ -234,15 +309,7 @@ export class LocalGameHost {
           action(
             'critter-gather',
             `Ask ${critter.name} to gather · 8 ${critter.name} energy · 20 min`,
-            !node.available
-              ? 'These berries are growing back.'
-              : critter.berryKnowledge < GAME_CONFIG.commandedKnowledge
-                ? `Let ${critter.name} watch you harvest three times.`
-                : critter.hunger > 80
-                  ? `Feed ${critter.name} before asking for more work.`
-                  : distance(critter.position, node.position) > 5
-                    ? `Wait for ${critter.name} to catch up.`
-                    : energy(2, 8),
+            this.berryWorkReason('command', node),
           ),
         ],
       };
@@ -602,7 +669,6 @@ export class LocalGameHost {
   private gather(node: ResourceNode, actor: 'player' | 'command' | 'autonomous'): void {
     const state = this.state;
     const critter = activeCritter(state);
-    const before = knowledgeStage(critter.berryKnowledge);
     const quality =
       actor === 'player'
         ? 1
@@ -627,7 +693,6 @@ export class LocalGameHost {
     node.respawnAt = state.totalMinutes + GAME_CONFIG.berryRespawnMinutes;
     if (actor === 'player') {
       state.player.stamina -= 6;
-      if (distance(critter.position, node.position) < 5) critter.berryKnowledge += 1;
       this.advanceMinutes(15);
       this.note(
         `You pick ${amount} sunberries. ${distance(critter.position, node.position) < 5 ? `${critter.name} watches your hands carefully.` : `${critter.name} was too far away to watch this time.`}`,
@@ -635,7 +700,6 @@ export class LocalGameHost {
     } else {
       critter.stamina -= 8;
       critter.skills.harvesting += 1;
-      critter.berryKnowledge = Math.min(20, critter.berryKnowledge + (actor === 'command' ? 2 : 1));
       critter.bond = clamp(critter.bond + 1);
       if (actor === 'command') {
         state.player.stamina -= 2;
@@ -647,16 +711,26 @@ export class LocalGameHost {
       );
     }
     this.flag('gathered');
-    const after = knowledgeStage(critter.berryKnowledge);
-    if (after !== before) {
-      critter.history.push(`Day ${state.day}: ${after}.`);
-      this.note(
-        after === 'Harvests on cue'
-          ? `${critter.name} understands! You can now ask for a harvest of berries near a bush.`
-          : after === 'Independent forager'
-            ? `A little light goes on. ${critter.name} will now gather nearby berries independently when rested and well-fed.`
-            : `${critter.name} is learning what sunberries are for. Keep gathering together.`,
+    if (actor !== 'player' || distance(critter.position, node.position) < 5)
+      this.learn(
+        foraging,
+        actor === 'player' ? 'observation' : actor === 'command' ? 'cue' : 'autonomous',
       );
+  }
+
+  private learn(behavior: BehaviorDefinition, source: keyof BehaviorDefinition['gains']): void {
+    const critter = this.critter;
+    const before = learnedStage(critter, behavior);
+    const progress = critter.learnedBehaviors[behavior.id] ?? 0;
+    // Legacy observation was uncapped. Retain even above-ceiling progress without reducing it.
+    critter.learnedBehaviors[behavior.id] =
+      source === 'observation'
+        ? progress + behavior.gains[source]
+        : Math.max(progress, Math.min(behavior.practiceCeiling, progress + behavior.gains[source]));
+    const after = learnedStage(critter, behavior);
+    if (after.id !== before.id) {
+      critter.history.push(`Day ${this.state.day}: ${after.label}.`);
+      this.note(after.milestone.replaceAll('{name}', critter.name));
     }
   }
 
@@ -664,26 +738,8 @@ export class LocalGameHost {
     const state = this.state;
     const critter = activeCritter(state);
     let target: Point = state.player.position;
-    let harvest: ResourceNode | undefined;
-    if (
-      !state.training &&
-      critter.berryKnowledge >= GAME_CONFIG.autonomousKnowledge &&
-      critter.bond >= 20 &&
-      critter.hunger <= 80 &&
-      critter.stamina >= 8
-    ) {
-      harvest = state.resources
-        .filter(
-          (node) =>
-            node.areaId === state.areaId &&
-            node.available &&
-            distance(node.position, state.player.position) < 4.3,
-        )
-        .sort(
-          (a, b) => distance(a.position, critter.position) - distance(b.position, critter.position),
-        )[0];
-      if (harvest) target = harvest.position;
-    }
+    const harvest = this.berryOpportunity();
+    if (harvest) target = harvest.position;
     const gap = distance(critter.position, target);
     const stop = harvest ? 0.7 : 1.15;
     if (gap > stop) {

@@ -9,6 +9,21 @@ export interface Stats {
   speed: number;
   intelligence: number;
 }
+export type BehaviorId = 'sunberry-foraging';
+export interface BehaviorStage {
+  id: 'unfamiliar' | 'observing' | 'cued' | 'autonomous';
+  threshold: number;
+  label: string;
+  hint: string;
+  milestone: string;
+}
+export interface BehaviorDefinition {
+  id: BehaviorId;
+  name: string;
+  stages: readonly BehaviorStage[];
+  gains: { observation: number; cue: number; autonomous: number };
+  practiceCeiling: number;
+}
 export interface Critter {
   id: string;
   ownerId: string;
@@ -25,7 +40,7 @@ export interface Critter {
   happiness: number;
   bond: number;
   hunger: number;
-  berryKnowledge: number;
+  learnedBehaviors: Partial<Record<BehaviorId, number>>;
   skills: { harvesting: number; racing: number };
   visualTraits: { coat: string; accent: string };
   pedigree: { parentIds: string[] };
@@ -61,7 +76,7 @@ export interface Training {
   kind: 'training' | 'race';
 }
 export interface GameState {
-  version: 2;
+  version: 3;
   seed: number;
   day: number;
   minute: number;

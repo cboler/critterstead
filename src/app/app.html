@@ -237,21 +237,24 @@
         </div>
         <div class="learning">
           <div>
-            <span aria-hidden="true">❧</span
-            ><strong>{{ knowledgeStage(companion().berryKnowledge) }}</strong>
+            <span aria-hidden="true">❧</span><strong>{{ learning().label }}</strong>
           </div>
           <p>
-            {{
-              companion().berryKnowledge < 3
-                ? companion().name + ' learns by watching you gather sunberries.'
-                : companion().berryKnowledge < 7
-                  ? 'Try asking ' + companion().name + ' to gather a nearby sunberry bush.'
-                  : companion().name + ' recognizes ripe sunberries and can help independently.'
-            }}
+            <span class="learning-status">{{ learning().status }}</span>
           </p>
-          <div class="knowledge-track">
-            @for (step of [1, 2, 3, 4, 5, 6, 7]; track step) {
-              <i [class.learned]="companion().berryKnowledge >= step"></i>
+          <div
+            class="knowledge-track"
+            role="meter"
+            [attr.aria-label]="learning().name"
+            aria-valuemin="0"
+            [attr.aria-valuemax]="learning().goal"
+            [attr.aria-valuenow]="
+              learning().progress > learning().goal ? learning().goal : learning().progress
+            "
+            [attr.aria-valuetext]="learning().label"
+          >
+            @for (step of learningSteps; track step) {
+              <i [class.learned]="learning().progress >= step"></i>
             }
           </div>
         </div>
@@ -378,7 +381,7 @@
       } @else if (currentPanel === 'journal') {
         <div class="journal-summary">
           <span>Day {{ state().day }}</span
-          ><span>{{ companion().name }} · {{ knowledgeStage(companion().berryKnowledge) }}</span
+          ><span>{{ companion().name }} · {{ learning().label }}</span
           ><span>Shed level {{ state().shedLevel }}</span>
         </div>
         <ol class="journal-entries">
@@ -417,8 +420,8 @@
           <dd>{{ round(state().player.position.x) }}, {{ round(state().player.position.z) }}</dd>
           <dt>Seed</dt>
           <dd>{{ state().seed }}</dd>
-          <dt>Berry knowledge</dt>
-          <dd>{{ companion().berryKnowledge }}</dd>
+          <dt>{{ learning().name }} progress</dt>
+          <dd>{{ learning().progress }}</dd>
           <dt>Health / wellbeing / hunger</dt>
           <dd>
             {{ round(companion().health) }} / {{ round(companion().happiness) }} /

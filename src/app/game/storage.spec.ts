@@ -2,6 +2,7 @@ import { createInitialState, LocalGameHost } from './host';
 import { readSave, validateSave } from './storage';
 import { activeCritter } from './model';
 import { legacyV1 } from './fixtures/legacy-v1';
+import { legacyV2 } from './fixtures/legacy-v2';
 
 describe('versioned homestead save validation', () => {
   it('accepts the initial state and an ordinary day transition', () => {
@@ -72,11 +73,19 @@ describe('v1 migration and individual references', () => {
   it('preserves the entire populated legacy save without mutating it or inventing narrative Pip', () => {
     const original = structuredClone(legacyV1);
     const { critter, ...world } = original;
+    const { berryKnowledge, ...individual } = critter;
     const migrated = readSave(original);
     expect(migrated).toEqual({
       ...world,
-      version: 2,
-      critters: [{ ...critter, ownerId: original.player.id, lastPettedDay: original.day }],
+      version: 3,
+      critters: [
+        {
+          ...individual,
+          learnedBehaviors: { 'sunberry-foraging': berryKnowledge },
+          ownerId: original.player.id,
+          lastPettedDay: original.day,
+        },
+      ],
       activeCritterId: critter.id,
       training: { ...original.training, critterId: critter.id },
     });
@@ -173,5 +182,83 @@ describe('v1 migration and individual references', () => {
     value.training!.critterId = value.activeCritterId;
     activeCritter(value).lastPettedDay = value.day + 1;
     expect(() => validateSave(value)).toThrow(/lastPettedDay/);
+  });
+});
+
+describe('v2 learning migration and v3 protection', () => {
+  it('preserves every individual and world field, including paid activity and seeded state', () => {
+    const before = structuredClone(legacyV2);
+    const migrated = readSave(before);
+    expect(migrated).toEqual({
+      ...before,
+      version: 3,
+      critters: before.critters.map(({ berryKnowledge, ...individual }) => ({
+        ...individual,
+        learnedBehaviors: { 'sunberry-foraging': berryKnowledge },
+      })),
+    });
+    expect(before).toEqual(legacyV2);
+    expect(readSave(migrated)).toEqual(migrated);
+    expect(readSave(JSON.parse(JSON.stringify(migrated)))).toEqual(migrated);
+    expect(() => validateSave(legacyV2)).toThrow(/Unsupported save version 2/);
+  });
+
+  it.each([0, 1, 2, 3, 5, 6, 7, 20, 25])(
+    'retains legacy progress %s without replaying milestones or rewards',
+    (progress) => {
+      const old = structuredClone(legacyV2);
+      old.critters[1].berryKnowledge = progress;
+      const migrated = readSave(old);
+      const host = new LocalGameHost(migrated);
+      expect(host.learning().progress).toBe(progress);
+      expect(host.learning().label).toBe(
+        progress >= 7
+          ? 'Independent forager'
+          : progress >= 3
+            ? 'Harvests on cue'
+            : progress > 0
+              ? 'Learning by watching'
+              : 'Curious companion',
+      );
+      expect(host.state.inventory).toEqual(old.inventory);
+      expect(host.critter.history).toEqual(old.critters[1].history);
+      expect(host.state.journal).toEqual(old.journal);
+      expect(host.state.seed).toBe(old.seed);
+    },
+  );
+
+  it('treats absent authored progress as unlearned and rejects malformed or unknown learning data', () => {
+    const fresh = createInitialState();
+    expect(new LocalGameHost(readSave(fresh)).learning().progress).toBe(0);
+    for (const learned of [
+      null,
+      [],
+      { 'sunberry-foraging': -1 },
+      { 'sunberry-foraging': '7' },
+      { 'sunberry-foraging': Infinity },
+      { 'unknown-job': 7 },
+    ]) {
+      const invalid = { ...fresh, critters: [{ ...fresh.critters[0], learnedBehaviors: learned }] };
+      const before = structuredClone(invalid);
+      expect(() => readSave(invalid)).toThrow(/kept/);
+      expect(invalid).toEqual(before);
+    }
+    expect(() =>
+      readSave({ ...fresh, critters: [{ ...fresh.critters[0], berryKnowledge: 7 }] }),
+    ).toThrow(/obsolete berryKnowledge/);
+  });
+
+  it('rejects corrupt or ambiguous v2 learning without mutating the old record', () => {
+    for (const fields of [
+      { berryKnowledge: -1 },
+      { berryKnowledge: undefined },
+      { learnedBehaviors: { 'sunberry-foraging': 9 } },
+    ]) {
+      const invalid = structuredClone(legacyV2);
+      Object.assign(invalid.critters[1], fields);
+      const before = structuredClone(invalid);
+      expect(() => readSave(invalid)).toThrow(/kept/);
+      expect(invalid).toEqual(before);
+    }
   });
 });

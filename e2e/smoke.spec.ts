@@ -115,7 +115,9 @@ async function walk(page: Page, x: number, z: number): Promise<void> {
     { keys: ['s', 'a'], x: -0.2 / Math.SQRT2, z: 1.4 / Math.SQRT2 },
     { keys: ['s', 'd'], x: 1.4 / Math.SQRT2, z: 0.2 / Math.SQRT2 },
   ];
-  for (let attempt = 0; attempt < 24; attempt++) {
+  // Slow rendering can need more steering corrections; retain the same arrival tolerance.
+  const deadline = Date.now() + 30_000;
+  while (Date.now() < deadline) {
     const current = await position(page);
     const dx = x - current.x;
     const dz = z - current.z;
@@ -180,14 +182,31 @@ test('plays a complete day and keeps the improved homestead after reload', async
   await walk(page, 8, 0);
   await page.getByRole('button', { name: /Explore Clover Glade/ }).click();
   await expect(page.locator('.location-tag')).toContainText('Clover Glade');
+  await expect(page.locator('.learning')).toContainText('Curious companion');
+  let observations = 0;
   for (const [x, z] of [
     [-3, -2],
     [-1, 2.5],
     [1, -4],
   ]) {
     await walk(page, x, z);
+    await expect(page.getByRole('button', { name: /^Ask Mallow to gather/ })).toBeDisabled();
     await page.getByRole('button', { name: /^Gather ·/ }).click();
+    observations++;
+    await expect(page.getByRole('meter', { name: 'Sunberry foraging' })).toHaveAttribute(
+      'aria-valuenow',
+      String(observations),
+    );
+    if (observations === 1) {
+      await expect(page.locator('.learning')).toContainText('Learning by watching');
+      await page.screenshot({
+        path: testInfo.outputPath('learning-by-watching.png'),
+        fullPage: true,
+      });
+    }
   }
+  await expect(page.locator('.learning')).toContainText('Harvests on cue');
+  await page.reload();
   await expect(page.locator('.learning')).toContainText('Harvests on cue');
   for (const [x, z] of [
     [2, 0],
@@ -199,6 +218,7 @@ test('plays a complete day and keeps the improved homestead after reload', async
   await expect(page.locator('.learning')).toContainText('Independent forager');
   await walk(page, 4, 4.5);
   await expect(page.locator('.recent-note')).toContainText(/On their own, Mallow/);
+  await expect(page.locator('.learning-status')).toContainText('No ripe bush nearby');
   await page.screenshot({ path: testInfo.outputPath('independent-forager.png'), fullPage: true });
   await walk(page, -8, 0);
   await page.getByRole('button', { name: /Return to Bramblewick/ }).click();

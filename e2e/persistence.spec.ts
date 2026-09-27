@@ -2,6 +2,7 @@ import { expect, Page, test } from '@playwright/test';
 import { createInitialState } from '../src/app/game/host';
 import { activeCritter, type GameState } from '../src/app/game/model';
 import { legacyV1 } from '../src/app/game/fixtures/legacy-v1';
+import { legacyV2 } from '../src/app/game/fixtures/legacy-v2';
 
 async function readSave(page: Page): Promise<unknown> {
   return page.evaluate(async () => {
@@ -92,6 +93,10 @@ const badSelection = createInitialState();
 badSelection.activeCritterId = 'missing-companion';
 const damaged = createInitialState();
 activeCritter(damaged).stamina = -1;
+const damagedV2 = structuredClone(legacyV2);
+damagedV2.critters[1].berryKnowledge = -1;
+const damagedLearning = createInitialState();
+Object.assign(activeCritter(damagedLearning).learnedBehaviors, { 'unknown-job': 7 });
 
 for (const fixture of [
   {
@@ -101,6 +106,12 @@ for (const fixture of [
   },
   { name: 'damaged', value: damaged, message: 'saved homestead is damaged' },
   { name: 'damaged v1', value: damagedLegacy, message: 'saved homestead is damaged' },
+  { name: 'damaged v2 learning', value: damagedV2, message: 'saved homestead is damaged' },
+  {
+    name: 'unknown learned behavior',
+    value: damagedLearning,
+    message: 'saved homestead is damaged',
+  },
   {
     name: 'invalid companion reference',
     value: badSelection,
@@ -129,7 +140,7 @@ for (const fixture of [
     expect(await readSave(page)).toEqual(fixture.value);
     await page.getByRole('button', { name: 'Confirm: erase this homestead', exact: true }).click();
     await expect(page.getByRole('alert')).toHaveCount(0);
-    await expect.poll(async () => ((await readSave(page)) as { version: number }).version).toBe(2);
+    await expect.poll(async () => ((await readSave(page)) as { version: number }).version).toBe(3);
     await page.reload();
     await expect(page.locator('.world-canvas canvas')).toBeVisible();
     await expect(page.getByRole('alert')).toHaveCount(0);
@@ -145,7 +156,7 @@ test('migrates a populated v1 save, preserves Pip, and resumes paid training aft
   await expect(page.locator('.companion-card')).not.toContainText('Mallow');
   await expect(page.getByRole('button', { name: /Hop, Pip!/ })).toBeVisible();
   await page.getByRole('button', { name: 'Pause game', exact: true }).click();
-  await expect.poll(async () => ((await readSave(page)) as GameState).version).toBe(2);
+  await expect.poll(async () => ((await readSave(page)) as GameState).version).toBe(3);
   const migrated = (await readSave(page)) as GameState;
   expect(migrated.activeCritterId).toBe('critter-pip');
   expect(migrated.critters).toHaveLength(1);
@@ -159,7 +170,7 @@ test('migrates a populated v1 save, preserves Pip, and resumes paid training aft
     skills: legacyV1.critter.skills,
     stamina: legacyV1.critter.stamina,
     health: legacyV1.critter.health,
-    berryKnowledge: legacyV1.critter.berryKnowledge,
+    learnedBehaviors: { 'sunberry-foraging': legacyV1.critter.berryKnowledge },
     history: legacyV1.critter.history,
     competitions: legacyV1.critter.competitions,
     genetics: legacyV1.critter.genetics,
@@ -194,4 +205,39 @@ test('migrates a populated v1 save, preserves Pip, and resumes paid training aft
   await page.getByRole('button', { name: 'How to play', exact: true }).click();
   await expect(page.getByRole('dialog')).toContainText('Meet Pip');
   await expect(page.getByRole('dialog')).not.toContainText('Mallow');
+});
+
+test('migrates v2 learning without replayed rewards and explains why an independent companion waits', async ({
+  page,
+}, testInfo) => {
+  const old = structuredClone(legacyV2);
+  old.training = null;
+  old.areaId = 'glade';
+  old.areaInstanceId = 'local-glade';
+  old.player.position = { x: -3, z: -2 };
+  const selected = old.critters[1];
+  selected.position = { x: -3, z: -2 };
+  selected.berryKnowledge = 7;
+  selected.hunger = 81;
+  old.resources[0].available = true;
+  await seedSave(page, old);
+  await page.goto('/');
+  await expect(page.locator('.learning')).toContainText('Independent forager');
+  await expect(page.locator('.learning-status')).toContainText('Feed Mallow');
+  await expect(page.getByRole('button', { name: /^Ask Mallow to gather/ })).toBeDisabled();
+  await page.getByRole('button', { name: 'Pause game', exact: true }).click();
+  await expect.poll(async () => ((await readSave(page)) as GameState).version).toBe(3);
+  const migrated = (await readSave(page)) as GameState;
+  expect(activeCritter(migrated).learnedBehaviors).toEqual({ 'sunberry-foraging': 7 });
+  expect(migrated.critters[0].learnedBehaviors).toEqual({ 'sunberry-foraging': 20 });
+  expect(migrated.critters[0].ownerId).toBe('grandpa');
+  expect(migrated.critters[0].history).toEqual(old.critters[0].history);
+  expect(migrated.inventory).toEqual(old.inventory);
+  expect(migrated.journal).toEqual(old.journal);
+  expect(migrated.seed).toBe(old.seed);
+  expect(activeCritter(migrated).stamina).toBe(selected.stamina);
+  await page.reload();
+  await expect(page.locator('.learning-status')).toContainText('Feed Mallow');
+  await page.screenshot({ path: testInfo.outputPath('learning-needs-feed.png'), fullPage: true });
+  expect(((await readSave(page)) as GameState).inventory).toEqual(old.inventory);
 });

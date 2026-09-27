@@ -51,6 +51,23 @@ not a broad party/story framework. [Architecture](ARCHITECTURE.md#save-contract)
 owns the exact contract; the [M1 record](exec-plans/active/001-deepen-one-critter-daily-loop.md#m1-evidence--2026-09-26)
 owns verification and limitations.
 
+### D17 — Authored learning and save v3 (implemented 2026-09-26)
+
+Use one small behavior definition table and per-individual numeric progress keyed
+by stable behavior ID. Only `sunberry-foraging` exists in M2. Stages, gains, hints,
+and milestones are authored data; resource selection and work/rewards stay explicit
+host rules. This generalizes learning without introducing a planner or teaching NPC.
+Knowledge, acquired skill, and genetic aptitude remain distinct.
+
+V2 berry knowledge migrates exactly for every individual; v1 chains through the
+existing identity migration. Loading does not replay milestones or rewards. Keep
+uncapped legacy observation values, including those above the practice ceiling;
+subsequent practice must not reduce them. Unknown, conflicting, or damaged learning
+data blocks saving. The [save contract](ARCHITECTURE.md#save-contract) owns validation
+details; the [M2 record](exec-plans/active/001-deepen-one-critter-daily-loop.md#m2-evidence--2026-09-26)
+owns verification. Existing berry costs and pace are unchanged; recovery experiments
+belong to M3 and are not part of this decision.
+
 ## Open or exploratory — do not invent canon
 
 | Question                                                                                    | Current boundary / when it matters                                                                                                                         |

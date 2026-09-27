@@ -1,4 +1,4 @@
-import { AreaDefinition, AreaId, Point } from './model';
+import { AreaDefinition, AreaId, BehaviorDefinition, BehaviorId, Point } from './model';
 
 // Provisional loop-testing starter, separate from Grandpa’s narrative Pip.
 export const STARTER = { id: 'critter-mallow', name: 'Mallow' } as const;
@@ -10,9 +10,48 @@ export const GAME_CONFIG = {
   berryRespawnMinutes: 180,
   cropGrowthMinutes: 180,
   shedCost: 12,
-  commandedKnowledge: 3,
-  autonomousKnowledge: 7,
 } as const;
+
+// One authored learning arc. Work/reward execution remains an explicit host rule.
+export const BEHAVIORS: Record<BehaviorId, BehaviorDefinition> = {
+  'sunberry-foraging': {
+    id: 'sunberry-foraging',
+    name: 'Sunberry foraging',
+    gains: { observation: 1, cue: 2, autonomous: 1 },
+    practiceCeiling: 20,
+    stages: [
+      {
+        id: 'unfamiliar',
+        threshold: 0,
+        label: 'Curious companion',
+        hint: '{name} learns by watching you gather sunberries.',
+        milestone: '',
+      },
+      {
+        id: 'observing',
+        threshold: 1,
+        label: 'Learning by watching',
+        hint: 'Let {name} watch three harvests, then try a cue.',
+        milestone: '{name} is learning what sunberries are for. Keep gathering together.',
+      },
+      {
+        id: 'cued',
+        threshold: 3,
+        label: 'Harvests on cue',
+        hint: 'Try asking {name} to gather a nearby sunberry bush.',
+        milestone: '{name} understands! You can now ask for a harvest of berries near a bush.',
+      },
+      {
+        id: 'autonomous',
+        threshold: 7,
+        label: 'Independent forager',
+        hint: '{name} recognizes ripe sunberries and can help independently.',
+        milestone:
+          'A little light goes on. {name} will now gather nearby berries independently when rested and well-fed.',
+      },
+    ],
+  },
+};
 
 export const SPECIES = {
   brindlekin: {

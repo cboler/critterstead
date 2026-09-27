@@ -1,9 +1,11 @@
 # 001 — Deepen the One-Critter Daily Loop
 
-**Status:** M1 complete on 2026-09-26. M2–M6 are not started.
+**Status:** M1 published; M2 complete and verified on 2026-09-26, ready for publication.
+M3–M6 are not started.
 Source baseline: `3a346fc` (documentation bootstrap on gameplay `06aa91e`),
 identical in content to the published bootstrap `7e14cac`.
-This session executes M1 only and stops at its stable boundary.
+This session starts from published `346b232`, executes M2 only, and stops at its
+stable boundary before M3.
 
 ## Outcome and scope
 
@@ -74,17 +76,17 @@ before making an incomplete broad refactor.
 
 ### M2 — Generalize learning while retaining the berry experience
 
-**Status:** not started; follows M1.
+**Status:** complete (2026-09-26), based on published M1. Verification below; publication follows the stable commit.
 
-- [ ] Replace berry-only knowledge assumptions with a small authored behavior
+- [x] Replace berry-only knowledge assumptions with a small authored behavior
       definition and per-individual learned progress. Do not create a general AI
       planning engine or implement teaching NPCs yet.
-- [ ] Observation, eligibility for cues, opportunity recognition, and autonomous
+- [x] Observation, eligibility for cues, opportunity recognition, and autonomous
       work retain visible feedback and condition/proximity/resource checks.
-- [ ] Existing berry knowledge migrates without relearning or duplicated rewards;
+- [x] Existing berry knowledge migrates without relearning or duplicated rewards;
       invalid saves stay protected. Tests demonstrate stage transitions,
       individual isolation, rejected actions, and seeded/save continuity.
-- [ ] Browser play shows the existing learning arc and explains why the companion
+- [x] Browser play shows the existing learning arc and explains why the companion
       does or does not act. No extra job is needed to finish this milestone.
 
 ### M3 — Make care, effort, and recovery produce a daily choice
@@ -234,44 +236,117 @@ Commands used (Node 24.19.0; local run on 2026-09-26):
 | Offline         | `node tmp/check-pwa.local.mjs`; same production check with the browser-launch/native-gamepad adaptation, passed at base `/`.                                                                         |
 | Formatting/docs | `npm run format:check`, `git diff --check`, local Markdown link and retired-name audit; passed.                                                                                                      |
 
-The standard Chromium 153 commands must still run in normal CI once published;
-these adapted local results do not claim an unmodified browser run or deployment.
+These adapted M1 local results do not claim an unmodified browser run or deployment;
+the publication record below supersedes the original publication blocker.
 No physical-pad or fresh-human fun assessment was performed.
 
 ### Commit and publication record
 
-The published bootstrap `7e14cac` has the same tree as the earlier local `3a346fc`.
-Rebased only the new work onto it, retaining an unchanged final tree. Stable commits:
+The recovered M1 commits were applied and pushed. Fetching GitHub on 2026-09-26
+confirmed `origin/main` at `346b232`; publication is complete. Actual published IDs:
 
-- `6f65e7c` — campaign language and individual-value principle.
-- `9cf27dc` — complete M1 implementation, migration, verification, and canonical docs.
-- This delivery-note commit records the publishing blocker and continuation point.
+- `7e14cac` — documentation bootstrap (same tree as the earlier local `3a346fc`).
+- `44c4f7d` — campaign language and individual-value principle (recovered `6f65e7c`).
+- `122a6ea` — M1 implementation, migration, verification, and canonical docs
+  (recovered `9cf27dc`).
+- `346b232` — M1 delivery notes, whose original publication blocker is resolved.
 
-`git push origin HEAD:main` failed because this environment has no Git HTTPS
-credentials. The connected GitHub write path also returned **403: Resource not
-accessible by integration** when creating the reviewed tree. No remote ref was
-changed. `git ls-remote origin refs/heads/main` still reports
-`7e14cacba8d6a0f0bfd1afc1a11b3880bc17fbbe`. Local verification is not a deployment.
+Do not reapply the M1 patch. The [Pages run for `346b232`](https://github.com/cboler/critterstead/actions/runs/36250030032)
+and its secret scan both completed successfully, verified on 2026-09-26. This
+supersedes M1's pending standard-CI/deployment caveat, while its physical-controller
+and fresh-human playtest gaps remain. This checkout's unrelated older roster/Clover Cup commits through
+`a6324f8` were preserved on local `codex/preserved-roster-clover-cup`; M2 starts
+from published main and does not incorporate that divergent work.
 
-Fallback deliverable: `critterstead-m1.patch`, exported with `git format-patch`
-from `7e14cac..HEAD`, including language, M1, and this handoff. Apply with
-`git am critterstead-m1.patch` on a branch based on the published bootstrap, then
-push through an authorized checkout. It does not repeat the bootstrap commit.
+## M2 evidence — 2026-09-26
+
+Implementation and verification complete, based on published `346b232`:
+
+- Authored `sunberry-foraging` stages/gains/feedback replace runtime berry-knowledge
+  fields. Progress belongs to each individual; berry execution remains in the host.
+  Shared eligibility/opportunity checks drive work and visible waiting explanations.
+- Save v3 explicitly migrates all v2 individuals and chains v1 through v2. Frozen
+  fixtures preserve independent owners, participant-bound paid activity, knowledge,
+  skills, history, resources, economy, and random seed. Unknown/conflicting learning
+  data remains protected. See [D17](../../DECISIONS.md#d17--authored-learning-and-save-v3-implemented-2026-09-26).
+- `npm test -- --watch=false`: 71 tests passed. Golden values captured directly from
+  the unchanged host at `346b232` verify observation, cue, and autonomous rewards,
+  costs, progress, skill gains, and seeds. Reload during approach and every learning
+  stage, rejected work, no duplicate rewards/milestones, and dormant expert isolation
+  are covered. `npm run lint` passed.
+- Production build at `/critterstead/` passed (904.89 kB initial raw bundle); SPA
+  fallback, manifest and service-worker assets verified. `npm run check:pwa` passed
+  in installed Edge: offline world rendering and care persisted at that subpath.
+- Local Windows environment: Node 26.8.2, npm 11.19.1, locked dependencies (including
+  Playwright 1.63.0 / Chromium 153.0.8010.12). Angular compiler needed the supported filesystem permission
+  path to read ancestor directories. Chromium runs without M1's temporary browser
+  adaptations. Physical-controller and fresh-human playtests remain unperformed.
+- Initial trace-enabled suite: 45 passed, 8 intentional viewport skips, 3 failures.
+  Two failures exhausted the keyboard helper's fixed corrections under slow traced
+  rendering; a bounded 30-second steering budget retains the same arrival tolerance.
+  The other exposed a real seven-pixel desktop rail overflow from duplicated learning
+  guidance. The card now shows the current action/reason, with the general hint at
+  the bush. A further five-pixel overflow at 1920×1080 was removed by shortening
+  the status text. Follow-up normal-input full days passed at 390×844 and 1280×800;
+  the unchanged layout assertions passed at 1280×800, 1440×900, and 1920×1080.
+- `npm run format` and `npm run format:check` passed. Formatting also normalized
+  checkout line endings; it introduced no unrelated content changes. Local Markdown
+  file links and `git diff --check` passed.
+- Final standard browser suite: `npm run e2e -- --workers=1 --output=test-results/m2-final`:
+  **48 passed, 8 intentional viewport skips, zero failures (5.9 minutes)**.
+  All four viewports pass migration, malformed/newer save protection, tab ownership,
+  and ordinary reload. Complete normal-input days pass on phone and desktop;
+  mocked standard-controller input and all three desktop layout sizes pass.
+
+Final production commands were `npm run build -- --base-href /critterstead/`,
+`node scripts/prepare-pages.mjs`, and `npm run check:pwa`. Final unit, lint, and
+format checks passed after the feedback/layout repair. No dependency, workflow,
+world renderer, input-route, or recovery/balance change was needed.
+
+### Browser observations
+
+The normal-input day still pets/feeds Mallow, practices three timed cues, plants and
+waters feed, travels to Clover Glade, demonstrates three harvests, reloads at the
+cued stage, gives two harvest cues, and watches independent work. The existing
+selling, shed improvement, crop harvest, trial, sleep and day-two reload follow.
+No progress is granted through development tools; Angular state is read only for
+position/timing observations. The separate v2 migration scenario deliberately seeds
+a frozen save, including hungry Mallow and a dormant Grandpa-owned expert.
+
+The [observation screenshot](../evidence/001-m2/phone-observation.png) shows the
+first learned mark and Mallow's watching milestone. The
+[narrow migration screenshot](../evidence/001-m2/phone-needs-feed.png) shows an
+independent companion who retains seven learning marks and has energy, but waits
+because of hunger. The card explains “Feed Mallow before asking for more work,”
+and the cue is disabled. In the ordinary day, the last bush becomes depleted after
+autonomous work, the [desktop view](../evidence/001-m2/desktop-independent.png)
+names Mallow's harvest in the journal, and the card explains that no ripe bush is
+nearby. The [day-two reload](../evidence/001-m2/desktop-day-two.png) retains learning,
+renewed energy, age, and the improved homestead. The player can distinguish learned capability from an available
+opportunity or a condition limit. These are inspected browser results, not human
+feedback about pacing or fun.
+
+The narrow layout still scrolls vertically and the interaction card obscures part
+of the diorama; M1's existing friction remains. The day-two starter checklist stays
+completed. M2 does not attempt recovery balancing or next-day goals.
+
+### M2 commit and publication
+
+The stable implementation/evidence commit is ready for direct publication to
+`origin/main`. Record its SHA and verify the actual remote ref after pushing;
+Git publication and the Pages workflow are separate checks. M3 is not started.
 
 ## Current handoff
 
-- **Completed:** campaign/M1 wording cleanup and canonical individual-value
-  principle; M1 identity/ownership/selection, fresh Mallow, v1 migration, loop
-  preservation, and acceptance verification. Stable commits are recorded above.
-  Publication is blocked; preserve the local commits and apply the exported patch
-  through an authorized checkout. Bootstrap must not be applied a second time.
-- **Known limits:** hardcoded berry learning and one rendered/simulated companion;
+- **Completed:** M1 publication reconciled with GitHub and successful Pages run;
+  M2 authored learning, per-individual progress, explicit v1/v2 → v3 migration,
+  visible work/condition explanations, preserved berry arc, all verification,
+  and canonical docs/evidence. No M1 patch recovery remains.
+- **Known limits:** only sunberry foraging is authored; one rendered/simulated companion;
   other stored individuals dormant; narrow interaction-card occlusion; repeated-day
-  motivation and physical controller unproven. Standard Chromium CI/deployment
-  verification awaits publication. No new mechanics or story systems.
-- **Exact next gameplay action:** when continuing this campaign, start **M2 —
-  Generalize learning while retaining the berry experience**. Inspect current
-  status/commits and reconcile publication first, then trace `berryKnowledge` and
-  its stage thresholds into a small authored behavior plus per-individual progress,
-  with v2 save migration and the current berry arc preserved. M2 has not begun in
-  this session; stop here.
+  motivation and physical controller unproven. No new mechanics or story systems.
+- **Publication action:** commit and push this stable M2 slice, verify `origin/main`,
+  and record publication here. Stop at this milestone.
+- **Next gameplay action, only on a new continuation request:** start **M3 — Make
+  care, effort, and recovery produce a daily choice**, using the M1/M2 observations
+  to compare routines before changing recovery or costs. M3–M6 remain unstarted.

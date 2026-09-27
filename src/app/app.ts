@@ -10,7 +10,7 @@ import {
   computed,
 } from '@angular/core';
 import { AREAS } from './game/content';
-import { LocalGameHost, knowledgeStage } from './game/host';
+import { LocalGameHost } from './game/host';
 import { activeCritter, GameCommand, GameState, Interaction, Point } from './game/model';
 import { IndexedDbStorage } from './game/storage';
 import { GameWorld } from './game/world';
@@ -58,7 +58,8 @@ export class App implements AfterViewInit, OnDestroy {
   protected readonly sessionBusy = signal(false);
   protected readonly controllerConnected = signal(false);
   protected readonly gamepadAction = signal<string | null>(null);
-  protected readonly knowledgeStage = knowledgeStage;
+  protected readonly learning = signal(this.host.learning());
+  protected readonly learningSteps = Array.from({ length: this.learning().goal }, (_, i) => i + 1);
   protected readonly areas = AREAS;
   protected readonly statNames = ['strength', 'endurance', 'speed', 'intelligence'] as const;
   protected readonly goals = [
@@ -206,6 +207,7 @@ export class App implements AfterViewInit, OnDestroy {
   };
 
   private refresh(): void {
+    this.learning.set(this.host.learning());
     this.state.set(structuredClone(this.host.state));
     const interaction = this.host.interaction();
     this.nearby.set(interaction);

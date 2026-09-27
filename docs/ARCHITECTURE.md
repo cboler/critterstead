@@ -1,6 +1,6 @@
 # Architecture and implemented baseline
 
-Updated for campaign 001 M1 on 2026-09-26, against the implementation and its
+Updated for campaign 001 M2 on 2026-09-26, against the implementation and its
 verification. This is the implementation authority, not a promise that planned
 features exist. Evidence and publication status live in the
 [active plan](exec-plans/active/001-deepen-one-critter-daily-loop.md).
@@ -37,7 +37,7 @@ frameworks, services, or abstractions.
 | Companions       | `GameState.critters`, each with stable ID and `ownerId`; `activeCritterId` selects one player-owned companion. Fresh games use provisional Mallow (`critter-mallow`), female, age 18 days, Brindlekin. | No roster/selection UI, multiple visible companions, Grandpa actor, cousin, or starter acquisition. Other stored individuals are dormant, not an NPC simulation. |
 | Individuality    | Name/ID, age counter, sex, personality string, four stats, needs, bond, skills, visual traits, history, results                                                                                        | No renaming UI or developed personality/life-stage simulation. Health is stored; no complete health/mortality system.                                            |
 | Genetics         | Parent ID list and string-valued genetics/traits in saves                                                                                                                                              | No breeding, inheritance, cross-family generator, or fertility model. `lifespanDays: 1200` is authored placeholder data, not implemented death or canon balance. |
-| Learning         | `berryKnowledge`, observation, commanded harvest, autonomous nearby foraging                                                                                                                           | Hardcoded berry-specific stages and thresholds; no generic behavior registry or critter-to-critter teaching.                                                     |
+| Learning         | Authored `BEHAVIORS` stages and per-individual `learnedBehaviors`; observation, cued harvest, opportunity recognition, autonomy, and visible waiting reasons                                           | Only sunberry foraging is authored. Explicit host work rules; no planning engine, extra job, or critter-to-critter teaching.                                     |
 | Care/work        | Petting, feed/treats, hunger, player/critter stamina, timing practice, berry gathering/selling                                                                                                         | Repeated-day depth is unproven. Strength lacks a meaningful activity in this slice.                                                                              |
 | Farming/upgrades | One feed crop: plant, water, grow, harvest; one shed upgrade with visual change and happiness effect                                                                                                   | No barn capacity, broader crops, construction system, or house upgrade tree.                                                                                     |
 | Competition      | Once-per-day Clover Cup time trial using three cues, recorded result and coin reward                                                                                                                   | No Colosseum, opponents, combat, schedule, festivals, or tournament system.                                                                                      |
@@ -63,33 +63,70 @@ Mallow; neither Grandpa nor narrative Pip is spawned in the playable game.
 Per-individual `lastPettedDay` controls daily scritches. The old `petted-today` flag
 is retained for legacy compatibility but does not grant or deny care. Training and
 race activities carry `critterId`; validation requires that participant to match
-the selected companion. Selection cannot be changed through gameplay in M1.
+the selected companion. Selection cannot be changed through gameplay in this slice.
 Identity-dependent text uses the selected name, including help, activity prompts,
 journal summaries, and the world label. Existing personal history is preserved as
 written; migration does not rewrite old memories to match later narrative canon.
 Original Brindlekin geometry remains unchanged.
 
+## Learning and useful work
+
+`BEHAVIORS` in `content.ts` owns stable behavior IDs, ordered stages, thresholds,
+learning gains, and player-facing milestone/hint text. `Critter.learnedBehaviors`
+maps those IDs to numeric progress; absent progress means unlearned. The host's
+`learnedStage` and `learn` use that definition for the selected individual.
+Knowledge remains separate from harvesting skill, stats, and genetic aptitude.
+
+The only authored behavior is `sunberry-foraging`. Its existing arc is preserved:
+curious at zero, watching after the first observation, cued at 3, independent at 7.
+A nearby successful player harvest grants 1; a successful cue grants 2; autonomous
+work grants 1. Practice caps at 20. Legacy observation was uncapped; that remains
+true, and practice never reduces an already-saved value above 20.
+
+Work execution stays berry-specific in the host. Observation requires distance
+less than 5; cues require player interaction reach, companion distance at most 5,
+2 player energy, 8 companion energy, hunger at most 80, and a ripe same-area bush.
+Autonomy requires learned independence, bond at least 20, the same companion
+energy/hunger conditions, and no current training/race. It recognizes ripe
+same-area bushes less than 4.3 units from the player, approaches the nearest to
+the companion, and harvests within 1 unit. Resource consumption, rewards, timing,
+and random draws retain the M1 rules.
+
+The learning card, accessible progress meter, interaction explanations, and journal
+derive learning from the authored stages. The card shares the host's eligibility
+and opportunity checks to explain a cue, approach, food/rest/bond/activity limit,
+or absence of a nearby ripe bush. It does not emit journal messages every frame.
+Teaching actors, additional jobs, and recovery/balance changes are later milestones.
+
 ## Save contract
 
-- `GameState.version` is **2**. IndexedDB database `critterstead`, object store
+- `GameState.version` is **3**. IndexedDB database `critterstead`, object store
   `saves`, key `homestead`, database version **1**. Database and game-schema versions
   are separate concepts. There is one save in the current browser profile.
-- `readSave` accepts v1 and v2. It validates the input, clones it, explicitly
+- `readSave` accepts v1, v2, and v3. It validates the input, clones it, explicitly
   converts a v1 singular `critter` into the sole `critters` entry owned by the
   existing player, and selects the same individual ID. It sets `lastPettedDay` to
   the saved day when `petted-today` exists, otherwise null. All original identity,
   traits, care, learning, history, results, world/economy/crop/upgrade progress,
   calendar, and seed are retained. Legacy novice Pip remains that player's Pip.
+- The v2 → v3 step replaces each individual's `berryKnowledge` with the exact
+  numeric value at `learnedBehaviors['sunberry-foraging']`, including dormant
+  non-player individuals. No milestone, reward, skill gain, or random draw is
+  replayed. V1 follows the same validated v2 → v3 step after identity migration.
 - Unfinished practice/race resumes with the same phase, hits, elapsed time, and
   optional last-hit time, adding only its participant ID. Costs were already paid;
   migration does not recharge, refund, finish, or reroll the activity. Golden
   continuation tests compare outcomes with the pre-M1 host.
-- `validateSave` accepts only v2 writes. It checks shape, finite values, bounds,
+- `validateSave` accepts only v3 writes. It checks shape, finite values, bounds,
   unique entity IDs, calendar/activity validity, selected ownership, and participant
   references. The migrated result must pass it before being returned. Duplicate,
   missing, or non-player selected references fail closed.
+- Learned progress must be a record of known authored IDs with finite nonnegative
+  numeric values. Unknown behaviors, obsolete `berryKnowledge` in v3, and ambiguous
+  v1/v2 records already containing `learnedBehaviors` fail closed. Never discard
+  unknown or conflicting learning data to make a save load.
 - Reading/migration never writes. Only the normal save flow persists a successfully
-  loaded current state. Repeated v2 decoding clones without applying migration again.
+  loaded current state. Repeated v3 decoding clones without applying migration again.
   Save requests validate and snapshot at request time, then serialize writes.
   A failed write is surfaced without permanently poisoning the queue.
 - Invalid, failed-migration, and unsupported saves remain intact. The UI blocks
@@ -108,10 +145,9 @@ to make a new model work.
 
 ## Evolution needed, not yet implemented
 
-1. Generalize learned behavior state and authored definitions, preserving the
-   berry prototype's observable progression before adding more jobs. Learned
-   knowledge, skill, and genetic aptitude must remain distinguishable. This is M2,
-   not part of completed M1.
+1. M3 next evaluates care, effort, and recovery choices. M4 may then add one useful
+   job using the authored learning model. Neither has begun; M2 preserves berry
+   costs and pace without claiming the repeated-day balance is proven.
 2. Later milestones may add story/NPC state, household schedules, housing/party
    occupancy, calendar/life stages, and genetic morphology. The stored individuals
    and one selected companion are preparation, not those systems. Do not build
@@ -123,9 +159,11 @@ The next bounded changes are specified in the
 ## Verification and release seams
 
 Host/storage tests cover command authority, resource and care rules, learning,
-timing, seeded continuation, ownership isolation, v1 migration, and invalid saves. Playwright covers real
+timing, seeded continuation against M1 golden outcomes, ownership isolation, v1/v2
+migration, and invalid saves. Playwright covers real
 browser input, responsive layouts, a complete day, reload, tab ownership, and
-v1 migration with resumed training, and damaged/newer save protection. Its full-day test reads precise Angular development
+v1 migration with resumed training, v2 learning migration, and damaged/newer save
+protection. Its full-day test reads precise Angular development
 state for observations but still uses player input; it is not a substitute for
 fresh-player pacing evaluation. Controller tests mock the standard Gamepad API.
 

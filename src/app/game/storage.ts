@@ -1,4 +1,5 @@
 import { Critter, GameState, Training } from './model';
+import { BEHAVIORS } from './content';
 
 export interface SaveStorage {
   load(): Promise<GameState | null>;
@@ -104,7 +105,7 @@ export function readSave(value: unknown): GameState {
   if (root['version'] === 1) {
     validateState(value, 1);
     const { critter, ...legacy } = structuredClone(value as LegacyGameStateV1);
-    const migrated: GameState = {
+    const migrated: LegacyGameStateV2 = {
       ...legacy,
       version: 2,
       critters: [
@@ -117,6 +118,19 @@ export function readSave(value: unknown): GameState {
       activeCritterId: critter.id,
       training: legacy.training ? { ...legacy.training, critterId: critter.id } : null,
     };
+    return readSave(migrated);
+  }
+  if (root['version'] === 2) {
+    validateState(value, 2);
+    const legacy = structuredClone(value as LegacyGameStateV2);
+    const migrated: GameState = {
+      ...legacy,
+      version: 3,
+      critters: legacy.critters.map(({ berryKnowledge, ...critter }) => ({
+        ...critter,
+        learnedBehaviors: { 'sunberry-foraging': berryKnowledge },
+      })),
+    };
     validateSave(migrated);
     return migrated;
   }
@@ -124,22 +138,27 @@ export function readSave(value: unknown): GameState {
   return structuredClone(value);
 }
 
-// The v1 differences from today’s model; keep the legacy fixture independent of new defaults.
+// Versioned differences; frozen legacy fixtures must not depend on new-game defaults.
+type LegacyCritter = Omit<Critter, 'learnedBehaviors'> & { berryKnowledge: number };
+type LegacyGameStateV2 = Omit<GameState, 'version' | 'critters'> & {
+  version: 2;
+  critters: LegacyCritter[];
+};
 type LegacyGameStateV1 = Omit<
   GameState,
   'version' | 'critters' | 'activeCritterId' | 'training'
 > & {
   version: 1;
-  critter: Omit<Critter, 'ownerId' | 'lastPettedDay'>;
+  critter: Omit<LegacyCritter, 'ownerId' | 'lastPettedDay'>;
   training: Omit<Training, 'critterId'> | null;
 };
 
 /** Writes accept only the current schema. Older records must pass readSave first. */
 export function validateSave(value: unknown): asserts value is GameState {
-  validateState(value, 2);
+  validateState(value, 3);
 }
 
-function validateState(value: unknown, version: 1 | 2): void {
+function validateState(value: unknown, version: 1 | 2 | 3): void {
   const root = record(value, 'save');
   if (root['version'] !== version) {
     throw new Error(
@@ -166,15 +185,15 @@ function validateState(value: unknown, version: 1 | 2): void {
   const individuals = version === 1 ? [root['critter']] : array(root['critters'], 'critters');
   for (const individual of individuals) {
     const critter = record(individual, 'critter');
-    validateCritter(critter);
+    validateCritter(critter, version);
     entityId(critter['id'], ids);
-    if (version === 2) {
+    if (version >= 2) {
       string(critter['ownerId'], 'critter.ownerId');
       if (critter['lastPettedDay'] !== null)
         number(critter['lastPettedDay'], 'critter.lastPettedDay', 1, root['day'] as number, true);
     }
   }
-  if (version === 2) {
+  if (version >= 2) {
     string(root['activeCritterId'], 'activeCritterId');
     const selected = individuals.find(
       (item) => record(item, 'critter')['id'] === root['activeCritterId'],
@@ -207,7 +226,7 @@ function validateState(value: unknown, version: 1 | 2): void {
   strings(root['journal'], 'journal');
   if (root['training'] !== null) {
     const training = record(root['training'], 'training');
-    if (version === 2 && training['critterId'] !== root['activeCritterId'])
+    if (version >= 2 && training['critterId'] !== root['activeCritterId'])
       corrupt('training.critterId');
     number(training['phase'], 'training.phase', 0, 1);
     number(training['elapsed'], 'training.elapsed');
@@ -216,7 +235,7 @@ function validateState(value: unknown, version: 1 | 2): void {
     const hits = array(training['hits'], 'training.hits');
     for (const hit of hits) number(hit, 'training.hit', 0, 1);
     if (
-      version === 2 &&
+      version >= 2 &&
       (hits.length > 2 ||
         ((training['lastHitAt'] as number) ?? 0) > (training['elapsed'] as number))
     )
@@ -224,12 +243,23 @@ function validateState(value: unknown, version: 1 | 2): void {
   }
 }
 
-function validateCritter(critter: Record<string, unknown>): void {
+function validateCritter(critter: Record<string, unknown>, version: 1 | 2 | 3): void {
   for (const key of ['id', 'name', 'speciesId', 'personality'])
     string(critter[key], `critter.${key}`);
   choice(critter['sex'], ['female', 'male'], 'critter.sex');
   point(critter['position']);
-  for (const key of ['ageDays', 'berryKnowledge']) number(critter[key], `critter.${key}`);
+  number(critter['ageDays'], 'critter.ageDays');
+  if (version < 3) {
+    number(critter['berryKnowledge'], 'critter.berryKnowledge');
+    if (critter['learnedBehaviors'] !== undefined) corrupt('ambiguous learnedBehaviors');
+  } else {
+    if (critter['berryKnowledge'] !== undefined) corrupt('obsolete berryKnowledge');
+    const learned = record(critter['learnedBehaviors'], 'critter.learnedBehaviors');
+    for (const [id, progress] of Object.entries(learned)) {
+      if (!Object.hasOwn(BEHAVIORS, id)) corrupt('unknown learned behavior');
+      number(progress, `critter.learnedBehaviors.${id}`);
+    }
+  }
   for (const key of ['stamina', 'health', 'happiness', 'bond', 'hunger'])
     number(critter[key], `critter.${key}`, 0, 100);
   const stats = record(critter['stats'], 'critter.stats');
