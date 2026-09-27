@@ -140,6 +140,8 @@
   gap: 24px;
 }
 .world-frame {
+  display: flex;
+  flex-direction: column;
   position: relative;
   min-height: 590px;
   border-radius: 14px;
@@ -147,6 +149,42 @@
   background: #dbe8e3;
   isolation: isolate;
   border: 1px solid #d3ded3;
+}
+.world-view {
+  position: relative;
+  flex: 1;
+  min-height: 300px;
+}
+.interaction-dock {
+  flex-shrink: 0;
+  padding: 10px 14px;
+  background: #fffdf6;
+  border-top: 1px solid var(--line);
+}
+.interaction-dock h2 {
+  font:
+    600 17px Georgia,
+    serif;
+  margin: 0 0 4px;
+}
+.interaction-dock .interaction-copy p {
+  font-size: 11px;
+  line-height: 1.4;
+  margin: 0 0 8px;
+}
+.interaction-dock .interaction-actions {
+  gap: 6px;
+}
+.interaction-dock .interaction-actions button {
+  flex: 1 1 140px;
+  min-width: 0;
+  min-height: 44px;
+  padding: 7px 9px;
+  font-size: 11px;
+  line-height: 1.35;
+}
+.interaction-dock .action-reason {
+  margin: 6px 0 0;
 }
 .world-canvas {
   position: absolute;
@@ -189,7 +227,6 @@
   letter-spacing: 1.5px;
   color: #6c8173;
 }
-.interaction-card,
 .training-card {
   position: absolute;
   bottom: 57px;
@@ -203,7 +240,6 @@
   padding: 17px 21px;
   backdrop-filter: blur(12px);
 }
-.interaction-card h2,
 .training-card h2 {
   font:
     600 21px Georgia,
@@ -356,6 +392,8 @@
 }
 .care-row {
   display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
   align-items: center;
   justify-content: space-between;
   margin: 12px 0 20px;
@@ -915,7 +953,6 @@ dd {
     gap: 2px;
     margin-top: 2px;
   }
-  .interaction-card,
   .training-card {
     bottom: 66px;
     width: calc(100% - 170px);
@@ -924,7 +961,6 @@ dd {
     transform: none;
     padding: 13px;
   }
-  .interaction-card h2,
   .training-card h2 {
     font-size: 18px;
   }
@@ -1119,9 +1155,6 @@ dd {
   }
   .touch-controls {
     display: block;
-  }
-  .interaction-card {
-    width: calc(100% - 165px);
   }
   .edition {
     display: none;

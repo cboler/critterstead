@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
-import type { GameState } from '../src/app/game/model';
+import { activeCritter, type GameState } from '../src/app/game/model';
+import { createInitialState } from '../src/app/game/host';
 
 test('opens a responsive, playable homestead without runtime errors', async ({
   page,
@@ -25,6 +26,15 @@ test('opens a responsive, playable homestead without runtime errors', async ({
   await page.getByRole('button', { name: 'Pause game', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Resume game', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Resume game', exact: true }).click();
+  const dock = await page.locator('.interaction-dock').boundingBox();
+  const world = await page.locator('.world-view').boundingBox();
+  expect(dock).not.toBeNull();
+  expect(world).not.toBeNull();
+  expect(dock!.y).toBeGreaterThanOrEqual(world!.y + world!.height - 1);
+  expect(dock!.height).toBeLessThan(220);
+  for (const button of await page.locator('.interaction-actions button').all()) {
+    expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  }
   await page.screenshot({ path: testInfo.outputPath('homestead.png'), fullPage: true });
   expect(errors).toEqual([]);
 });
@@ -98,6 +108,29 @@ async function developmentState(page: Page): Promise<GameState> {
     if (!game) throw new Error('Angular development diagnostics are unavailable.');
     return game.state();
   });
+}
+
+// A rendered action result can precede the asynchronous IndexedDB commit.
+async function savedState(page: Page): Promise<GameState> {
+  return page.evaluate(
+    () =>
+      new Promise<GameState>((resolve, reject) => {
+        const open = indexedDB.open('critterstead', 1);
+        open.onerror = () => reject(open.error);
+        open.onsuccess = () => {
+          const database = open.result;
+          const request = database.transaction('saves').objectStore('saves').get('homestead');
+          request.onsuccess = () => {
+            database.close();
+            resolve(request.result as GameState);
+          };
+          request.onerror = () => {
+            database.close();
+            reject(request.error);
+          };
+        };
+      }),
+  );
 }
 
 async function position(page: Page): Promise<{ x: number; z: number }> {
@@ -227,6 +260,28 @@ test('plays a complete day and keeps the improved homestead after reload', async
   await walk(page, 4, -2);
   await page.getByRole('button', { name: /Make it cozy/ }).click();
   await expect(page.locator('.intentions li').nth(3)).toHaveClass(/done/);
+  await walk(page, 2, 6);
+  await expect(page.getByRole('button', { name: /Run the trial/ })).toBeDisabled();
+  await expect(page.locator('.action-reason')).toContainText('rest');
+  await walk(page, 4, -2);
+  const beforeRest = await developmentState(page);
+  await page.screenshot({ path: testInfo.outputPath('nook-choice.png'), fullPage: true });
+  await page.getByRole('button', { name: /Rest together.*120 min/ }).click();
+  await expect(page.locator('.recent-note')).toContainText('Mallow regains 35');
+  await expect
+    .poll(async () => activeCritter(await savedState(page)).stamina)
+    .toBe(activeCritter(beforeRest).stamina + 35);
+  await page.reload();
+  await expect(page.locator('.world-canvas canvas')).toBeVisible();
+  const recovered = await developmentState(page);
+  expect(recovered.day).toBe(beforeRest.day);
+  expect(activeCritter(recovered).stamina).toBe(activeCritter(beforeRest).stamina + 35);
+  expect(recovered.totalMinutes - beforeRest.totalMinutes).toBeGreaterThanOrEqual(120);
+  expect(recovered.totalMinutes - beforeRest.totalMinutes).toBeLessThan(135);
+  expect(recovered.inventory).toEqual(beforeRest.inventory);
+  expect(recovered.player.coins).toBe(beforeRest.player.coins);
+  await page.screenshot({ path: testInfo.outputPath('recovered.png'), fullPage: true });
+
   await walk(page, -5, 2);
   await page.getByRole('button', { name: /^Harvest · 3 feed/ }).click();
   await walk(page, 2, 6);
@@ -234,8 +289,13 @@ test('plays a complete day and keeps the improved homestead after reload', async
   await activity(page, /Cheer!/);
   await expect(page.getByRole('button', { name: /Run the trial/ })).toBeDisabled();
   await walk(page, -4, -2);
+  await testInfo.attach('work-routine-before-sleep', {
+    body: JSON.stringify(await developmentState(page), null, 2),
+    contentType: 'application/json',
+  });
   await page.getByRole('button', { name: /Turn in for the night/ }).click();
   await expect(page.locator('.season')).toContainText('Day 2');
+  await expect.poll(async () => (await savedState(page)).day).toBe(2);
   await page.reload();
   await expect(page.locator('.season')).toContainText('Day 2');
   await expect(page.locator('.learning')).toContainText('Independent forager');
@@ -244,5 +304,168 @@ test('plays a complete day and keeps the improved homestead after reload', async
   await expect(page.getByText('Clover Cup memories', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Close panel', exact: true }).click();
   await page.screenshot({ path: testInfo.outputPath('day-two.png'), fullPage: true });
+  await testInfo.attach('work-routine-tomorrow', {
+    body: JSON.stringify(await developmentState(page), null, 2),
+    contentType: 'application/json',
+  });
+  expect(errors).toEqual([]);
+});
+
+test('preserves critter energy for a competition-oriented day by doing the harvesting yourself', async ({
+  page,
+}, testInfo) => {
+  test.skip(!['desktop', 'phone-portrait'].includes(testInfo.project.name));
+  test.setTimeout(300_000);
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto('/');
+  await expect(page.locator('.world-canvas canvas')).toBeVisible();
+  await page.getByRole('button', { name: /Give a little scritch/ }).click();
+  await page.getByRole('button', { name: /Offer feed/ }).click();
+  await walk(page, -5, 2);
+  await page.getByRole('button', { name: /Plant feed seeds/ }).click();
+  await page.getByRole('button', { name: /Water the garden/ }).click();
+  await walk(page, 3, 2);
+  await expect(page.locator('.interaction-copy')).toContainText('a full tummy');
+  for (let practice = 0; practice < 2; practice++) {
+    await page.getByRole('button', { name: /Practice hoops.*30 Mallow.*40 min/ }).click();
+    await activity(page, /Hop, Mallow!/);
+  }
+  const prepared = await developmentState(page);
+  expect(activeCritter(prepared).stamina).toBe(40);
+  await walk(page, 8, 0);
+  await page.getByRole('button', { name: /Explore Clover Glade/ }).click();
+  for (const [x, z] of [
+    [-3, -2],
+    [-1, 2.5],
+    [1, -4],
+    [2, 0],
+    [5, -1.5],
+    [4, 4.5],
+  ]) {
+    await walk(page, x, z);
+    await page.getByRole('button', { name: /^Gather ·/ }).click();
+  }
+  expect(activeCritter(await developmentState(page)).stamina).toBe(40);
+  await walk(page, -8, 0);
+  await page.getByRole('button', { name: /Return to Bramblewick/ }).click();
+  await walk(page, -6, 5);
+  await page.getByRole('button', { name: /^Sell berries/ }).click();
+  await walk(page, 4, -2);
+  await page.getByRole('button', { name: /Make it cozy/ }).click();
+  await walk(page, -5, 2);
+  await page.getByRole('button', { name: /^Harvest · 3 feed/ }).click();
+  await walk(page, 2, 6);
+  await page.getByRole('button', { name: /Run the trial.*35 Mallow/ }).click();
+  await activity(page, /Cheer!/);
+  await expect(page.locator('.recent-note')).toContainText('5 energy left');
+  await walk(page, 3, 2);
+  await expect(page.getByRole('button', { name: /Practice hoops/ })).toBeDisabled();
+  await expect(page.locator('.action-reason')).toContainText('rest');
+  await page.screenshot({ path: testInfo.outputPath('competition-choice.png'), fullPage: true });
+  await walk(page, -4, -2);
+  await testInfo.attach('competition-routine-before-sleep', {
+    body: JSON.stringify(await developmentState(page), null, 2),
+    contentType: 'application/json',
+  });
+  await page.getByRole('button', { name: /Turn in for the night/ }).click();
+  await expect.poll(async () => (await savedState(page)).day).toBe(2);
+  await page.reload();
+  await expect(page.locator('.season')).toContainText('Day 2');
+  const tomorrow = await developmentState(page);
+  expect(activeCritter(tomorrow).stats).toEqual(activeCritter(prepared).stats);
+  expect(activeCritter(tomorrow).stamina).toBe(100);
+  expect(activeCritter(tomorrow).competitions).toHaveLength(1);
+  expect(activeCritter(tomorrow).learnedBehaviors['sunberry-foraging']).toBe(6);
+  expect(tomorrow.inventory.find((item) => item.itemId === 'feed')?.quantity).toBe(6);
+  await testInfo.attach('competition-routine-tomorrow', {
+    body: JSON.stringify(tomorrow, null, 2),
+    contentType: 'application/json',
+  });
+  await page.screenshot({ path: testInfo.outputPath('competition-day-two.png'), fullPage: true });
+  expect(errors).toEqual([]);
+});
+
+test('walks home exhausted, recovers without supplies, and feeds through ordinary gathering', async ({
+  page,
+}, testInfo) => {
+  test.skip(!['desktop', 'phone-portrait'].includes(testInfo.project.name));
+  test.setTimeout(180_000);
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  // A saved bad day is the starting fixture; subsequent progress uses only normal controls.
+  const exhausted = createInitialState();
+  exhausted.areaId = 'glade';
+  exhausted.areaInstanceId = 'local-glade';
+  exhausted.player.position = { x: -3, z: -2 };
+  exhausted.player.stamina = 0;
+  exhausted.player.coins = 0;
+  exhausted.inventory = [];
+  activeCritter(exhausted).position = { x: -3, z: -2 };
+  activeCritter(exhausted).stamina = 0;
+  activeCritter(exhausted).hunger = 100;
+  activeCritter(exhausted).learnedBehaviors['sunberry-foraging'] = 7;
+  await page.goto('/icons/critterstead.svg');
+  await page.evaluate(async (state) => {
+    await new Promise<void>((resolve, reject) => {
+      const request = indexedDB.open('critterstead', 1);
+      request.onupgradeneeded = () => request.result.createObjectStore('saves');
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const db = request.result;
+        const tx = db.transaction('saves', 'readwrite');
+        tx.objectStore('saves').put(state, 'homestead');
+        tx.oncomplete = () => {
+          db.close();
+          resolve();
+        };
+        tx.onabort = () => {
+          db.close();
+          reject(tx.error);
+        };
+      };
+    });
+  }, exhausted);
+  await page.goto('/');
+  await expect(page.getByRole('button', { name: /^Gather ·/ })).toBeDisabled();
+  await expect(page.locator('.learning-status')).toContainText('Feed Mallow');
+  await walk(page, -8, 0);
+  await page.getByRole('button', { name: /Return to Bramblewick/ }).click();
+  await walk(page, 4, -2);
+  await page.getByRole('button', { name: /Rest together/ }).click();
+  await expect.poll(async () => activeCritter(await savedState(page)).stamina).toBe(35);
+  await page.reload();
+  await expect(page.locator('.companion-card .meter-label')).toContainText('35');
+  await walk(page, 8, 0);
+  await page.getByRole('button', { name: /Explore Clover Glade/ }).click();
+  await walk(page, -3, -2);
+  await page.getByRole('button', { name: /^Gather ·/ }).click();
+  // Step away from the bush so the companion care interaction is available.
+  await walk(page, -5, -5);
+  await page.getByRole('button', { name: /Berry treat/ }).click();
+  await page.getByRole('button', { name: /Berry treat/ }).click();
+  await expect(page.locator('.recent-note')).toContainText('+3 energy; hunger now');
+  await walk(page, -1, 2.5);
+  await expect(page.locator('.recent-note')).toContainText('On their own, Mallow');
+  await expect(page.locator('.learning-status')).toContainText('keeping 20 energy in reserve');
+  await page.screenshot({ path: testInfo.outputPath('independent-reserve.png'), fullPage: true });
+  const stopped = await developmentState(page);
+  // The nearest opportunity can vary with walking frames; exactly one autonomous harvest is affordable.
+  expect(stopped.resources.filter((node) => !node.available)).toHaveLength(2);
+  expect(activeCritter(stopped).stamina).toBe(29);
+  await expect.poll(async () => activeCritter(await savedState(page)).stamina).toBe(29);
+  await page.reload();
+  await expect(page.locator('.learning-status')).toContainText('keeping 20 energy in reserve');
+  expect(activeCritter(await developmentState(page)).stamina).toBe(29);
+  expect((await developmentState(page)).inventory).toEqual(stopped.inventory);
+  await walk(page, -5, -5);
+  await page.getByRole('button', { name: /Berry treat/ }).click();
+  await walk(page, -8, 0);
+  await page.getByRole('button', { name: /Return to Bramblewick/ }).click();
+  await walk(page, 3, 2);
+  await page.getByRole('button', { name: /Practice hoops/ }).click();
+  await activity(page, /Hop, Mallow!/);
+  expect(activeCritter(await developmentState(page)).stats.speed).toBeGreaterThan(4);
+  expect((await developmentState(page)).player.coins).toBe(0);
   expect(errors).toEqual([]);
 });

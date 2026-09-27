@@ -28,6 +28,10 @@ ownership, save v2) and M2 (authored behaviors, generalized learning, save v3) w
 intentionally foundational, providing underlying architecture and save migration with
 minimal visible gameplay change.
 
+M3's nook recovery, effort tuning, and compact dock are implemented and locally
+verified on `codex/m3-daily-recovery`. Product acceptance awaits a fresh human comparison of the
+work-oriented and competition-oriented routines; M4 has not begun.
+
 Following these foundational milestones, the campaign enforces the **player-visible
 milestone rule**: each subsequent implementation milestone must produce a clear,
 observable consequence during ordinary play. Architectural preparation that does not

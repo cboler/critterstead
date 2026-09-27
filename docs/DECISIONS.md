@@ -112,6 +112,12 @@ recovery via **Rest together** at the companion's nook. Work and training costs 
 retuned so energy is a real constraint. In addition, the intrusive nearby-interaction
 card is replaced with a compact bottom interaction dock to preserve view of the world.
 
+M3 implementation uses the existing stamina/hunger model and save v3. Rest and
+effort parameters remain provisional; independent work keeps a small energy reserve
+that explicit cues may spend. Current rules are in
+[Architecture](ARCHITECTURE.md#care-effort-recovery-and-the-interaction-dock), with
+routine comparisons and the pending human product assessment in the active plan.
+
 ### D22 — Testing process: fresh-start vs. migration instructions (accepted 2026-09-26)
 
 Because IndexedDB persists homestead state across browser hard reloads (Shift+F5),

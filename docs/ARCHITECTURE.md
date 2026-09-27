@@ -1,6 +1,6 @@
 # Architecture and implemented baseline
 
-Updated for campaign 001 M2 on 2026-09-26, against the implementation and its
+Updated for campaign 001 M3 on 2026-09-27, against the implementation and its
 verification. This is the implementation authority, not a promise that planned
 features exist. Evidence and publication status live in the
 [active plan](exec-plans/active/001-deepen-one-critter-daily-loop.md).
@@ -38,7 +38,7 @@ frameworks, services, or abstractions.
 | Individuality    | Name/ID, age counter, sex, personality string, four stats, needs, bond, skills, visual traits, history, results                                                                                        | No renaming UI or developed personality/life-stage simulation. Health is stored; no complete health/mortality system.                                                                                                                                                                                                                                                      |
 | Genetics         | Parent ID list and string-valued genetics/traits in saves                                                                                                                                              | No breeding, inheritance, cross-family generator, or fertility model. `lifespanDays: 1200` is authored placeholder data, not implemented death or canon balance.                                                                                                                                                                                                           |
 | Learning         | Authored `BEHAVIORS` stages and per-individual `learnedBehaviors`; observation, cued harvest, opportunity recognition, autonomy, and visible waiting reasons                                           | Only sunberry foraging is authored. Explicit host work rules; no planning engine, extra job, or critter-to-critter teaching.                                                                                                                                                                                                                                               |
-| Care/work        | Petting, feed/treats, hunger, player/critter stamina, timing practice, berry gathering/selling                                                                                                         | Repeated-day depth is unproven. M3 introduces daytime "Rest together" recovery at the nook, retuned energy constraints, and a compact bottom interaction dock replacing the obscuring nearby card.                                                                                                                                                                         |
+| Care/work        | Petting, feed/treats, hunger, player/critter stamina, timing practice, berry gathering/selling                                                                                                         | Repeated-day depth is unproven. Nook recovery, tuned effort, and the compact dock are implemented in M3; human daily-choice assessment remains pending.                                                                                                                                                                                                                    |
 | Farming/upgrades | One feed crop: plant, water, grow, harvest; one shed upgrade with visual change and happiness effect                                                                                                   | No barn capacity, broader crops, construction system, or house upgrade tree.                                                                                                                                                                                                                                                                                               |
 | Competition      | Once-per-day Clover Cup time trial using three cues, recorded result and coin reward                                                                                                                   | No Colosseum, opponents, combat, schedule, festivals, or tournament system.                                                                                                                                                                                                                                                                                                |
 | World            | Bramblewick Yard and Clover Glade, six renewable berry bushes, cottage/shed collision                                                                                                                  | Direct walking, no obstacle pathfinding; one critter render model. No town, story scenes, seasons, or narrative timeskips.                                                                                                                                                                                                                                                 |
@@ -49,6 +49,38 @@ advance game minutes, so a player's day can be shorter. Menus, pause, and hidden
 tabs suspend simulation updates. Sleeping advances to the following morning,
 restores stamina, and retains progression. Age increments when game days pass.
 Seasons, narrative years, natural death, and off-screen catch-up are not implemented.
+
+### Care, effort, recovery, and the interaction dock
+
+**Rest together** at the companion's nook spends 120 game minutes and restores up to
+30 player / 35 selected-companion energy, capped at 100. It requires no energy,
+inventory, coins, or nook upgrade. Rest increases hunger by 3 through the existing
+clock, grows crops and regrows berries; it does not reset daily petting/trial limits,
+improve happiness/bond/skills, consume randomness, or replace overnight sleep.
+Both-full, remote, busy, and midnight-crossing rest requests fail without mutation.
+After 22:00 the player can still sleep at the cottage. Walking/travel cost no energy,
+so an exhausted household can get home, rest, and gather food without supplies.
+
+M3 effort prices are 30 companion / 5 player energy for practice (40 game minutes),
+35 / 5 for the trial (45 minutes), and 12 / 2 for a cued harvest (20 minutes).
+Self-gathering remains 6 player energy / 15 minutes. The modest existing player
+costs already separate self-work from cues; companion prices are the tuning change.
+Activities also advance the ordinary clock while taking cues. Energy is charged
+only when starting; saved activities already paid their old costs and are not charged
+again or rerolled. No save-schema change is needed.
+
+Feed retains up to +10 energy / 35 hunger relief; berries +3 / 15, plus the existing
+five-minute clock advance and care benefits. Hunger above 80 blocks companion work.
+Happiness, bond, food, timing, and endurance retain their existing influence on
+training. No new fatigue meter or condition multiplier exists.
+
+The ordinary interaction dock is a flow sibling below the world view, so the canvas
+and dock cannot overlap. Target, status, costs, actions, and disabled reasons stay
+visible; keyboard, pointer/touch, and controller use existing action dispatch.
+The canvas resizes to its available space. Dedicated training/race UI still overlays
+the world. Hunger is visible in the companion card and journal results show remaining
+energy or actual capped recovery. Parameters are provisional; product acceptance and
+human playtest status belong to the active plan.
 
 ## Individuals and the selected companion
 
@@ -94,18 +126,20 @@ true, and practice never reduces an already-saved value above 20.
 
 Work execution stays berry-specific in the host. Observation requires distance
 less than 5; cues require player interaction reach, companion distance at most 5,
-2 player energy, 8 companion energy, hunger at most 80, and a ripe same-area bush.
-Autonomy requires learned independence, bond at least 20, the same companion
-energy/hunger conditions, and no current training/race. It recognizes ripe
+2 player energy, 12 companion energy, hunger at most 80, and a ripe same-area bush.
+Autonomy requires learned independence, bond at least 20, hunger at most 80,
+32 energy (12 to harvest and 20 held in reserve), and no current training/race. Explicit
+cues may spend the reserve. It recognizes ripe
 same-area bushes less than 4.3 units from the player, approaches the nearest to
 the companion, and harvests within 1 unit. Resource consumption, rewards, timing,
-and random draws retain the M1 rules.
+and random draws retain the M1 rules except for M3's effort price and autonomous reserve.
 
 The learning card, accessible progress meter, interaction explanations, and journal
 derive learning from the authored stages. The card shares the host's eligibility
 and opportunity checks to explain a cue, approach, food/rest/bond/activity limit,
 or absence of a nearby ripe bush. It does not emit journal messages every frame.
-Teaching actors, additional jobs, and recovery/balance changes are later milestones.
+The reserve explanation offers self-gathering, a deliberate cue, or nook recovery.
+Teaching actors and additional jobs remain later milestones.
 
 ## Save contract
 
@@ -152,13 +186,10 @@ defaults, preserve progress and seeded continuity, validate the result, and fail
 without overwriting the old record. Never rely on resetting the player's homestead
 to make a new model work.
 
-## Evolution needed, not yet implemented
+## Evolution and remaining work
 
-1. M1 and M2 established the foundational identity and learning abstractions.
-   M3 makes care, effort, and recovery produce a daily choice: daytime "Rest
-   together" at the companion's nook, retuned energy constraints, legible cost
-   and consequence communication, and a compact bottom interaction dock
-   replacing the obscuring nearby card.
+1. M3's implemented recovery/cost/dock experiment is described above. Its human
+   product assessment remains pending; automated checks do not settle balance.
 2. Later milestones and stages add a second useful learned job (M4), next-day
    purpose (M5), multi-critter party membership, non-player-owned active
    companions, housing capacity progression, calendar/life stages, and genetic

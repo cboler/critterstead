@@ -50,72 +50,126 @@
   </div>
   <main class="play-layout" id="main-content">
     <section class="world-frame" aria-label="Playable homestead">
-      <div
-        #world
-        class="world-canvas"
-        aria-label="Three-dimensional game world. Move with WASD or click a spot to walk there."
-      ></div>
-      <div class="location-tag">
-        <span class="location-dot"></span>
-        <div>
-          <h1>{{ areas[state().areaId].name }}</h1>
-          <p>{{ areas[state().areaId].subtitle }}</p>
+      <div class="world-view">
+        <div
+          #world
+          class="world-canvas"
+          aria-label="Three-dimensional game world. Move with WASD or click a spot to walk there."
+        ></div>
+        <div class="location-tag">
+          <span class="location-dot"></span>
+          <div>
+            <h1>{{ areas[state().areaId].name }}</h1>
+            <p>{{ areas[state().areaId].subtitle }}</p>
+          </div>
         </div>
-      </div>
-      <span class="edition">FIRST SEED · EARLY PROTOTYPE</span>
-      @if (!ready() && !error()) {
-        <div class="world-message">
-          <div class="loading-seed">✦</div>
-          <h2>A little world is waking up…</h2>
-        </div>
-      }
-      @if (error()) {
-        <div class="error-message" role="alert">
-          {{ error() }}
-          @if (!sessionBusy()) {
-            <button (click)="openPanel('developer')">Open save tools</button>
+        <span class="edition">FIRST SEED · EARLY PROTOTYPE</span>
+        @if (!ready() && !error()) {
+          <div class="world-message">
+            <div class="loading-seed">✦</div>
+            <h2>A little world is waking up…</h2>
+          </div>
+        }
+        @if (error()) {
+          <div class="error-message" role="alert">
+            {{ error() }}
+            @if (!sessionBusy()) {
+              <button (click)="openPanel('developer')">Open save tools</button>
+            }
+          </div>
+        }
+        @if (paused()) {
+          <div class="world-message pause-message">
+            <span class="eyebrow">TAKE YOUR TIME</span>
+            <h2>A moment of stillness.</h2>
+            <p>Your little world will wait.</p>
+            <button class="primary" (click)="togglePause()">Back to the homestead</button>
+          </div>
+        }
+        @if (state().training; as activity) {
+          <div class="training-card" id="game-controls">
+            <span class="eyebrow">{{
+              activity.kind === 'race' ? 'THE CLOVER CUP' : 'A LITTLE PRACTICE'
+            }}</span>
+            <h2>
+              {{
+                activity.kind === 'race'
+                  ? 'Cheer ' + companion().name + ' across the line!'
+                  : 'Find your rhythm together'
+              }}
+            </h2>
+            <p>
+              Press <kbd>{{ controllerConnected() ? 'A' : 'Space' }}</kbd> when the marker reaches
+              the green patch.
+            </p>
+            <div class="timing-track">
+              <span class="sweet-spot"></span><i [style.left.%]="activity.phase * 100"></i>
+            </div>
+            <div class="training-footer">
+              <span>{{ activity.hits.length }} / 3 beats</span
+              ><button class="primary" (click)="act()">
+                {{ activity.kind === 'race' ? 'Cheer!' : 'Hop, ' + companion().name + '!' }}
+                <kbd>{{ controllerConnected() ? 'A' : 'Space' }}</kbd>
+              </button>
+            </div>
+          </div>
+        } @else if (!nearby()) {
+          <div class="walk-prompt" id="game-controls">
+            <span class="footsteps" aria-hidden="true">⌁</span> A good day starts with a little
+            exploring.<small>Walk close to a place or {{ companion().name }} to interact.</small>
+          </div>
+        }
+        <div class="movement-hint">
+          @if (controllerConnected()) {
+            <span>Controller connected · left stick move · <kbd>A</kbd> act</span>
+            <span>D-pad choose · <kbd>X</kbd> help · <kbd>Y</kbd> journal · Menu pause</span>
+          } @else {
+            <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move</span
+            ><span>Click the ground to walk</span>
           }
         </div>
-      }
-      @if (paused()) {
-        <div class="world-message pause-message">
-          <span class="eyebrow">TAKE YOUR TIME</span>
-          <h2>A moment of stillness.</h2>
-          <p>Your little world will wait.</p>
-          <button class="primary" (click)="togglePause()">Back to the homestead</button>
-        </div>
-      }
-      @if (state().training; as activity) {
-        <div class="training-card" id="game-controls">
-          <span class="eyebrow">{{
-            activity.kind === 'race' ? 'THE CLOVER CUP' : 'A LITTLE PRACTICE'
-          }}</span>
-          <h2>
-            {{
-              activity.kind === 'race'
-                ? 'Cheer ' + companion().name + ' across the line!'
-                : 'Find your rhythm together'
-            }}
-          </h2>
-          <p>
-            Press <kbd>{{ controllerConnected() ? 'A' : 'Space' }}</kbd> when the marker reaches the
-            green patch.
-          </p>
-          <div class="timing-track">
-            <span class="sweet-spot"></span><i [style.left.%]="activity.phase * 100"></i>
-          </div>
-          <div class="training-footer">
-            <span>{{ activity.hits.length }} / 3 beats</span
-            ><button class="primary" (click)="act()">
-              {{ activity.kind === 'race' ? 'Cheer!' : 'Hop, ' + companion().name + '!' }}
-              <kbd>{{ controllerConnected() ? 'A' : 'Space' }}</kbd>
+        <div class="touch-controls" aria-label="Movement controls">
+          <button
+            aria-label="Move up"
+            (pointerdown)="direction('w', true)"
+            (pointerup)="direction('w', false)"
+            (pointerleave)="direction('w', false)"
+            (pointercancel)="direction('w', false)"
+          >
+            ↑
+          </button>
+          <div>
+            <button
+              aria-label="Move left"
+              (pointerdown)="direction('a', true)"
+              (pointerup)="direction('a', false)"
+              (pointerleave)="direction('a', false)"
+              (pointercancel)="direction('a', false)"
+            >
+              ←</button
+            ><button
+              aria-label="Move down"
+              (pointerdown)="direction('s', true)"
+              (pointerup)="direction('s', false)"
+              (pointerleave)="direction('s', false)"
+              (pointercancel)="direction('s', false)"
+            >
+              ↓</button
+            ><button
+              aria-label="Move right"
+              (pointerdown)="direction('d', true)"
+              (pointerup)="direction('d', false)"
+              (pointerleave)="direction('d', false)"
+              (pointercancel)="direction('d', false)"
+            >
+              →
             </button>
           </div>
         </div>
-      } @else if (nearby(); as target) {
-        <div class="interaction-card" id="game-controls">
+      </div>
+      @if (!state().training && nearby(); as target) {
+        <div class="interaction-dock" id="game-controls">
           <div class="interaction-copy">
-            <span class="eyebrow">CLOSE BY</span>
             <h2>{{ target.title }}</h2>
             <p>{{ target.description }}</p>
           </div>
@@ -139,59 +193,7 @@
             <p class="action-reason">{{ blockedReason() }}</p>
           }
         </div>
-      } @else {
-        <div class="walk-prompt" id="game-controls">
-          <span class="footsteps" aria-hidden="true">⌁</span> A good day starts with a little
-          exploring.<small>Walk close to a place or {{ companion().name }} to interact.</small>
-        </div>
       }
-      <div class="movement-hint">
-        @if (controllerConnected()) {
-          <span>Controller connected · left stick move · <kbd>A</kbd> act</span>
-          <span>D-pad choose · <kbd>X</kbd> help · <kbd>Y</kbd> journal · Menu pause</span>
-        } @else {
-          <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move</span
-          ><span>Click the ground to walk</span>
-        }
-      </div>
-      <div class="touch-controls" aria-label="Movement controls">
-        <button
-          aria-label="Move up"
-          (pointerdown)="direction('w', true)"
-          (pointerup)="direction('w', false)"
-          (pointerleave)="direction('w', false)"
-          (pointercancel)="direction('w', false)"
-        >
-          ↑
-        </button>
-        <div>
-          <button
-            aria-label="Move left"
-            (pointerdown)="direction('a', true)"
-            (pointerup)="direction('a', false)"
-            (pointerleave)="direction('a', false)"
-            (pointercancel)="direction('a', false)"
-          >
-            ←</button
-          ><button
-            aria-label="Move down"
-            (pointerdown)="direction('s', true)"
-            (pointerup)="direction('s', false)"
-            (pointerleave)="direction('s', false)"
-            (pointercancel)="direction('s', false)"
-          >
-            ↓</button
-          ><button
-            aria-label="Move right"
-            (pointerdown)="direction('d', true)"
-            (pointerup)="direction('d', false)"
-            (pointerleave)="direction('d', false)"
-            (pointercancel)="direction('d', false)"
-          >
-            →
-          </button>
-        </div>
-      </div>
     </section>
     <aside class="side-rail" aria-label="Your companion and day">
       <section class="companion-card">
@@ -219,6 +221,8 @@
         <div class="care-row">
           <span
             ><i class="heart">♥</i> Bond <strong>{{ round(companion().bond) }}</strong></span
+          ><span
+            >Hunger <strong>{{ round(companion().hunger) }}</strong></span
           ><span>{{
             companion().happiness > 70
               ? '✿ Feeling lovely'
@@ -364,7 +368,10 @@
             <h3>04 · Come back with a story</h3>
             <p>
               Sell berries at the honesty stall, mend the shed, or try the Clover Cup. Sleep at the
-              cottage to begin another day. Your game saves automatically in this browser.
+              cottage to begin another day, or rest together at the nook: two game hours restores up
+              to 30 of your energy and 35 for {{ companion().name }}. Food eases hunger; rest does
+              not. Independent foraging keeps 20 energy in reserve, while your cues can spend it.
+              Your game saves automatically in this browser.
             </p>
           </article>
         </div>

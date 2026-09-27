@@ -10,6 +10,14 @@ export const GAME_CONFIG = {
   berryRespawnMinutes: 180,
   cropGrowthMinutes: 180,
   shedCost: 12,
+  // M3 balance experiment: a same-day break and a reserve for self-directed work.
+  restMinutes: 120,
+  restPlayerEnergy: 30,
+  restCritterEnergy: 35,
+  autonomousEnergyReserve: 20,
+  berryEnergy: 12,
+  practiceEnergy: 30,
+  trialEnergy: 35,
 } as const;
 
 // One authored learning arc. Work/reward execution remains an explicit host rule.
