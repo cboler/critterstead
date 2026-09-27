@@ -167,7 +167,7 @@ whether spending time recovering is worthwhile.
 #### Acceptance criteria
 
 - [ ] Add the daytime recovery action **Rest together** at the companion's nook, consuming substantial
-      game time (provisional ~~90–120 game minutes) and restoring both player energy (~~+30) and
+      game time (provisional ~90–120 game minutes) and restoring both player energy (~+30) and
       active-critter energy (~+35, capped at max), without reducing hunger, resetting daily limits,
       advancing the date, or replacing overnight sleep.
 - [ ] Retune work and training costs (provisional: practice ~30 critter energy, Clover Cup ~35 critter energy,

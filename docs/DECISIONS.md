@@ -97,7 +97,7 @@ front-loaded into the opening sequence, but left for natural discovery.
 
 ### D20 — Distinction between ownership, party, and active companion (accepted 2026-09-26)
 
-A critter's legal or personal owner (`ownerId`), party membership (inclusion in the
+A critter's established owner (`ownerId`), party membership (inclusion in the
 traveling party), and status as the active working companion (`activeCritterId`)
 are conceptually separate. Pip can remain owned by Grandpa while joining the party
 and acting as the active companion. The Stage-1 rule requiring the active companion

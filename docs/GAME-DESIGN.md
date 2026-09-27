@@ -100,8 +100,7 @@ world; a roster is bookkeeping, not a fiction that stores creatures as items.
 A critter's owner, party membership, and status as the currently active or
 working companion are distinct concepts:
 
-- **Owner**: the individual or NPC who holds legal or personal ownership (e.g.
-  Grandpa, the player, or another resident).
+- **Owner**: the established owner (e.g. Grandpa, the player, or another resident).
 - **Party membership**: inclusion in the traveling group accompanying the player.
 - **Active companion**: the specific critter currently working, being directed,
   or taking part in activities.
