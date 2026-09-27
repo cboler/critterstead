@@ -1,6 +1,6 @@
 # 001 — Deepen the One-Critter Daily Loop
 
-**Status:** M1 published; M2 complete and verified on 2026-09-26, ready for publication.
+**Status:** M1 and M2 complete and published on 2026-09-26. M2 implementation: `6b7cf49`.
 M3–M6 are not started.
 Source baseline: `3a346fc` (documentation bootstrap on gameplay `06aa91e`),
 identical in content to the published bootstrap `7e14cac`.
@@ -76,7 +76,7 @@ before making an incomplete broad refactor.
 
 ### M2 — Generalize learning while retaining the berry experience
 
-**Status:** complete (2026-09-26), based on published M1. Verification below; publication follows the stable commit.
+**Status:** complete and published (2026-09-26) as `6b7cf49`, based on published M1. Verification and publication record below.
 
 - [x] Replace berry-only knowledge assumptions with a small authored behavior
       definition and per-individual learned progress. Do not create a general AI
@@ -332,9 +332,21 @@ completed. M2 does not attempt recovery balancing or next-day goals.
 
 ### M2 commit and publication
 
-The stable implementation/evidence commit is ready for direct publication to
-`origin/main`. Record its SHA and verify the actual remote ref after pushing;
-Git publication and the Pages workflow are separate checks. M3 is not started.
+Stable implementation/evidence commit: `6b7cf49a887c4b4efd534aaae7e0c63d0b2fda28`
+— Generalize individual learning while preserving sunberry foraging.
+Pushed directly to `origin/main`; `git ls-remote origin refs/heads/main` returned
+that exact SHA on 2026-09-26. The secret scan succeeded. The
+[Pages workflow](https://github.com/cboler/critterstead/actions/runs/36286480339)
+completed successfully: Node 24 formatting, lint, unit tests, production build,
+standard Chromium browser tests, production offline persistence, artifact upload,
+and Pages deployment all passed. CI logs confirm 71 unit tests and 48 browser tests
+passed, with 8 intentional skips and no failures/flaky results; the browser suite
+took 14.3 minutes. Build/validation took 15m27s; deployment took 12s.
+For context, published M1's successful browser step alone took 16m05s on GitHub;
+the longer hosted run was not evidence of a failing M2 check.
+
+This final documentation-only handoff uses `[skip ci]`; the deployed application
+remains exactly the verified `6b7cf49` implementation. M3 is not started.
 
 ## Current handoff
 
@@ -345,8 +357,9 @@ Git publication and the Pages workflow are separate checks. M3 is not started.
 - **Known limits:** only sunberry foraging is authored; one rendered/simulated companion;
   other stored individuals dormant; narrow interaction-card occlusion; repeated-day
   motivation and physical controller unproven. No new mechanics or story systems.
-- **Publication action:** commit and push this stable M2 slice, verify `origin/main`,
-  and record publication here. Stop at this milestone.
+- **Publication:** M2 is on `origin/main` at `6b7cf49`, verified against the actual
+  remote ref, and its Pages workflow succeeded. This documentation-only handoff
+  follows that implementation commit. Stop at this milestone.
 - **Next gameplay action, only on a new continuation request:** start **M3 — Make
   care, effort, and recovery produce a daily choice**, using the M1/M2 observations
   to compare routines before changing recovery or costs. M3–M6 remain unstarted.
