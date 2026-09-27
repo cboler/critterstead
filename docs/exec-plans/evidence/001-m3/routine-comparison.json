@@ -1,0 +1,343 @@
+{
+  "date": "2026-09-27",
+  "base": "b8d8203",
+  "method": "Fresh identical seeded morning; ordinary browser controls, state observed read-only. Timing varies with cues and walking; this is agent inspection, not human product acceptance.",
+  "suite": {
+    "startTime": "2026-09-27T22:03:43.164Z",
+    "duration": 536758.0430000001,
+    "expected": 52,
+    "skipped": 12,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "summaries": [
+    {
+      "viewport": "phone-portrait",
+      "snapshot": "work-routine-before-sleep",
+      "day": 1,
+      "time": "15:50",
+      "playerEnergy": 86,
+      "critterEnergy": 34,
+      "hunger": 11.77,
+      "coins": 11,
+      "speed": 5.2,
+      "endurance": 5.42,
+      "bond": 32,
+      "happiness": 100,
+      "learning": {
+        "sunberry-foraging": 8
+      },
+      "skills": {
+        "harvesting": 3,
+        "racing": 3
+      },
+      "inventory": [
+        {
+          "itemId": "feed",
+          "quantity": 6,
+          "quality": 1
+        },
+        {
+          "itemId": "seed",
+          "quantity": 3,
+          "quality": 1
+        }
+      ],
+      "shedLevel": 1,
+      "trial": [
+        {
+          "day": 1,
+          "time": 20.3,
+          "medal": "silver"
+        }
+      ]
+    },
+    {
+      "viewport": "phone-portrait",
+      "snapshot": "work-routine-tomorrow",
+      "day": 2,
+      "time": "08:00",
+      "playerEnergy": 100,
+      "critterEnergy": 100,
+      "hunger": 36.02,
+      "coins": 11,
+      "speed": 5.2,
+      "endurance": 5.42,
+      "bond": 32,
+      "happiness": 100,
+      "learning": {
+        "sunberry-foraging": 8
+      },
+      "skills": {
+        "harvesting": 3,
+        "racing": 3
+      },
+      "inventory": [
+        {
+          "itemId": "feed",
+          "quantity": 6,
+          "quality": 1
+        },
+        {
+          "itemId": "seed",
+          "quantity": 3,
+          "quality": 1
+        }
+      ],
+      "shedLevel": 1,
+      "trial": [
+        {
+          "day": 1,
+          "time": 20.3,
+          "medal": "silver"
+        }
+      ]
+    },
+    {
+      "viewport": "phone-portrait",
+      "snapshot": "competition-routine-before-sleep",
+      "day": 1,
+      "time": "14:33",
+      "playerEnergy": 37,
+      "critterEnergy": 5,
+      "hunger": 9.83,
+      "coins": 11,
+      "speed": 6.29,
+      "endurance": 5.8,
+      "bond": 31,
+      "happiness": 100,
+      "learning": {
+        "sunberry-foraging": 6
+      },
+      "skills": {
+        "harvesting": 0,
+        "racing": 4
+      },
+      "inventory": [
+        {
+          "itemId": "feed",
+          "quantity": 6,
+          "quality": 1
+        },
+        {
+          "itemId": "seed",
+          "quantity": 3,
+          "quality": 1
+        }
+      ],
+      "shedLevel": 1,
+      "trial": [
+        {
+          "day": 1,
+          "time": 19.9,
+          "medal": "silver"
+        }
+      ]
+    },
+    {
+      "viewport": "phone-portrait",
+      "snapshot": "competition-routine-tomorrow",
+      "day": 2,
+      "time": "08:00",
+      "playerEnergy": 100,
+      "critterEnergy": 100,
+      "hunger": 36,
+      "coins": 11,
+      "speed": 6.29,
+      "endurance": 5.8,
+      "bond": 31,
+      "happiness": 100,
+      "learning": {
+        "sunberry-foraging": 6
+      },
+      "skills": {
+        "harvesting": 0,
+        "racing": 4
+      },
+      "inventory": [
+        {
+          "itemId": "feed",
+          "quantity": 6,
+          "quality": 1
+        },
+        {
+          "itemId": "seed",
+          "quantity": 3,
+          "quality": 1
+        }
+      ],
+      "shedLevel": 1,
+      "trial": [
+        {
+          "day": 1,
+          "time": 19.9,
+          "medal": "silver"
+        }
+      ]
+    },
+    {
+      "viewport": "desktop",
+      "snapshot": "work-routine-before-sleep",
+      "day": 1,
+      "time": "15:57",
+      "playerEnergy": 86,
+      "critterEnergy": 34,
+      "hunger": 11.93,
+      "coins": 11,
+      "speed": 4.99,
+      "endurance": 5.35,
+      "bond": 32,
+      "happiness": 100,
+      "learning": {
+        "sunberry-foraging": 8
+      },
+      "skills": {
+        "harvesting": 3,
+        "racing": 3
+      },
+      "inventory": [
+        {
+          "itemId": "feed",
+          "quantity": 6,
+          "quality": 1
+        },
+        {
+          "itemId": "seed",
+          "quantity": 3,
+          "quality": 1
+        }
+      ],
+      "shedLevel": 1,
+      "trial": [
+        {
+          "day": 1,
+          "time": 22.8,
+          "medal": "silver"
+        }
+      ]
+    },
+    {
+      "viewport": "desktop",
+      "snapshot": "work-routine-tomorrow",
+      "day": 2,
+      "time": "08:01",
+      "playerEnergy": 100,
+      "critterEnergy": 100,
+      "hunger": 36.03,
+      "coins": 11,
+      "speed": 4.99,
+      "endurance": 5.35,
+      "bond": 32,
+      "happiness": 100,
+      "learning": {
+        "sunberry-foraging": 8
+      },
+      "skills": {
+        "harvesting": 3,
+        "racing": 3
+      },
+      "inventory": [
+        {
+          "itemId": "feed",
+          "quantity": 6,
+          "quality": 1
+        },
+        {
+          "itemId": "seed",
+          "quantity": 3,
+          "quality": 1
+        }
+      ],
+      "shedLevel": 1,
+      "trial": [
+        {
+          "day": 1,
+          "time": 22.8,
+          "medal": "silver"
+        }
+      ]
+    },
+    {
+      "viewport": "desktop",
+      "snapshot": "competition-routine-before-sleep",
+      "day": 1,
+      "time": "14:40",
+      "playerEnergy": 37,
+      "critterEnergy": 5,
+      "hunger": 10.01,
+      "coins": 11,
+      "speed": 5.76,
+      "endurance": 5.62,
+      "bond": 31,
+      "happiness": 100,
+      "learning": {
+        "sunberry-foraging": 6
+      },
+      "skills": {
+        "harvesting": 0,
+        "racing": 4
+      },
+      "inventory": [
+        {
+          "itemId": "feed",
+          "quantity": 6,
+          "quality": 1
+        },
+        {
+          "itemId": "seed",
+          "quantity": 3,
+          "quality": 1
+        }
+      ],
+      "shedLevel": 1,
+      "trial": [
+        {
+          "day": 1,
+          "time": 22.4,
+          "medal": "silver"
+        }
+      ]
+    },
+    {
+      "viewport": "desktop",
+      "snapshot": "competition-routine-tomorrow",
+      "day": 2,
+      "time": "08:00",
+      "playerEnergy": 100,
+      "critterEnergy": 100,
+      "hunger": 36,
+      "coins": 11,
+      "speed": 5.76,
+      "endurance": 5.62,
+      "bond": 31,
+      "happiness": 100,
+      "learning": {
+        "sunberry-foraging": 6
+      },
+      "skills": {
+        "harvesting": 0,
+        "racing": 4
+      },
+      "inventory": [
+        {
+          "itemId": "feed",
+          "quantity": 6,
+          "quality": 1
+        },
+        {
+          "itemId": "seed",
+          "quantity": 3,
+          "quality": 1
+        }
+      ],
+      "shedLevel": 1,
+      "trial": [
+        {
+          "day": 1,
+          "time": 22.4,
+          "medal": "silver"
+        }
+      ]
+    }
+  ]
+}

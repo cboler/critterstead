@@ -1,7 +1,8 @@
 # 001 — Deepen the One-Critter Daily Loop
 
 **Status:** M1 and M2 complete and published on 2026-09-26 (M1: `122a6ea`, M2: `6b7cf49`).
-M3 defined and ready, not started; M4–M6 remain future work.
+M3 implementation and local verification complete on `codex/m3-daily-recovery`
+(2026-09-27); human product acceptance pending. M4–M6 remain future work.
 Source baseline: `3a346fc` (documentation bootstrap on gameplay `06aa91e`),
 identical in content to the published bootstrap `7e14cac`.
 
@@ -108,7 +109,17 @@ before making an incomplete broad refactor.
 
 ### M3 — Make care, effort, and recovery produce a daily choice
 
-**Status:** defined and ready; not started. Concrete mechanics and acceptance criteria specified below so the next session can execute without inventing its own design.
+**Status:** implemented and locally verified (2026-09-27), based on `origin/main`
+at `b8d8203`; human daily-choice acceptance pending.
+
+Implementation checkpoint: nook rest uses 120 minutes, +30 player/+35 companion;
+practice/trial/companion harvest cost 30/35/12 energy. Independent work retains a
+20-energy reserve that explicit cues can spend. The interaction dock is laid out
+below the canvas so it cannot cover the world. Existing save v3 and paid legacy
+activity continuation remain intact. Final tests and routine comparisons pass
+with these concrete parameters; see the M3 evidence below. Initial work used the stale local plan at
+`03516a1`; a remote refresh found and incorporated both newer documentation commits
+before delivery. Initial prototype checks are not evidence for this revised slice.
 **Player-visible expectation:** must make an ordinary day materially different from the currently published build.
 
 The core daily choice is whose energy to spend, what to preserve energy for, and
@@ -166,19 +177,19 @@ whether spending time recovering is worthwhile.
 
 #### Acceptance criteria
 
-- [ ] Add the daytime recovery action **Rest together** at the companion's nook, consuming substantial
-      game time (provisional ~90–120 game minutes) and restoring both player energy (~+30) and
+- [x] Add the daytime recovery action **Rest together** at the companion's nook, consuming substantial
+      game time (provisional ~~90–120 game minutes) and restoring both player energy (~~+30) and
       active-critter energy (~+35, capped at max), without reducing hunger, resetting daily limits,
       advancing the date, or replacing overnight sleep.
-- [ ] Retune work and training costs (provisional: practice ~30 critter energy, Clover Cup ~35 critter energy,
+- [x] Retune work and training costs (provisional: practice ~30 critter energy, Clover Cup ~35 critter energy,
       critter sunberry work ~12 critter energy, and modest player work adjustments) so energy is a tangible
       constraint and critter work visibly spends condition.
-- [ ] Replace the large nearby-action card with a compact bottom interaction dock or equivalent low-profile
+- [x] Replace the large nearby-action card with a compact bottom interaction dock or equivalent low-profile
       treatment that keeps targets, statuses, and actions immediately legible without substantially obscuring
       the player, companion, path, or explorable area on narrow and desktop viewports.
-- [ ] Display activity time and energy costs before commitment, and show consequences (including remaining
+- [x] Display activity time and energy costs before commitment, and show consequences (including remaining
       condition/energy) afterward, using the existing stamina/condition model.
-- [ ] A player can recover from ordinary exhaustion or poor scheduling through normal play without developer
+- [x] A player can recover from ordinary exhaustion or poor scheduling through normal play without developer
       reset, forced overnight sleep as the only solution, compulsory grind, injury, or death.
 - [ ] Demonstrate from comparable morning states at least one work-oriented routine and one competition-oriented
       routine with visibly different tradeoffs and resulting state. A human player encounters meaningful tradeoffs:
@@ -186,7 +197,7 @@ whether spending time recovering is worthwhile.
       for training or competition?", "Is it worth spending part of the day resting so we can do more?"
       Automated tests alone cannot declare success: if normal play still amounts to blindly performing every
       available action without meaningful scheduling or resource consideration, M3 product acceptance is not met.
-- [ ] Unit, persistence, and browser checks verify state rules, energy limits, clock progression, persistence,
+- [x] Unit, persistence, and browser checks verify state rules, energy limits, clock progression, persistence,
       and layout without regressions.
 
 ### M4 — Add one useful learned job
@@ -473,26 +484,147 @@ workflow corrections:
 - This finding motivates the M3 requirement to replace the card with a compact bottom
   interaction dock or equivalent low-profile treatment.
 
+## M3 implementation and evidence — 2026-09-27
+
+Based on `b8d8203`, on `codex/m3-daily-recovery`. The original local checkout was
+`03516a1`; fetching revealed the concrete M3 specification and human findings in
+`5df87f7`/`b8d8203`. Both commits were incorporated before delivery. The initial
+cottage/60-minute experiment was replaced; its verification is not the final M3
+evidence. The published gameplay baseline itself passed 71 unit tests and the
+unchanged full-day desktop walkthrough before implementation.
+
+### Implemented rules and decisions
+
+- **Rest together at the nook:** 120 minutes, up to +30 player / +35 companion
+  energy, capped at 100, without a supply or upgrade requirement. The ordinary
+  clock adds 3 hunger and progresses crops/resources. Rest does not reset petting,
+  trial limits, age, skills, bond, happiness, or random seed. It rejects remote,
+  busy, both-full, and midnight-crossing requests without mutation. Sleep remains
+  available at the cottage; walking/travel remain free even at zero energy.
+- **Effort:** practice costs 30 companion energy, trial 35, and companion harvest 12. Existing player prices (5 for practice/trial, 6 for self-gathering, 2 for a
+  cue, and 12 for a complete crop) already make self-work more expensive than cues;
+  they are retained. Day length, food, rewards, and learning gains are unchanged.
+- **Autonomy:** requires 32 energy so a 12-energy harvest leaves at least 20.
+  The reserve prevents repeated silent draining, but cannot fund a 35-energy trial.
+  A deliberate cue may spend it. The learning card explains cost, waiting conditions,
+  and alternatives; each harvest reports the energy spent and remaining.
+- **Presentation:** the compact interaction dock is laid out below the world canvas,
+  rather than covering it. Actions retain the same command/input path and 44px
+  minimum targets. Food, work, practice, trial, travel, and improvement previews
+  disclose time/energy; results show remaining energy or actual recovery. Hunger
+  is visible on the companion card. Dedicated activity UI remains larger.
+- **Saves:** no new schema/field or dependency. A saved paid practice/trial completes
+  without being charged the new price again. Legacy rewards, learning, and seeded
+  outcomes remain covered; golden cost assertions explicitly reflect the new
+  companion prices. Other stored individuals remain untouched.
+
+All numeric tuning is provisional. No second job, consumable recovery item, extra
+fatigue meter, training daily cap, or later milestone was introduced.
+
+### Local verification complete
+
+Final source verified on Windows on 2026-09-27:
+
+- `npm test -- --watch=false`: **80 passed**, including exact cost boundaries,
+  paid-activity save continuity, rest rejection/caps/clock/individual isolation,
+  exhausted recovery, and the autonomous reserve.
+- `npm run lint`, scoped Prettier formatting, `npm run format:check`, and
+  `git diff --check`: pass.
+- `npm run build -- --base-href /critterstead/`,
+  `node scripts/prepare-pages.mjs`, and `npm run check:pwa`: pass. Production
+  initial raw size is 907.89 kB; SPA/manifest/service-worker assets and Edge offline
+  care persistence pass at the portable subpath.
+- `npx playwright test --workers=1 --reporter=list,json`: **52 passed, 12
+  intentional skips**, zero failures/flaky results, 8.9 minutes. Phone portrait,
+  landscape, tablet, and desktop checks cover layout/input, save migration and
+  protection, and the existing flows. Both day routines and the exhausted
+  household recovery scenario pass on portrait phone and desktop; their duplicate
+  landscape/tablet runs are intentionally skipped. Mocked controller input passes;
+  physical hardware is untested.
+- Inspected actual phone and desktop screenshots. The ordinary dock sits below
+  the canvas and retains 44px action targets. Additional 1024×768, 1280×720, and
+  1366×650 checks show a 112px nook dock contained within the frame without
+  horizontal overflow. The short desktop side rail still scrolls.
+
+The new reload checks wait for the expected IndexedDB commit before reloading;
+rendering a result alone does not prove asynchronous persistence completed. An
+exhausted-fixture assertion was corrected to check exactly one autonomous harvest,
+not which bush was nearest during frame-dependent walking. Required formatting
+also normalizes upstream documentation without revising its narrative decisions.
+
+### Comparable routine evidence
+
+[Recorded routine states](../evidence/001-m3/routine-comparison.json) come from
+fresh identical seeded mornings and ordinary browser controls, with state observed
+read-only. Both routines finish their trial, sleep, and reload. Desktop observations:
+
+| Result before sleep                      | Work-oriented day | Competition-oriented day |
+| ---------------------------------------- | ----------------- | ------------------------ |
+| Practice / companion harvests            | 1 / 3             | 2 / 0                    |
+| Player harvests                          | 3                 | 6                        |
+| Nook rest                                | 120 minutes       | None                     |
+| Clock before sleep                       | 15:57             | 14:40                    |
+| Player / companion energy                | 86 / 34           | 37 / 5                   |
+| Foraging knowledge                       | 8, independent    | 6, cued                  |
+| Harvesting / racing skill                | 3 / 3             | 0 / 4                    |
+| Speed / endurance                        | 4.99 / 5.35       | 5.76 / 5.62              |
+| Bond / hunger                            | 32 / 11.93        | 31 / 10.01               |
+| Coins / stored feed / seeds / nook level | 11 / 6 / 3 / 1    | 11 / 6 / 3 / 1           |
+
+Timing and training gains vary with walking and cue execution. The phone run
+shows the same energy, learning, skill, and inventory tradeoffs; a single trial
+result is not evidence of a statistical advantage. Overnight restores both
+energies to 100 while retaining learning, skills, supplies, improvements, and
+results. Hunger persists and reaches about 36 by morning.
+
+The work route reaches the trial with only 34 companion energy and chooses a
+nook break before entering. The [phone nook choice](../evidence/001-m3/phone-nook-choice.png)
+and [desktop recovery](../evidence/001-m3/desktop-recovered.png) show that cost and
+result. The competition route preserves energy by doing the gathering personally,
+finishes the trial with 5 companion energy, and cannot immediately practice again;
+see [desktop competition outcome](../evidence/001-m3/desktop-competition.png).
+The [phone reserve](../evidence/001-m3/phone-reserve.png) shows the separate exhausted
+household scenario recovering through rest and food, then pausing autonomous work
+before it drains the remaining reserve. That scenario starts from a saved exhausted
+fixture; recovery itself uses ordinary actions, with no reset, purchase, or sleep.
+
+### Human product check — pending
+
+Mechanics and observed alternatives can be verified by agent/browser inspection;
+whether the tradeoffs feel worthwhile requires a fresh human comparison. M3 is
+not fully product-accepted, and M4 must not begin automatically.
+
+Clock scarcity remains unproven: the scripted work day can still combine chores
+and the trial after resting. The human check must establish whether recovery is a
+considered tradeoff or an automatic extra step. Repeated practice/rest is deliberately
+allowed; do not call the loop balanced merely because its energy arithmetic works.
+
+Use a separate browser profile/private session for disposable fresh-start testing,
+or press backtick (`` ` ``), choose **Reset saved game**, and confirm in a save you
+intend to replace. A hard refresh does **not** reset IndexedDB. Migration testing
+is separate: keep the existing save and reload it without resetting.
+
+1. From a fresh morning, pet/feed, plant/water, practice twice, then personally
+   gather all six bushes. Sell berries, improve the nook, harvest feed, and run the
+   trial. Notice the energy left for further companion work and the cues you forgo.
+2. From another fresh morning, pet/feed, practice once, plant/water, demonstrate
+   three berry harvests, give two cues, and let the next harvest happen independently.
+   Sell/improve, then inspect the trial's cost. Choose whether to rest together for
+   two game hours so you can still enter today, or preserve the time and defer it.
+3. Report whether the prices/results were understandable, whether each approach
+   offered something worth giving up the other benefits for, and whether another
+   practice/rest cycle felt useful or merely repetitive. Check that the dock leaves
+   the character, companion, and paths visible. Sleep and reload to inspect tomorrow.
+
 ## Current handoff
 
-- **Completed:** M1 (identity, ownership, save v2, provisional Mallow) and M2 (authored
-  learning, per-individual progress, explicit v1/v2 → v3 migration, published in `6b7cf49`);
-  human playtest findings and testing lessons recorded; M3 concretely specified with daily
-  energy choice, daytime "Rest together", retuned costs, legible pre/post activity feedback,
-  and compact interaction dock; canonical narrative and ownership distinctions reconciled.
-- **Known limits:** single rendered/simulated companion; nearby interaction card obscures
-  world navigation (addressed in M3); physical controller testing pending.
-- **Publication:** M1 and M2 are on `origin/main` (commits `122a6ea`, `346b232`, `6b7cf49`,
-  and `03516a1`). This documentation-only update builds on the published M2 baseline.
-- **Exact next gameplay action:** when continuing this campaign, start **M3 — Make care,
-  effort, and recovery produce a daily choice**. Astra can execute M3 directly using the
-  concrete specification:
-  1. Add **Rest together** action at the companion's nook in Bramblewick Yard (90–120 game
-     minutes, restoring ~+30 player / ~+35 critter energy, capped at max).
-  2. Retune training/practice, Clover Cup, and critter/player work costs so energy becomes a
-     real daily constraint.
-  3. Replace the large nearby interaction card with a compact bottom interaction dock.
-  4. Make time and energy costs legible before commitment and show consequences
-     (including remaining condition/energy) afterward.
-  5. Demonstrate at least one work-oriented routine and one competition-oriented routine
-     from comparable morning states with visibly different tradeoffs and resulting state.
+- **Completed:** M1/M2 remain published. M3 nook rest, tuned effort, reserve,
+  compact dock, feedback, host/save tests, local quality gates, inspected browser
+  screenshots, and comparison evidence are complete in this stable slice.
+- **Remaining gate:** fresh human M3 daily-choice assessment; physical controller
+  hardware remains untested. Repeated training/rest is allowed and could still
+  become grindy; the implemented time cost is not proof of enjoyable pacing.
+- **Delivery:** `codex/m3-daily-recovery`, based on `b8d8203`. Remote CI is pending;
+  do not poll it after equivalent local checks. No M3 main merge or Pages deployment.
+- **Next gameplay action:** perform the human comparison above and record the
+  result before accepting M3 or deciding any in-scope tuning. M4–M6 remain future work.

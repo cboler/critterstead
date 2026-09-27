@@ -129,7 +129,7 @@ export class LocalGameHost {
               : `Gather sunberries nearby so ${critter.name} can watch.`
           : (reason ??
             (opportunity
-              ? `${critter.name} spots ripe sunberries and is heading over.`
+              ? `${critter.name} spots ripe sunberries. Each harvest uses ${GAME_CONFIG.berryEnergy} energy; keeps ${GAME_CONFIG.autonomousEnergyReserve} in reserve.`
               : this.state.areaId !== 'glade'
                 ? 'Find ripe sunberries together in Clover Glade.'
                 : 'No ripe bush nearby. Walk closer or wait for regrowth.')),
@@ -150,8 +150,15 @@ export class LocalGameHost {
     if (critter.hunger > 80) return `Feed ${critter.name} before asking for more work.`;
     if (mode === 'command' && node && distance(critter.position, node.position) > 5)
       return `Wait for ${critter.name} to catch up.`;
-    if (mode === 'command' && this.state.player.stamina < 2) return 'You need some rest.';
-    if (critter.stamina < 8) return `${critter.name} needs some rest (8 energy to gather).`;
+    if (mode === 'command' && this.state.player.stamina < 2)
+      return 'You need some rest. Rest together at the nook.';
+    if (critter.stamina < GAME_CONFIG.berryEnergy)
+      return `${critter.name} needs some rest (${GAME_CONFIG.berryEnergy} energy to gather). Rest together at the nook or offer food.`;
+    if (
+      mode === 'autonomous' &&
+      critter.stamina < GAME_CONFIG.berryEnergy + GAME_CONFIG.autonomousEnergyReserve
+    )
+      return `${critter.name} is keeping ${GAME_CONFIG.autonomousEnergyReserve} energy in reserve. Gather yourself, give a cue, or rest together at the nook.`;
     return undefined;
   }
 
@@ -255,26 +262,26 @@ export class LocalGameHost {
     });
     const energy = (player: number, companion = 0) =>
       state.player.stamina < player
-        ? 'You need some rest.'
+        ? 'You need some rest. Rest together at the nook.'
         : critter.stamina < companion
-          ? `${critter.name} needs some rest.`
+          ? `${critter.name} needs some rest. Rest together at the nook or offer food.`
           : undefined;
     if (id === critter.id)
       return {
         id,
         title: `A moment with ${critter.name}`,
-        description: `${learnedStage(critter, foraging).label}. ${critter.hunger > 55 ? 'Their tummy is rumbling.' : 'Your companion leans into your company.'}`,
+        description: `Hunger ${Math.round(critter.hunger)}/100. Feed eases hunger by up to 35 and restores up to 10 energy; a berry eases 15 and restores up to 3. Both build bond.`,
         actions: [
           action(
             'pet',
-            'Give a little scritch',
+            'Give a little scritch · 5 min',
             critter.lastPettedDay === state.day
               ? `${critter.name} has had today’s scritches.`
               : undefined,
           ),
           action(
             'feed',
-            'Offer feed · 1 feed',
+            'Offer feed · 1 feed · 5 min',
             this.quantity('feed') < 1
               ? 'Grow feed in your garden or buy it at the stall.'
               : critter.hunger < 10
@@ -283,7 +290,7 @@ export class LocalGameHost {
           ),
           action(
             'treat',
-            'Berry treat · 1 berry',
+            'Berry treat · 1 berry · 5 min',
             this.quantity('berry') < 1
               ? 'Gather a berry in Clover Glade.'
               : critter.hunger < 10
@@ -303,12 +310,12 @@ export class LocalGameHost {
         actions: [
           action(
             'gather',
-            'Gather · 6 energy · 15 min',
+            'Gather · 6 your energy · 15 min',
             !node.available ? 'These berries are growing back.' : energy(6),
           ),
           action(
             'critter-gather',
-            `Ask ${critter.name} to gather · 8 ${critter.name} energy · 20 min`,
+            `Ask ${critter.name} to gather · ${GAME_CONFIG.berryEnergy} their energy · 2 yours · 20 min`,
             this.berryWorkReason('command', node),
           ),
         ],
@@ -320,20 +327,29 @@ export class LocalGameHost {
         return {
           id,
           title: 'Your little cottage',
-          description: `Rest until 8:00 tomorrow. Energy returns, crops grow, and ${critter.name} gets a little older.`,
-          actions: [action('sleep', 'Turn in for the night')],
+          description:
+            'Sleep restores both energies to 100 at 8:00 tomorrow; hunger carries over. For daytime recovery, rest together at the nook.',
+          actions: [action('sleep', 'Turn in for the night · tomorrow 8:00')],
         };
       case 'shed':
         return {
           id,
           title: state.shedLevel ? 'A proper snug little nook' : `${critter.name}’s weathered nook`,
-          description: state.shedLevel
-            ? `Fresh timber, a warm roof, and a softer bed. ${critter.name} wakes happier here.`
-            : 'Give your companion a warm roof and a cozy bed. A small start for a happy homestead.',
+          description:
+            'Rest costs time, not supplies. Hunger rises and crops grow; daily activities stay used. A cozy roof brings happier mornings.',
           actions: [
             action(
+              'rest',
+              `Rest together · ${GAME_CONFIG.restMinutes} min · +${Math.min(GAME_CONFIG.restPlayerEnergy, Math.round(100 - state.player.stamina))} your energy · +${Math.min(GAME_CONFIG.restCritterEnergy, Math.round(100 - critter.stamina))} ${critter.name}`,
+              state.minute + GAME_CONFIG.restMinutes >= 1440
+                ? 'Too late for a full break today. Turn in for the night.'
+                : state.player.stamina >= 100 && critter.stamina >= 100
+                  ? 'You are both full of energy.'
+                  : undefined,
+            ),
+            action(
               'upgrade',
-              'Make it cozy · 12 coins',
+              'Make it cozy · 12 coins · 60 min',
               state.shedLevel
                 ? 'The cozy nook is already complete.'
                 : state.player.coins < GAME_CONFIG.shedCost
@@ -353,7 +369,7 @@ export class LocalGameHost {
             actions: [
               action(
                 'plant',
-                'Plant feed seeds · 1 seed · 5 energy',
+                'Plant feed seeds · 1 seed · 5 energy · 15 min',
                 this.quantity('seed') < 1 ? 'Buy a seed at the stall.' : energy(5),
               ),
             ],
@@ -375,7 +391,7 @@ export class LocalGameHost {
           actions: [
             action(
               'harvest',
-              'Harvest · 3 feed + 1 seed · 4 energy',
+              'Harvest · 3 feed + 1 seed · 4 energy · 15 min',
               !ready ? 'Let it grow a little longer.' : energy(4),
             ),
           ],
@@ -385,12 +401,14 @@ export class LocalGameHost {
         return {
           id,
           title: 'A little practice, a little progress',
-          description: `Three encouraging cues. Tap when the marker reaches the center. Care, timing, and endurance shape ${critter.name}’s progress.`,
+          description: `Three encouraging cues. Tap near the center. Happiness, bond, a full tummy, timing, and endurance improve speed gains. Energy is spent when you start.`,
           actions: [
             action(
               'train',
-              `Practice hoops · 15 ${critter.name} energy · 5 energy`,
-              critter.hunger > 80 ? `${critter.name} is too hungry to concentrate.` : energy(5, 15),
+              `Practice hoops · ${GAME_CONFIG.practiceEnergy} ${critter.name} energy · 5 yours · 40 min + cues`,
+              critter.hunger > 80
+                ? `${critter.name} is too hungry to concentrate.`
+                : energy(5, GAME_CONFIG.practiceEnergy),
             ),
           ],
         };
@@ -402,7 +420,7 @@ export class LocalGameHost {
           actions: [
             action(
               'sell',
-              `Sell berries · ${this.berryValue()} coins`,
+              `Sell berries · ${this.berryValue()} coins · 5 min`,
               !this.quantity('berry') ? 'Your basket has no berries yet.' : undefined,
             ),
             action(
@@ -428,7 +446,9 @@ export class LocalGameHost {
           actions: [
             action(
               'travel',
-              state.areaId === 'homestead' ? 'Explore Clover Glade' : 'Return to Bramblewick',
+              state.areaId === 'homestead'
+                ? 'Explore Clover Glade · 10 min'
+                : 'Return to Bramblewick · 10 min',
             ),
           ],
         };
@@ -436,16 +456,16 @@ export class LocalGameHost {
         return {
           id,
           title: 'The Clover Cup',
-          description: `One friendly time trial each day. Three well-timed cues help ${critter.name} run at their best. Speed, endurance, and good care matter.`,
+          description: `One friendly time trial each day. Speed, endurance, timing, happiness, bond, and a full tummy improve the result. Energy is spent when you start.`,
           actions: [
             action(
               'race',
-              `Run the trial · 20 ${critter.name} energy · 5 energy`,
+              `Run the trial · ${GAME_CONFIG.trialEnergy} ${critter.name} energy · 5 yours · 45 min + cues`,
               critter.competitions.some((result) => result.day === state.day)
                 ? 'Today’s trial is complete. Come back tomorrow.'
                 : critter.hunger > 80
                   ? `${critter.name} needs a meal before racing.`
-                  : energy(5, 20),
+                  : energy(5, GAME_CONFIG.trialEnergy),
             ),
           ],
         };
@@ -468,7 +488,8 @@ export class LocalGameHost {
         );
         return true;
       case 'feed':
-      case 'treat':
+      case 'treat': {
+        const beforeEnergy = critter.stamina;
         this.take(action === 'feed' ? 'feed' : 'berry', 1);
         critter.hunger = clamp(critter.hunger - (action === 'feed' ? 35 : 15));
         critter.stamina = clamp(critter.stamina + (action === 'feed' ? 10 : 3));
@@ -477,11 +498,24 @@ export class LocalGameHost {
         this.flag('cared');
         this.advanceMinutes(5);
         this.note(
-          action === 'feed'
+          (action === 'feed'
             ? `${critter.name} crunches the feed with great seriousness. A happy, well-fed companion.`
-            : 'A sunberry disappears in one delighted nibble.',
+            : 'A sunberry disappears in one delighted nibble.') +
+            ` +${Math.round(critter.stamina - beforeEnergy)} energy; hunger now ${Math.round(critter.hunger)}/100.`,
         );
         return true;
+      }
+      case 'rest': {
+        const playerGain = Math.min(GAME_CONFIG.restPlayerEnergy, 100 - state.player.stamina);
+        const critterGain = Math.min(GAME_CONFIG.restCritterEnergy, 100 - critter.stamina);
+        this.advanceMinutes(GAME_CONFIG.restMinutes);
+        state.player.stamina += playerGain;
+        critter.stamina += critterGain;
+        this.note(
+          `Two quiet hours together. You regain ${Math.round(playerGain)} energy; ${critter.name} regains ${Math.round(critterGain)}. Hunger now ${Math.round(critter.hunger)}/100. There is still today to enjoy.`,
+        );
+        return true;
+      }
       case 'sleep':
         this.sleep();
         return true;
@@ -526,7 +560,8 @@ export class LocalGameHost {
       case 'train':
       case 'race':
         state.player.stamina -= 5;
-        critter.stamina -= action === 'train' ? 15 : 20;
+        critter.stamina -=
+          action === 'train' ? GAME_CONFIG.practiceEnergy : GAME_CONFIG.trialEnergy;
         state.training = {
           critterId: critter.id,
           phase: 0,
@@ -634,7 +669,7 @@ export class LocalGameHost {
       this.flag('trained');
       this.advanceMinutes(40);
       this.note(
-        `${accuracy > 0.75 ? 'Lovely rhythm!' : accuracy > 0.4 ? 'Good practice!' : 'Every little try counts.'} ${critter.name} gains ${gain.toFixed(2)} speed. Allow some rest between sessions.`,
+        `${accuracy > 0.75 ? 'Lovely rhythm!' : accuracy > 0.4 ? 'Good practice!' : 'Every little try counts.'} ${critter.name} gains ${gain.toFixed(2)} speed. ${Math.round(critter.stamina)} energy left; rest together at the nook to recover.`,
       );
     } else {
       const time =
@@ -658,7 +693,7 @@ export class LocalGameHost {
       critter.history.push(`Day ${state.day}: ${medal} in the Clover Cup (${time}s).`);
       this.advanceMinutes(45);
       this.note(
-        `${time.toFixed(1)} seconds! ${critter.name} earns a ${medal} ribbon and ${coins} coins. Today’s trial is complete.`,
+        `${time.toFixed(1)} seconds! ${critter.name} earns a ${medal} ribbon and ${coins} coins. ${Math.round(critter.stamina)} energy left. Today’s trial is complete.`,
       );
     }
     critter.happiness = clamp(critter.happiness + 3);
@@ -695,10 +730,10 @@ export class LocalGameHost {
       state.player.stamina -= 6;
       this.advanceMinutes(15);
       this.note(
-        `You pick ${amount} sunberries. ${distance(critter.position, node.position) < 5 ? `${critter.name} watches your hands carefully.` : `${critter.name} was too far away to watch this time.`}`,
+        `You pick ${amount} sunberries (6 energy; ${Math.round(state.player.stamina)} left). ${distance(critter.position, node.position) < 5 ? `${critter.name} watches your hands carefully.` : `${critter.name} was too far away to watch this time.`}`,
       );
     } else {
-      critter.stamina -= 8;
+      critter.stamina -= GAME_CONFIG.berryEnergy;
       critter.skills.harvesting += 1;
       critter.bond = clamp(critter.bond + 1);
       if (actor === 'command') {
@@ -707,7 +742,7 @@ export class LocalGameHost {
       }
       this.flag(actor === 'command' ? 'directed' : 'assisted');
       this.note(
-        `${actor === 'autonomous' ? `On their own, ${critter.name}` : `At your cue, ${critter.name}`} gathers ${amount} ${quality > 1 ? 'fine ' : ''}sunberries. Good work, little one!`,
+        `${actor === 'autonomous' ? `On their own, ${critter.name}` : `At your cue, ${critter.name}`} gathers ${amount} ${quality > 1 ? 'fine ' : ''}sunberries. Spent ${GAME_CONFIG.berryEnergy} energy${actor === 'command' ? ' and 2 of yours' : ''}; ${Math.round(critter.stamina)} left.`,
       );
     }
     this.flag('gathered');

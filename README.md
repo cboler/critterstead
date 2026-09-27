@@ -14,7 +14,9 @@ Three.js world made from original procedural geometry.
 Care for one Brindlekin companion, practice timed cues, plant and water feed,
 explore Clover Glade, teach berry gathering through observation and cues, watch
 independent foraging, sell produce, improve the shed, run a small daily time trial,
-and sleep into another day. There are two areas, one crop, and six berry bushes.
+and sleep into another day. Rest together at the nook for two game hours to restore
+up to 30 of your energy and 35 for your companion. Independent foraging keeps 20 energy in reserve; an
+explicit cue can spend it. There are two areas, one crop, and six berry bushes.
 
 Fresh games in this revision begin with **Mallow**, a provisional player-owned
 Brindlekin for testing the daily loop. Version-1 saves retain their original

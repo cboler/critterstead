@@ -106,7 +106,7 @@ describe('progression, resources, and persistence', () => {
     host.update(0.1);
     expect(host.state.resources[5].available).toBe(false);
     expect(host.state.flags).toContain('assisted');
-    expect(host.critter.stamina).toBe(76);
+    expect(host.critter.stamina).toBe(64);
     const saved = readSave(host.state);
     const loaded = new LocalGameHost(saved);
     loaded.update(0.1);
@@ -193,7 +193,7 @@ describe('progression, resources, and persistence', () => {
 
 describe('learning conditions and continuity', () => {
   it.each(['gather', 'critter-gather', 'autonomous'] as const)(
-    'retains published M1 %s rewards, costs, progression and seeded outcomes',
+    'retains M1 %s rewards, progression and seeds with M3 effort costs',
     (actor) => {
       const state = readSave(legacyV2);
       state.training = null;
@@ -207,11 +207,11 @@ describe('learning conditions and continuity', () => {
       const host = new LocalGameHost(state);
       if (actor === 'autonomous') host.update(0.1);
       else expect(act(host, 'berries-west', actor)).toBe(true);
-      // Golden results from the unchanged host at published 346b232 and the frozen v2 fixture.
+      // M1 golden rewards/progress/seeds are retained; M3 deliberately changes companion effort from 8 to 12.
       const player = actor === 'gather';
       expect(host.state.seed).toBe(player ? 777197 : 1892584552);
       expect(host.learning().progress).toBe(player ? 3 : actor === 'critter-gather' ? 7 : 8);
-      expect(host.critter.stamina).toBe(player ? 63 : 55);
+      expect(host.critter.stamina).toBe(player ? 63 : 51);
       expect(host.state.player.stamina).toBe(player ? 51 : actor === 'critter-gather' ? 55 : 57);
       expect(host.state.totalMinutes).toBe(
         player ? 9487 : actor === 'critter-gather' ? 9492 : 9472.08,
@@ -426,7 +426,7 @@ describe('learning conditions and continuity', () => {
     for (const game of [host, loaded]) for (let tick = 0; tick < 10; tick++) game.update(0.1);
     expect(loaded.state).toEqual(host.state);
     expect(host.state.resources[0].available).toBe(false);
-    expect(host.critter.stamina).toBe(92);
+    expect(host.critter.stamina).toBe(88);
     expect(host.learning().progress).toBe(8);
   });
 
@@ -461,7 +461,7 @@ describe('training and competitions', () => {
   it('takes three real timed cues, blocks spamming, and pays energy up front', () => {
     const host = at({ x: 3, z: 2 });
     expect(act(host, 'training', 'train')).toBe(true);
-    expect(host.critter.stamina).toBe(85);
+    expect(host.critter.stamina).toBe(70);
     expect(host.dispatch({ type: 'training-hit' })).toBe(false);
     host.update(0.7);
     expect(host.dispatch({ type: 'training-hit' })).toBe(true);
@@ -504,6 +504,206 @@ describe('training and competitions', () => {
     expect(coins).toBeGreaterThan(6);
     expect(act(host, 'race', 'race')).toBe(false);
     expect(host.state.player.coins).toBe(coins);
+  });
+});
+
+describe('daily effort and recovery', () => {
+  it.each([
+    ['training', 'train', 30, { x: 3, z: 2 }],
+    ['race', 'race', 35, { x: 2, z: 6 }],
+  ] as const)(
+    'requires the full M3 effort for %s without charging rejected starts',
+    (target, action, cost, position) => {
+      const host = at(position, (state) => {
+        activeCritter(state).stamina = cost - 0.01;
+      });
+      const before = structuredClone(host.state);
+      expect(act(host, target, action)).toBe(false);
+      expect(host.state).toEqual(before);
+      host.critter.stamina = cost;
+      expect(act(host, target, action)).toBe(true);
+      expect(host.critter.stamina).toBe(0);
+      expect(host.state.player.stamina).toBe(95);
+      const loaded = new LocalGameHost(readSave(host.state));
+      finishActivity(loaded);
+      expect(loaded.critter.stamina).toBe(0);
+      expect(loaded.state.player.stamina).toBe(95);
+    },
+  );
+
+  it('rest preserves daily care and trial limits, age and earned progress', () => {
+    const host = at({ x: 2, z: 6 });
+    expect(act(host, host.critter.id, 'pet')).toBe(true);
+    expect(act(host, 'race', 'race')).toBe(true);
+    finishActivity(host);
+    host.state.player.position = { x: 4, z: -2 };
+    const before = structuredClone(host.critter);
+    expect(act(host, 'shed', 'rest')).toBe(true);
+    expect(host.critter.stamina).toBe(100);
+    expect(host.critter.hunger).toBeCloseTo(before.hunger + 3);
+    expect(host.critter.ageDays).toBe(before.ageDays);
+    expect(host.critter.lastPettedDay).toBe(before.lastPettedDay);
+    expect(host.critter.competitions).toEqual(before.competitions);
+    expect(host.critter.skills).toEqual(before.skills);
+    expect(host.critter.bond).toBe(before.bond);
+    expect(host.critter.happiness).toBe(before.happiness);
+    host.state.player.position = { x: 2, z: 6 };
+    expect(act(host, 'race', 'race')).toBe(false);
+    expect(act(host, host.critter.id, 'pet')).toBe(false);
+  });
+
+  it('trades two hours for capped energy, grows crops, and persists without replaying recovery', () => {
+    const host = at({ x: 4, z: -2 }, (state) => {
+      state.player.stamina = 90;
+      activeCritter(state).stamina = 0;
+      state.inventory = [];
+      state.player.coins = 0;
+      state.crop = { id: 'crop-feed', plantedAt: 300, watered: true, readyAt: 530 };
+      state.resources[0].available = false;
+      state.resources[0].respawnAt = 530;
+      state.critters.unshift({
+        ...structuredClone(activeCritter(state)),
+        id: 'grandpa-pip',
+        ownerId: 'grandpa',
+        name: 'Pip',
+      });
+    });
+    const before = structuredClone(host.state);
+    expect(host.interaction()?.actions.find((action) => action.id === 'rest')?.label).toContain(
+      '+10 your energy · +35 Mallow',
+    );
+    expect(act(host, 'shed', 'rest')).toBe(true);
+    expect(host.state.player.stamina).toBe(100);
+    expect(host.critter.stamina).toBe(35);
+    expect(host.critter.hunger).toBe(38);
+    expect(host.state.totalMinutes).toBe(600);
+    expect(host.state.day).toBe(1);
+    expect(host.state.crop.readyAt).toBeLessThanOrEqual(host.state.totalMinutes);
+    expect(host.state.resources[0].available).toBe(true);
+    expect(host.state.inventory).toEqual([]);
+    expect(host.state.player.coins).toBe(0);
+    expect(host.state.critters[0]).toEqual(before.critters[0]);
+    expect(host.state.seed).toBe(before.seed);
+    expect(host.state.journal[0]).toContain('You regain 10 energy; Mallow regains 35');
+    const loaded = new LocalGameHost(readSave(readSave(host.state)));
+    expect(loaded.state).toEqual(host.state);
+    expect(act(loaded, 'shed', 'rest')).toBe(true);
+    expect(loaded.critter.stamina).toBe(70);
+    expect(loaded.state.totalMinutes).toBe(720);
+  });
+
+  it('rejects remote, unnecessary, busy and midnight-crossing breaks without changing state', () => {
+    const fresh = new LocalGameHost();
+    expect(act(fresh, 'shed', 'rest')).toBe(false);
+    for (const modify of [
+      () => undefined,
+      (state: GameState) => {
+        state.player.stamina = 0;
+        state.minute = state.totalMinutes = 1320;
+      },
+      (state: GameState) => {
+        state.player.stamina = 0;
+        state.training = {
+          critterId: state.activeCritterId,
+          kind: 'training',
+          phase: 0,
+          hits: [],
+          elapsed: 0,
+        };
+      },
+    ]) {
+      const host = at({ x: 4, z: -2 }, modify);
+      const before = structuredClone(host.state);
+      expect(act(host, 'shed', 'rest')).toBe(false);
+      expect(host.state).toEqual(before);
+    }
+    const evening = at({ x: 4, z: -2 }, (state) => {
+      state.player.stamina = 0;
+      state.minute = state.totalMinutes = 1319;
+    });
+    expect(act(evening, 'shed', 'rest')).toBe(true);
+    expect(evening.state.day).toBe(1);
+    expect(evening.state.minute).toBe(1439);
+    evening.state.player.position = { x: -4, z: -2 };
+    expect(act(evening, 'house', 'sleep')).toBe(true);
+    expect(evening.state.day).toBe(2);
+    expect(evening.state.minute).toBe(480);
+  });
+
+  it('recovers an empty, exhausted and hungry household into useful work without buying or resetting', () => {
+    let host = at({ x: 4, z: -2 }, (state) => {
+      state.player.stamina = 0;
+      state.player.coins = 0;
+      state.inventory = [];
+      activeCritter(state).stamina = 0;
+      activeCritter(state).hunger = 100;
+    });
+    expect(act(host, 'shed', 'rest')).toBe(true);
+    host = new LocalGameHost(readSave(host.state));
+    // Travel is free even when exhausted; only work consumes energy.
+    host.state.player.position = { x: 8, z: 0 };
+    expect(act(host, 'gate', 'travel')).toBe(true);
+    host.state.player.position = { x: -3, z: -2 };
+    host.critter.position = { x: -3, z: -2 };
+    expect(act(host, 'berries-west', 'gather')).toBe(true);
+    expect(act(host, host.critter.id, 'treat')).toBe(true);
+    expect(act(host, host.critter.id, 'treat')).toBe(true);
+    expect(host.critter.hunger).toBeLessThan(80);
+    host.state.player.position = { x: -8, z: 0 };
+    expect(act(host, 'gate', 'travel')).toBe(true);
+    host.state.player.position = { x: 3, z: 2 };
+    expect(act(host, 'training', 'train')).toBe(true);
+    finishActivity(host);
+    expect(host.critter.stats.speed).toBeGreaterThan(4);
+    expect(host.critter.health).toBe(100);
+    expect(host.state.player.coins).toBe(0);
+    expect(host.state.journal.some((entry) => entry.startsWith('Developer:'))).toBe(false);
+  });
+
+  it.each([31.99, 32])('protects an autonomous reserve at %s energy across reload', (energy) => {
+    const host = at({ x: -3, z: -2 }, (state) => {
+      state.areaId = 'glade';
+      state.areaInstanceId = 'local-glade';
+      activeCritter(state).stamina = energy;
+      activeCritter(state).learnedBehaviors['sunberry-foraging'] = 7;
+    });
+    host.update(0.1);
+    expect(host.state.resources[0].available).toBe(energy < 32);
+    expect(host.critter.stamina).toBe(energy < 32 ? energy : 20);
+    expect(host.learning().status).toContain('keeping 20 energy in reserve');
+    if (energy === 32) expect(host.state.journal[0]).toContain('Spent 12 energy; 20 left');
+    const loaded = new LocalGameHost(readSave(host.state));
+    const before = structuredClone(loaded.state);
+    for (let tick = 0; tick < 10; tick++) loaded.update(1);
+    expect(loaded.state.inventory).toEqual(before.inventory);
+    expect(loaded.state.resources).toEqual(before.resources);
+    expect(loaded.state.seed).toBe(before.seed);
+    expect(loaded.critter.stamina).toBe(before.critters[0].stamina);
+    expect(loaded.state.journal).toEqual(before.journal);
+  });
+
+  it('lets a deliberate cue use the reserve, then resumes autonomous work after recovery', () => {
+    const host = at({ x: -3, z: -2 }, (state) => {
+      state.areaId = 'glade';
+      state.areaInstanceId = 'local-glade';
+      activeCritter(state).stamina = 20;
+      activeCritter(state).learnedBehaviors['sunberry-foraging'] = 7;
+    });
+    expect(act(host, 'berries-west', 'critter-gather')).toBe(true);
+    expect(host.critter.stamina).toBe(8);
+    expect(host.state.player.stamina).toBe(98);
+    host.state.player.position = { x: -8, z: 0 };
+    expect(act(host, 'gate', 'travel')).toBe(true);
+    host.state.player.position = { x: 4, z: -2 };
+    expect(act(host, 'shed', 'rest')).toBe(true);
+    host.state.player.position = { x: 8, z: 0 };
+    expect(act(host, 'gate', 'travel')).toBe(true);
+    host.state.player.position = { x: -1, z: 2.5 };
+    host.critter.position = { ...host.state.player.position };
+    host.update(0.1);
+    expect(host.state.resources[1].available).toBe(false);
+    expect(host.critter.stamina).toBe(31);
+    expect(host.state.journal[0]).toContain('Spent 12 energy; 31 left');
   });
 });
 
