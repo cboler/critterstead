@@ -1292,3 +1292,44 @@ dd {
     padding-top: 4px;
   }
 }
+
+// The dock has its own fixed bay. Changing targets never changes camera geometry.
+.world-view {
+  position: absolute;
+  inset: 0 0 180px;
+  min-height: 0;
+}
+.interaction-dock {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 180px;
+  box-sizing: border-box;
+  overflow-y: auto;
+}
+.rancher-card {
+  padding: 14px 8px;
+  border-top: 1px solid var(--line);
+}
+.rancher-card h2 {
+  font:
+    600 19px Georgia,
+    serif;
+  margin: 6px 0;
+}
+.rancher-card p,
+.rancher-card small,
+.rancher-card details {
+  font-size: 11px;
+  line-height: 1.5;
+}
+.rancher-card summary {
+  cursor: pointer;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+.load-status {
+  font-weight: 700;
+}

@@ -9,6 +9,38 @@ export interface Stats {
   speed: number;
   intelligence: number;
 }
+export interface ActorCapabilities {
+  stats: Stats;
+  skills: Record<string, number>;
+}
+export interface CheckResult {
+  degree: number;
+  staminaCost: number;
+  timeMinutes: number;
+  durationSeconds: number;
+  damage: number;
+  skillXpGained: number;
+  statXpGained: Partial<Stats>;
+}
+export interface MaterialNode {
+  id: string;
+  areaId: AreaId;
+  position: Point;
+  kind: 'timber' | 'stone';
+  remaining: number;
+  respawnAt: number;
+}
+export interface GroundCargo {
+  id: string;
+  areaId: AreaId;
+  position: Point;
+  items: InventoryItem[];
+}
+export interface ResourceWork {
+  nodeId: string;
+  remainingSeconds: number;
+  result: CheckResult;
+}
 export type BehaviorId = 'sunberry-foraging';
 export interface BehaviorStage {
   id: 'unfamiliar' | 'observing' | 'cued' | 'autonomous';
@@ -24,7 +56,7 @@ export interface BehaviorDefinition {
   gains: { observation: number; cue: number; autonomous: number };
   practiceCeiling: number;
 }
-export interface Critter {
+export interface Critter extends ActorCapabilities {
   id: string;
   ownerId: string;
   lastPettedDay: number | null;
@@ -41,7 +73,7 @@ export interface Critter {
   bond: number;
   hunger: number;
   learnedBehaviors: Partial<Record<BehaviorId, number>>;
-  skills: { harvesting: number; racing: number };
+  skills: Record<string, number> & { harvesting: number; racing: number };
   visualTraits: { coat: string; accent: string };
   pedigree: { parentIds: string[] };
   genetics: Record<string, string>;
@@ -50,7 +82,7 @@ export interface Critter {
 }
 export interface InventoryItem {
   id: string;
-  itemId: 'berry' | 'feed' | 'seed';
+  itemId: 'berry' | 'feed' | 'seed' | 'timber' | 'stone' | 'lumber';
   quantity: number;
   quality: number;
 }
@@ -76,14 +108,17 @@ export interface Training {
   kind: 'training' | 'race';
 }
 export interface GameState {
-  version: 3;
+  version: 4;
   seed: number;
   day: number;
   minute: number;
   totalMinutes: number;
   areaId: AreaId;
   areaInstanceId: string;
-  player: { id: string; position: Point; stamina: number; coins: number };
+  player: ActorCapabilities & { id: string; position: Point; stamina: number; coins: number };
+  materialNodes: MaterialNode[];
+  groundCargo: GroundCargo[];
+  work: ResourceWork | null;
   critters: Critter[];
   activeCritterId: string;
   inventory: InventoryItem[];
@@ -98,6 +133,7 @@ export type GameCommand =
   | { type: 'move'; x: number; z: number; seconds: number }
   | { type: 'interact'; targetId: string; action: string }
   | { type: 'training-hit' }
+  | { type: 'drop-cargo' }
   | { type: 'debug'; action: 'next-day' | 'restore' };
 export interface InteractionAction {
   id: string;

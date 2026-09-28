@@ -63,7 +63,7 @@
             <p>{{ areas[state().areaId].subtitle }}</p>
           </div>
         </div>
-        <span class="edition">FIRST SEED · EARLY PROTOTYPE</span>
+        <span class="edition">THE FIRST LIVING STEAD</span>
         @if (!ready() && !error()) {
           <div class="world-message">
             <div class="loading-seed">✦</div>
@@ -263,21 +263,34 @@
           </div>
         </div>
       </section>
-      <section class="intentions">
-        <span class="eyebrow">SMALL STEPS, GOOD DAYS</span>
-        <h2>Put down roots.</h2>
-        <p>There’s no hurry. Make this place yours, together.</p>
-        <ul>
-          @for (goal of goals; track goal.flag) {
-            <li [class.done]="completed(goal.flag)">
-              <span class="check">{{ completed(goal.flag) ? '✓' : '·' }}</span>
-              <div>
-                <strong>{{ goal.title }}</strong
-                ><small>{{ goal.description }}</small>
-              </div>
-            </li>
+      <section class="rancher-card">
+        <span class="eyebrow">LIVING AND LEARNING</span>
+        <h2>Your working day</h2>
+        <div class="stats-grid">
+          @for (stat of statNames; track stat) {
+            <div>
+              <span>{{ stat }}</span
+              ><strong>{{ state().player.stats[stat].toFixed(2) }}</strong>
+            </div>
           }
-        </ul>
+        </div>
+        <p class="load-status">
+          {{ load().band }} · {{ load().mass.toFixed(1) }} / {{ load().capacity.toFixed(0) }} kg
+        </p>
+        <small
+          >Heavy loads slow your steps and spend energy. Set materials down to lighten up.</small
+        >
+        @if (count('timber') + count('stone') + count('lumber') > 0) {
+          <p>
+            Timber {{ count('timber') }} · Stone {{ count('stone') }} · Lumber {{ count('lumber') }}
+          </p>
+        }
+        <details>
+          <summary>Rancher skills</summary>
+          @for (skill of rancherSkills; track skill) {
+            <p>{{ skill }} · {{ state().player.skills[skill].toFixed(2) }}</p>
+          }
+        </details>
       </section>
       <div class="recent-note" aria-live="polite">
         <span aria-hidden="true">✧</span>

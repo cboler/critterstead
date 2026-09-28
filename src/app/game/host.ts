@@ -1,4 +1,12 @@
-import { AREAS, BEHAVIORS, BERRY_NODES, GAME_CONFIG, STARTER } from './content';
+import {
+  AREAS,
+  BEHAVIORS,
+  BERRY_NODES,
+  GAME_CONFIG,
+  STARTER,
+  initialMaterialNodes,
+} from './content';
+import { applyExperience, encumbrance, resolveCheck } from './checks';
 import {
   activeCritter,
   BehaviorDefinition,
@@ -27,14 +35,24 @@ const foraging = BEHAVIORS['sunberry-foraging'];
 
 export function createInitialState(): GameState {
   return {
-    version: 3,
+    version: 4,
     seed: 240921,
     day: 1,
     minute: 480,
     totalMinutes: 480,
     areaId: 'homestead',
     areaInstanceId: 'local-homestead',
-    player: { id: 'player-local', position: { x: 0, z: 0 }, stamina: 100, coins: 6 },
+    player: {
+      id: 'player-local',
+      position: { x: 0, z: 0 },
+      stamina: 100,
+      coins: 6,
+      stats: { strength: 5, endurance: 5, speed: 4, intelligence: 5 },
+      skills: { woodcutting: 1, mining: 1, hauling: 1, foraging: 1 },
+    },
+    materialNodes: initialMaterialNodes(),
+    groundCargo: [],
+    work: null,
     activeCritterId: STARTER.id,
     critters: [
       {
@@ -188,8 +206,10 @@ export class LocalGameHost {
       return true;
     }
     if (command.type === 'training-hit') return this.trainingHit();
-    if (this.state.training) return false;
+    if (this.state.training || this.state.work) return false;
+    if (command.type === 'drop-cargo') return this.dropCargo();
     if (command.type === 'move') return this.move(command.x, command.z, command.seconds);
+    if (command.action === 'drop-cargo') return this.dropCargo();
     const interaction = this.describe(command.targetId);
     if (!interaction || !this.inReach(command.targetId)) return false;
     const action = interaction.actions.find((item) => item.id === command.action);
@@ -208,10 +228,40 @@ export class LocalGameHost {
       const cycle = (training.elapsed * (training.kind === 'race' ? 0.9 : 0.72)) % 2;
       training.phase = cycle <= 1 ? cycle : 2 - cycle;
     }
+    if (this.state.work) {
+      this.state.work.remainingSeconds = Math.max(0, this.state.work.remainingSeconds - dt);
+      if (this.state.work.remainingSeconds === 0) this.finishWork();
+    }
     this.companion(dt);
   }
 
   interaction(): Interaction | null {
+    const target = this.nearestInteraction();
+    if (
+      !this.state.work &&
+      !this.state.training &&
+      this.state.inventory.some((item) => ['timber', 'stone', 'lumber'].includes(item.itemId))
+    ) {
+      const dock = target ?? {
+        id: this.state.player.id,
+        title: 'Carrying materials',
+        description: 'Set cargo down to lighten your load.',
+        actions: [],
+      };
+      dock.actions.push({ id: 'drop-cargo', label: 'Set cargo down' });
+      return dock;
+    }
+    return target;
+  }
+
+  private nearestInteraction(): Interaction | null {
+    if (this.state.work)
+      return {
+        id: this.state.work.nodeId,
+        title: 'A steady swing…',
+        description: 'Working the material. The paid action will finish here, even after a reload.',
+        actions: [],
+      };
     if (this.state.training) return null;
     const state = this.state;
     const candidates = [
@@ -220,6 +270,8 @@ export class LocalGameHost {
         position: object.position,
       })),
       ...state.resources.filter((node) => node.areaId === state.areaId),
+      ...state.materialNodes.filter((node) => node.areaId === state.areaId),
+      ...state.groundCargo.filter((pile) => pile.areaId === state.areaId && pile.items.length),
     ].filter((target) => this.inReach(target.id));
     candidates.sort(
       (a, b) =>
@@ -245,7 +297,9 @@ export class LocalGameHost {
         distance(activeCritter(state).position, state.player.position) <=
         GAME_CONFIG.interactionDistance
       );
-    const node = state.resources.find((item) => item.id === id && item.areaId === state.areaId);
+    const node = [...state.resources, ...state.materialNodes, ...state.groundCargo].find(
+      (item) => item.id === id && item.areaId === state.areaId,
+    );
     return (
       !!node && distance(node.position, state.player.position) <= GAME_CONFIG.interactionDistance
     );
@@ -297,6 +351,41 @@ export class LocalGameHost {
                 ? `${critter.name} is comfortably full.`
                 : undefined,
           ),
+        ],
+      };
+    const material = state.materialNodes.find(
+      (item) => item.id === id && item.areaId === state.areaId,
+    );
+    if (material) {
+      const skill = material.kind === 'timber' ? 'woodcutting' : 'mining';
+      const result = this.materialCheck(material.kind);
+      return {
+        id,
+        title:
+          material.kind === 'timber'
+            ? 'Fallen timber · starter axe'
+            : 'Quarry boulder · starter pick',
+        description:
+          material.remaining > 0
+            ? `Resistance ${material.remaining}/6. ${skill} ${state.player.skills[skill].toFixed(2)} · ${result.damage} damage per swing. Finished bundles weigh ${material.kind === 'timber' ? 8 : 12} kg each.`
+            : 'Worked clean. More material will be available tomorrow.',
+        actions: [
+          action(
+            'work-material',
+            `${material.kind === 'timber' ? 'Chop timber' : 'Crack stone'} · ${result.staminaCost} energy · ${result.timeMinutes} min`,
+            material.remaining <= 0 ? 'Return tomorrow.' : energy(result.staminaCost),
+          ),
+        ],
+      };
+    }
+    const pile = state.groundCargo.find((item) => item.id === id && item.areaId === state.areaId);
+    if (pile)
+      return {
+        id,
+        title: 'Cargo on the ground',
+        description: pile.items.map((item) => `${item.quantity} ${item.itemId}`).join(' · '),
+        actions: [
+          action('pickup-cargo', 'Pick up cargo', pile.items.length ? undefined : 'Nothing here.'),
         ],
       };
     const node = state.resources.find((item) => item.id === id && item.areaId === state.areaId);
@@ -476,6 +565,21 @@ export class LocalGameHost {
     const state = this.state;
     const critter = activeCritter(state);
     switch (action) {
+      case 'work-material': {
+        const node = state.materialNodes.find((item) => item.id === id)!;
+        const result = this.materialCheck(node.kind);
+        state.player.stamina -= result.staminaCost;
+        this.advanceMinutes(result.timeMinutes);
+        state.work = { nodeId: id, remainingSeconds: result.durationSeconds, result };
+        return true;
+      }
+      case 'pickup-cargo': {
+        const pile = state.groundCargo.find((item) => item.id === id)!;
+        for (const item of pile.items) this.add(item.itemId, item.quantity, item.quality);
+        state.groundCargo = state.groundCargo.filter((item) => item !== pile);
+        this.note('Cargo lifted. Set it down at any time if the load is too heavy.');
+        return true;
+      }
       case 'pet':
         critter.bond = clamp(critter.bond + 5);
         critter.happiness = clamp(critter.happiness + 8);
@@ -623,7 +727,13 @@ export class LocalGameHost {
     if (![x, z, seconds].every(Number.isFinite) || seconds <= 0) return false;
     const length = Math.hypot(x, z);
     if (length === 0) return false;
-    const step = Math.min(seconds, 0.1) * GAME_CONFIG.movementSpeed;
+    const load = encumbrance(this.state.player, this.state.inventory);
+    const step =
+      Math.min(seconds, 0.1) *
+      GAME_CONFIG.movementSpeed *
+      load.speed *
+      (1 + Math.min(0.8, (this.state.player.stats.speed - 4) * 0.015)) *
+      (load.drain && this.state.player.stamina <= 0 ? 0.5 : 1);
     const position = this.state.player.position;
     const edge = AREAS[this.state.areaId].halfSize - 0.5;
     const next = {
@@ -640,7 +750,23 @@ export class LocalGameHost {
       this.state.player.position = { x: next.x, z: position.z };
     else if (clear({ x: position.x, z: next.z }))
       this.state.player.position = { x: position.x, z: next.z };
-    return distance(position, this.state.player.position) > 0;
+    const moved = distance(position, this.state.player.position);
+    if (moved > 0 && load.drain) {
+      this.state.player.stamina = Math.max(0, this.state.player.stamina - moved * load.drain);
+      this.state.player.skills['hauling'] = Math.min(
+        99,
+        this.state.player.skills['hauling'] + moved * 0.003,
+      );
+      this.state.player.stats.endurance = Math.min(
+        999,
+        this.state.player.stats.endurance + moved * 0.0003,
+      );
+      this.state.player.stats.strength = Math.min(
+        999,
+        this.state.player.stats.strength + moved * 0.0005,
+      );
+    }
+    return moved > 0;
   }
 
   private trainingHit(): boolean {
@@ -727,6 +853,7 @@ export class LocalGameHost {
     node.available = false;
     node.respawnAt = state.totalMinutes + GAME_CONFIG.berryRespawnMinutes;
     if (actor === 'player') {
+      state.player.skills['foraging'] = Math.min(99, state.player.skills['foraging'] + 0.2);
       state.player.stamina -= 6;
       this.advanceMinutes(15);
       this.note(
@@ -799,6 +926,8 @@ export class LocalGameHost {
       activeCritter(state).ageDays += state.day - previousDay;
       state.flags = state.flags.filter((flag) => flag !== 'petted-today');
     }
+    for (const node of state.materialNodes)
+      if (node.remaining === 0 && node.respawnAt <= state.totalMinutes) node.remaining = 6;
     for (const node of state.resources)
       if (!node.available && node.respawnAt <= state.totalMinutes) node.available = true;
   }
@@ -816,10 +945,71 @@ export class LocalGameHost {
       activeCritter(state).happiness + (state.shedLevel ? 8 : 2),
     );
     state.training = null;
+    state.work = null;
     this.flag('slept');
     this.note(
       `Day ${state.day}. A soft morning at Bramblewick. Everyone is rested${state.crop.readyAt !== null && state.crop.readyAt <= state.totalMinutes ? ', and your feed garden is ready' : ''}.`,
     );
+  }
+
+  private materialCheck(kind: 'timber' | 'stone') {
+    return resolveCheck(
+      this.state.player,
+      kind === 'timber' ? 'woodcutting' : 'mining',
+      { strength: 0.65, endurance: 0.2, speed: 0.1, intelligence: 0.05 },
+      1,
+      kind === 'timber' ? 7 : 9,
+    );
+  }
+
+  private finishWork(): void {
+    const work = this.state.work!;
+    const node = this.state.materialNodes.find((item) => item.id === work.nodeId)!;
+    node.remaining = Math.max(0, node.remaining - work.result.damage);
+    const skill = node.kind === 'timber' ? 'woodcutting' : 'mining';
+    applyExperience(this.state.player, skill, work.result);
+    if (!node.remaining) {
+      this.add(node.kind, 2);
+      node.respawnAt = (Math.floor(this.state.totalMinutes / 1440) + 1) * 1440 + 480;
+      this.flag('worked-material');
+    }
+    this.state.work = null;
+    this.note(
+      `${work.result.degree > 0.25 ? 'Clean, confident' : work.result.degree < -0.5 ? 'Slow, stubborn' : 'Steady'} work. ${node.remaining ? `${node.remaining}/6 resistance remains.` : `Two ${node.kind} bundles lifted into your arms.`} ${skill} +0.35; strength grows a little. Load: ${encumbrance(this.state.player, this.state.inventory).band.toLowerCase()}.`,
+    );
+  }
+
+  private dropCargo(): boolean {
+    const items = this.state.inventory.filter((item) =>
+      ['timber', 'stone', 'lumber'].includes(item.itemId),
+    );
+    if (!items.length) return false;
+    const state = this.state;
+    let pile = state.groundCargo.find(
+      (item) =>
+        item.areaId === state.areaId && distance(item.position, state.player.position) < 0.5,
+    );
+    if (!pile) {
+      let serial = 1;
+      while (state.groundCargo.some((item) => item.id === `ground-cargo-${serial}`)) serial++;
+      pile = {
+        id: `ground-cargo-${serial}`,
+        areaId: state.areaId,
+        position: { ...state.player.position },
+        items: [],
+      };
+      state.groundCargo.push(pile);
+    }
+    for (const item of items) {
+      const existing = pile.items.find(
+        (entry) => entry.itemId === item.itemId && entry.quality === item.quality,
+      );
+      if (existing) existing.quantity += item.quantity;
+      else pile.items.push({ ...item, id: `${pile.id}-${item.itemId}-${item.quality}` });
+    }
+    state.inventory = state.inventory.filter((item) => !items.includes(item));
+    this.note('Cargo set safely on the ground. Walk back to pick it up.');
+    return true;
   }
 
   private quantity(itemId: InventoryItem['itemId']): number {

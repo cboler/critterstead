@@ -77,7 +77,15 @@ describe('v1 migration and individual references', () => {
     const migrated = readSave(original);
     expect(migrated).toEqual({
       ...world,
-      version: 3,
+      version: 4,
+      player: {
+        ...original.player,
+        stats: createInitialState().player.stats,
+        skills: createInitialState().player.skills,
+      },
+      materialNodes: createInitialState().materialNodes,
+      groundCargo: [],
+      work: null,
       critters: [
         {
           ...individual,
@@ -191,7 +199,15 @@ describe('v2 learning migration and v3 protection', () => {
     const migrated = readSave(before);
     expect(migrated).toEqual({
       ...before,
-      version: 3,
+      version: 4,
+      player: {
+        ...before.player,
+        stats: createInitialState().player.stats,
+        skills: createInitialState().player.skills,
+      },
+      materialNodes: createInitialState().materialNodes,
+      groundCargo: [],
+      work: null,
       critters: before.critters.map(({ berryKnowledge, ...individual }) => ({
         ...individual,
         learnedBehaviors: { 'sunberry-foraging': berryKnowledge },

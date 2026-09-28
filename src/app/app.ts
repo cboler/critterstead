@@ -13,6 +13,7 @@ import { AREAS } from './game/content';
 import { LocalGameHost } from './game/host';
 import { activeCritter, GameCommand, GameState, Interaction, Point } from './game/model';
 import { IndexedDbStorage } from './game/storage';
+import { encumbrance } from './game/checks';
 import { GameWorld } from './game/world';
 
 interface InstallPrompt extends Event {
@@ -60,6 +61,13 @@ export class App implements AfterViewInit, OnDestroy {
   protected readonly gamepadAction = signal<string | null>(null);
   protected readonly learning = signal(this.host.learning());
   protected readonly learningSteps = Array.from({ length: this.learning().goal }, (_, i) => i + 1);
+  protected readonly load = computed(() =>
+    encumbrance(this.state().player, this.state().inventory),
+  );
+  protected readonly rancherSkills = ['woodcutting', 'mining', 'hauling', 'foraging'] as const;
+  protected dropCargo(): void {
+    this.command({ type: 'drop-cargo' });
+  }
   protected readonly areas = AREAS;
   protected readonly statNames = ['strength', 'endurance', 'speed', 'intelligence'] as const;
   protected readonly goals = [

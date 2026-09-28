@@ -1,5 +1,5 @@
 import { Critter, GameState, Training } from './model';
-import { BEHAVIORS } from './content';
+import { BEHAVIORS, initialMaterialNodes } from './content';
 
 export interface SaveStorage {
   load(): Promise<GameState | null>;
@@ -123,13 +123,34 @@ export function readSave(value: unknown): GameState {
   if (root['version'] === 2) {
     validateState(value, 2);
     const legacy = structuredClone(value as LegacyGameStateV2);
-    const migrated: GameState = {
+    const migrated: LegacyGameStateV3 = {
       ...legacy,
       version: 3,
       critters: legacy.critters.map(({ berryKnowledge, ...critter }) => ({
         ...critter,
         learnedBehaviors: { 'sunberry-foraging': berryKnowledge },
       })),
+    };
+    return readSave(migrated);
+  }
+  if (root['version'] === 3) {
+    validateState(value, 3);
+    for (const key of ['materialNodes', 'groundCargo', 'work'])
+      if (root[key] !== undefined) corrupt(`ambiguous ${key}`);
+    const legacy = structuredClone(value as LegacyGameStateV3);
+    if ('stats' in legacy.player || 'skills' in legacy.player)
+      corrupt('ambiguous player capabilities');
+    const migrated: GameState = {
+      ...legacy,
+      version: 4,
+      player: {
+        ...legacy.player,
+        stats: { strength: 5, endurance: 5, speed: 4, intelligence: 5 },
+        skills: { woodcutting: 1, mining: 1, hauling: 1, foraging: 1 },
+      },
+      materialNodes: initialMaterialNodes(),
+      groundCargo: [],
+      work: null,
     };
     validateSave(migrated);
     return migrated;
@@ -140,12 +161,19 @@ export function readSave(value: unknown): GameState {
 
 // Versioned differences; frozen legacy fixtures must not depend on new-game defaults.
 type LegacyCritter = Omit<Critter, 'learnedBehaviors'> & { berryKnowledge: number };
-type LegacyGameStateV2 = Omit<GameState, 'version' | 'critters'> & {
+type LegacyGameStateV3 = Omit<
+  GameState,
+  'version' | 'player' | 'materialNodes' | 'groundCargo' | 'work'
+> & {
+  version: 3;
+  player: Omit<GameState['player'], 'stats' | 'skills'>;
+};
+type LegacyGameStateV2 = Omit<LegacyGameStateV3, 'version' | 'critters'> & {
   version: 2;
   critters: LegacyCritter[];
 };
 type LegacyGameStateV1 = Omit<
-  GameState,
+  LegacyGameStateV3,
   'version' | 'critters' | 'activeCritterId' | 'training'
 > & {
   version: 1;
@@ -155,10 +183,10 @@ type LegacyGameStateV1 = Omit<
 
 /** Writes accept only the current schema. Older records must pass readSave first. */
 export function validateSave(value: unknown): asserts value is GameState {
-  validateState(value, 3);
+  validateState(value, 4);
 }
 
-function validateState(value: unknown, version: 1 | 2 | 3): void {
+function validateState(value: unknown, version: 1 | 2 | 3 | 4): void {
   const root = record(value, 'save');
   if (root['version'] !== version) {
     throw new Error(
@@ -180,6 +208,15 @@ function validateState(value: unknown, version: 1 | 2 | 3): void {
   point(player['position']);
   number(player['stamina'], 'player.stamina', 0, 100);
   number(player['coins'], 'player.coins');
+  if (version >= 4) {
+    const stats = record(player['stats'], 'player.stats');
+    for (const key of ['strength', 'endurance', 'speed', 'intelligence'])
+      number(stats[key], `player.stats.${key}`, 1, 999);
+    const skills = record(player['skills'], 'player.skills');
+    for (const key of ['woodcutting', 'mining', 'hauling', 'foraging'])
+      number(skills[key], `player.skills.${key}`, 0, 99);
+    for (const [key, value] of Object.entries(skills)) number(value, `player.skills.${key}`, 0, 99);
+  }
 
   const ids = new Set<string>([player['id'] as string]);
   const individuals = version === 1 ? [root['critter']] : array(root['critters'], 'critters');
@@ -204,9 +241,65 @@ function validateState(value: unknown, version: 1 | 2 | 3): void {
   for (const value of array(root['inventory'], 'inventory')) {
     const item = record(value, 'inventory item');
     entityId(item['id'], ids);
-    choice(item['itemId'], ['berry', 'feed', 'seed'], 'inventory.itemId');
+    choice(
+      item['itemId'],
+      version >= 4
+        ? ['berry', 'feed', 'seed', 'timber', 'stone', 'lumber']
+        : ['berry', 'feed', 'seed'],
+      'inventory.itemId',
+    );
     number(item['quantity'], 'inventory.quantity', 0, Number.MAX_SAFE_INTEGER, true);
     number(item['quality'], 'inventory.quality', 1, 3);
+  }
+  if (version >= 4) {
+    const nodes = array(root['materialNodes'], 'materialNodes');
+    for (const value of nodes) {
+      const node = record(value, 'materialNode');
+      entityId(node['id'], ids);
+      area(node['areaId']);
+      point(node['position']);
+      choice(node['kind'], ['timber', 'stone'], 'materialNode.kind');
+      number(node['remaining'], 'materialNode.remaining', 0, 6, true);
+      number(node['respawnAt'], 'materialNode.respawnAt');
+    }
+    for (const value of array(root['groundCargo'], 'groundCargo')) {
+      const pile = record(value, 'groundCargo');
+      entityId(pile['id'], ids);
+      area(pile['areaId']);
+      point(pile['position']);
+      for (const entry of array(pile['items'], 'groundCargo.items')) {
+        const item = record(entry, 'groundCargo.item');
+        entityId(item['id'], ids);
+        choice(item['itemId'], ['timber', 'stone', 'lumber'], 'groundCargo.itemId');
+        number(item['quantity'], 'groundCargo.quantity', 1, Number.MAX_SAFE_INTEGER, true);
+        number(item['quality'], 'groundCargo.quality', 1, 3);
+      }
+    }
+    if (root['work'] !== null) {
+      const work = record(root['work'], 'work');
+      const target = nodes
+        .map((node) => record(node, 'node'))
+        .find((node) => node['id'] === work['nodeId']);
+      if (
+        !target ||
+        target['areaId'] !== root['areaId'] ||
+        (target['remaining'] as number) <= 0 ||
+        root['training'] !== null
+      )
+        corrupt('work target');
+      const result = record(work['result'], 'work.result');
+      number(result['degree'], 'work.degree', -1, 1);
+      number(result['durationSeconds'], 'work.duration', 0.8, 4);
+      number(work['remainingSeconds'], 'work.remaining', 0, result['durationSeconds'] as number);
+      number(result['damage'], 'work.damage', 1, 3, true);
+      number(result['staminaCost'], 'work.stamina', 2, 10);
+      number(result['timeMinutes'], 'work.time', 2, 13);
+      number(result['skillXpGained'], 'work.skillXp', 0, 0.35);
+      for (const [key, amount] of Object.entries(record(result['statXpGained'], 'work.statXp'))) {
+        choice(key, ['strength', 'endurance', 'speed', 'intelligence'], 'work.stat');
+        number(amount, 'work.statXp', 0, 0.035);
+      }
+    }
   }
   for (const value of array(root['resources'], 'resources')) {
     const node = record(value, 'resource');
@@ -243,7 +336,7 @@ function validateState(value: unknown, version: 1 | 2 | 3): void {
   }
 }
 
-function validateCritter(critter: Record<string, unknown>, version: 1 | 2 | 3): void {
+function validateCritter(critter: Record<string, unknown>, version: 1 | 2 | 3 | 4): void {
   for (const key of ['id', 'name', 'speciesId', 'personality'])
     string(critter[key], `critter.${key}`);
   choice(critter['sex'], ['female', 'male'], 'critter.sex');

@@ -2,7 +2,7 @@
 
 **Status:** M1 and M2 complete and published on 2026-09-26 (M1: `122a6ea`, M2: `6b7cf49`).
 M3 implementation and local verification complete and merged into `main` via PR #1
-(`d9ba9d7`) on 2026-09-27; human product acceptance pending.
+(`d9ba9d7`) on 2026-09-27; human evaluation concluded (see recorded findings below).
 M4–M9 restructured to systematically build the first living stead vertical slice.
 Source baseline: `3a346fc` (documentation bootstrap on gameplay `06aa91e`),
 identical in content to the published bootstrap `7e14cac`.
@@ -140,26 +140,26 @@ playtest is a pending product gate, not a claim of failure or success.
 
 ### M4 — Rancher stats, generalized checks, and physical encumbrance
 
-**Status:** not started; specified for execution following M3 human comparison.
+**Status:** complete and locally verified on `codex/first-living-stead`, based on `f1c86a4`.
 **Player-visible expectation:** The rancher gains STR, END, SPD, INT stats and primary skills; physical resource nodes (timber, boulders) appear in the world; chopping/breaking them triggers the host check engine with visible degree of success, stamina drain, and movement slowdown when carrying heavy materials.
 
-- [ ] Add STR, END, SPD, INT capability stats and primary skills (Woodcutting, Mining,
+- [x] Add STR, END, SPD, INT capability stats and primary skills (Woodcutting, Mining,
       Hauling, Foraging) to `state.player`, using a shared `ActorCapabilities` model
       compatible with critters.
-- [ ] Implement the pure host check resolution engine:
+- [x] Implement the pure host check resolution engine:
       `resolveCheck(actor, skill, statWeights, toolQuality, difficulty) -> CheckResult`,
       returning success degree, stamina cost, time elapsed, and skill/stat experience.
-- [ ] Add new physical resource nodes in Bramblewick Yard and Clover Glade: fallen timber
+- [x] Add new physical resource nodes in Bramblewick Yard and Clover Glade: fallen timber
       logs (chopped for timber) and quarry boulders (cracked for stone).
-- [ ] Interacting with timber/rock nodes initiates the check: skill, stats, and tool quality
+- [x] Interacting with timber/rock nodes initiates the check: skill, stats, and tool quality
       visibly dictate swing speed, stamina spent, and damage dealt to the node.
-- [ ] Implement graduated physical encumbrance: carrying harvested timber or stone mass
+- [x] Implement graduated physical encumbrance: carrying harvested timber or stone mass
       noticeably reduces movement speed and increases stamina consumption.
-- [ ] Decouple the Three.js viewport canvas from the bottom interaction dock to ensure layout
+- [x] Decouple the Three.js viewport canvas from the bottom interaction dock to ensure layout
       stability ([D32](../../DECISIONS.md#d32--viewport-decoupling-from-interaction-dock-ui)).
-- [ ] Performing checks awards visible experience to relevant skills and slow organic gains
+- [x] Performing checks awards visible experience to relevant skills and slow organic gains
       to contributing stats.
-- [ ] Unit, persistence, and browser checks verify state rules, check resolution, encumbrance
+- [x] Unit, persistence, and browser checks verify state rules, check resolution, encumbrance
       penalties, and save migration without regressions.
 
 ### M5 — Localized storage, physical carrying, and first production chain
@@ -316,11 +316,19 @@ Based on `b8d8203`, delivered and merged via PR #1 (`d9ba9d7`) on 2026-09-27.
 
 ### Local verification complete
 
-- `npm test -- --watch=false`: **80 passed**, covering cost boundaries, continuity, rest rules,
-  and autonomous reserve.
-- `npm run lint`, Prettier format check, `git diff --check`: passed.
-- Production build at `/critterstead/` and `npm run check:pwa`: passed (907.89 kB bundle).
-- `npx playwright test`: **52 passed, 12 intentional skips**, zero failures.
+-
+
+pm test -- --watch=false`: **80 passed**, covering cost boundaries, continuity, rest rules,
+and autonomous reserve.
+-
+
+pm run lint`, Prettier format check, `git diff --check`: passed.
+
+- Production build at `/critterstead/` and
+  pm run check:pwa`: passed (907.89 kB bundle).
+-
+
+px playwright test`: **52 passed, 12 intentional skips**, zero failures.
 
 ### Comparable routine evidence
 
@@ -364,22 +372,32 @@ The outstanding human comparison between M3 routines has been conducted on the d
 
 ---
 
+## M4 evidence — 2026-09-27
+
+- Shared ActorCapabilities, deterministic degree-based checks, visible timed axe/pick
+  work, timber/stone sites in both areas, organic gains, carried meshes, persistent
+  dropped cargo, four encumbrance bands, and fixed viewport/dock layers implemented.
+- 86 unit tests pass (80 baseline + six focused check/work/migration scenarios).
+  Paid work reloads without a second charge or reward; legacy v3 fixture retains all
+  existing progress. Rejected actions and overload recovery are covered.
+- Browser work loop passes on phone and desktop, including normal-key walking,
+  chopping, mining, heavy load, drop/pickup across reload, and equal canvas dimensions.
+  Responsive smoke passes all four viewports; desktop layout passes three sizes.
+  Focused run: 7 passed, 5 intentional skips. Phone/desktop cargo screenshots inspected.
+- Lint, production /critterstead/ build and Pages assets pass. Build has a nonblocking
+  16.48kB component stylesheet warning (20kB error budget unchanged).
+- Provisional: fractional skill gains, slow stat gains, resource difficulty/respawn,
+  8kg timber/12kg stone, load thresholds, starter tools, 180px reserved interaction bay.
+  No tool durability, tool selection, or cargo physics solver is claimed.
+
 ## Current handoff
 
-- **Completed:** M1, M2, and M3 implemented, verified, and merged into `origin/main`
-  (PR #1, commit `d9ba9d7`). Human M3 product evaluation completed on 2026-09-27.
-- **Product assessment recorded:** Rest together functioning verified, but human play confirmed
-  the daily loop still feels fundamentally the same; outcome validates the expanded M4–M9 runway;
-  M3 is closed and does not block M4.
-- **Runway preserved:** M4–M9 remain our implementation north star to establish the first living
-  stead vertical slice (rancher stats/checks, localized storage/production, compositional jobs/hauling,
-  multi-crop farming/calendar, diverse training minigames/Colosseum, and integration gate).
-- **Next gameplay action:** Start **M4 — Rancher stats, generalized checks, and physical encumbrance**.
-  Execution can begin directly from the M4 concrete specification:
-  1. Add STR/END/SPD/INT stats and primary skills (Woodcutting, Mining, Hauling, Foraging)
-     to `state.player` via shared `ActorCapabilities`.
-  2. Implement pure host check engine (`resolveCheck`).
-  3. Add physical fallen timber and quarry boulder resource nodes in the yard and glade.
-  4. Implement graduated physical encumbrance on movement speed and stamina.
-  5. Decouple the Three.js viewport canvas from the interaction dock for layout stability.
-  6. Award organic skill and stat experience from check execution.
+M1–M4 complete. M3 is concluded with its human finding preserved. M5 is the next
+implementation checkpoint; M4–M9 continuation remains authorized. Start by converting
+the carried bag and ground cargo to localized containers, preserving all item IDs,
+quantities and qualities; then add yard storage, companion satchel and sawmill buffers.
+
+M4 desktop persistence suite: 9 passed, including v1/v2 migration, paid activity,
+malformed/future/ambiguous save protection, and single-writer ownership.
+Inspected evidence: [phone timber](../evidence/001-m4/phone-timber.png) and
+[desktop heavy cargo](../evidence/001-m4/desktop-heavy.png).

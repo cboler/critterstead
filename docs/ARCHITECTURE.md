@@ -42,7 +42,30 @@ and persistence:
 
 ---
 
-## Architectural reality audit
+## Current implementation additions — M4 (2026-09-27)
+
+Save v4 adds shared actor capabilities to the rancher, physical timber/stone sites,
+paid in-flight resource work, and persistent ground cargo. Pure checks in
+`checks.ts` return degree, damage, time, animation duration, stamina price, and
+fractional skill/stat gains. Starter axe/pick quality is fixed; advanced quality
+scales with proficiency in the resolver, but no tool tiers or maintenance are shipped.
+The four load bands affect movement and energy per distance. Zero-energy heavy
+walking remains possible; severe overload is recoverable by setting cargo down.
+The inventory still acts as the player's carried bag until M5 replaces it.
+
+The viewport and dock occupy independent absolute layers, with a fixed 180px dock
+bay that stays reserved even when no interaction is present. Dock overflow scrolls
+inside that bay; opening/cycling targets cannot resize the camera. The rancher card
+shows stats, skills, weight, and held materials; original meshes show work and cargo.
+
+Migration v3 -> v4 preserves all existing fields, seeds, individuals, and paid
+training, adds explicit rancher defaults and sites, and rejects conflicting new
+fields. Frozen v1/v2/v3 fixtures protect legacy continuity.
+
+## Architectural reality audit (reconciliation baseline before M4)
+
+The following audit records the reconciled pre-M4 baseline. The dated additions
+above supersede its rancher, check, encumbrance, resource, viewport, and save rows.
 
 To avoid implementation confusion, the codebase is audited across four distinct categories:
 
@@ -112,7 +135,7 @@ To avoid implementation confusion, the codebase is audited across four distinct 
 
 ## What exists today in the codebase
 
-### State model (`model.ts`)
+### State model at the reconciliation baseline (`model.ts`)
 
 - **Save schema version**: `3`.
 - **`GameState`**: owns `seed`, `day`, `minute`, `totalMinutes`, `areaId`, `areaInstanceId`,

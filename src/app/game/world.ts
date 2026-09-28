@@ -40,6 +40,11 @@ export class GameWorld {
   private readonly labels: WorldLabel[] = [];
   private readonly critterLabel: HTMLDivElement;
   private readonly berries = new Map<string, THREE.Group>();
+  private readonly materialsInWorld = new Map<string, THREE.Group>();
+  private readonly groundLoads = new THREE.Group();
+  private readonly carriedLoad = new THREE.Group();
+  private readonly workTool = new THREE.Group();
+  private cargoSignature = '';
   private readonly crops = new THREE.Group();
   private readonly smoke = new THREE.Group();
   private readonly shedRoof = new THREE.Group();
@@ -104,6 +109,13 @@ export class GameWorld {
     backdrop.receiveShadow = true;
     this.scene.add(backdrop);
     this.buildFarmer();
+    this.carriedLoad.add(this.mesh(this.cylinder, '#986441', [0, 1, 0.42], [0.22, 1.25, 0.22]));
+    this.carriedLoad.children[0].rotation.z = Math.PI / 2;
+    this.carriedLoad.add(this.mesh(this.pebble, '#8d9b9a', [0, 1, 0.42], [0.5, 0.3, 0.3]));
+    this.workTool.add(this.mesh(this.box, '#996d45', [0, 0.4, 0], [0.08, 0.85, 0.08]));
+    this.workTool.add(this.mesh(this.box, '#c6d4d3', [0.12, 0.78, 0], [0.35, 0.23, 0.1]));
+    this.workTool.position.set(0.45, 0.9, 0.25);
+    this.farmerBody.add(this.carriedLoad, this.workTool);
     this.buildCritter();
     this.buildFeedback();
     this.permanentGeometryCount = this.geometries.length;
@@ -186,6 +198,45 @@ export class GameWorld {
       this.projection.set(visualCritterPosition.x, 1.9 + jumpHeight, visualCritterPosition.z),
     );
     this.animateFeedback(state, dt);
+    const timber = state.inventory.some((item) => item.itemId === 'timber' && item.quantity > 0);
+    const stone = state.inventory.some((item) => item.itemId === 'stone' && item.quantity > 0);
+    this.carriedLoad.visible = (timber || stone) && !state.work;
+    this.carriedLoad.children[0].visible = timber;
+    this.carriedLoad.children[1].visible = !timber && stone;
+    this.workTool.visible = !!state.work;
+    if (state.work) {
+      const node = state.materialNodes.find((item) => item.id === state.work!.nodeId)!;
+      this.farmer.rotation.y = Math.atan2(
+        node.position.x - state.player.position.x,
+        node.position.z - state.player.position.z,
+      );
+      this.workTool.rotation.x = this.reducedMotion
+        ? -0.5
+        : Math.sin((this.clock * 8) / state.work.result.durationSeconds) * 1.1;
+    }
+    for (const node of state.materialNodes) {
+      const model = this.materialsInWorld.get(node.id);
+      if (model) model.scale.setScalar(node.remaining > 0 ? 0.65 + node.remaining / 18 : 0.25);
+    }
+    const signature = JSON.stringify(state.groundCargo);
+    if (signature !== this.cargoSignature) {
+      this.cargoSignature = signature;
+      this.groundLoads.clear();
+      for (const pile of state.groundCargo.filter((pile) => pile.areaId === state.areaId)) {
+        const group = new THREE.Group();
+        group.position.set(pile.position.x, 0, pile.position.z);
+        pile.items.forEach((item, index) => {
+          const mesh = this.mesh(
+            item.itemId === 'stone' ? this.pebble : this.box,
+            item.itemId === 'stone' ? '#8d9b9a' : '#aa7c50',
+            [index * 0.4, 0.25, 0],
+            [0.65, 0.35, 0.6],
+          );
+          group.add(mesh);
+        });
+        this.groundLoads.add(group);
+      }
+    }
     for (const [id, cluster] of this.berries) {
       cluster.visible = state.resources.find((node) => node.id === id)?.available ?? false;
     }
@@ -303,6 +354,9 @@ export class GameWorld {
     this.scenery.clear();
     this.geometries.splice(this.permanentGeometryCount).forEach((geometry) => geometry.dispose());
     this.berries.clear();
+    this.materialsInWorld.clear();
+    this.groundLoads.clear();
+    this.cargoSignature = '';
     this.crops.clear();
     this.smoke.clear();
     this.shedRoof.clear();
@@ -311,6 +365,29 @@ export class GameWorld {
     this.island();
     if (state.areaId === 'homestead') this.homestead();
     else this.glade(state);
+    for (const node of state.materialNodes.filter((node) => node.areaId === state.areaId)) {
+      const group = new THREE.Group();
+      group.position.set(node.position.x, 0, node.position.z);
+      if (node.kind === 'timber') {
+        const log = this.mesh(this.cylinder, '#8c603e', [0, 0.42, 0], [0.46, 2.1, 0.46]);
+        log.rotation.z = Math.PI / 2;
+        const end = this.mesh(this.cylinder, '#ddb87e', [1.06, 0.42, 0], [0.37, 0.04, 0.37]);
+        end.rotation.z = Math.PI / 2;
+        group.add(log, end);
+      } else {
+        group.add(this.mesh(this.pebble, '#819394', [0, 0.65, 0], [1, 0.85, 0.85]));
+        group.add(this.mesh(this.box, '#d6dfd6', [0.1, 0.9, 0.65], [0.07, 0.65, 0.04]));
+      }
+      this.materialsInWorld.set(node.id, group);
+      this.scenery.add(group);
+      this.label(
+        node.kind === 'timber' ? 'Fallen timber' : 'Quarry stone',
+        node.position.x,
+        1.7,
+        node.position.z,
+      );
+    }
+    this.scenery.add(this.groundLoads);
     this.grass(state.areaId === 'homestead' ? 97 : 301);
   }
 

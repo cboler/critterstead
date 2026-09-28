@@ -1,4 +1,11 @@
-import { AreaDefinition, AreaId, BehaviorDefinition, BehaviorId, Point } from './model';
+import {
+  AreaDefinition,
+  AreaId,
+  BehaviorDefinition,
+  BehaviorId,
+  MaterialNode,
+  Point,
+} from './model';
 
 // Provisional loop-testing starter, separate from Grandpa’s narrative Pip.
 export const STARTER = { id: 'critter-mallow', name: 'Mallow' } as const;
@@ -125,3 +132,41 @@ export const BERRY_NODES: { id: string; position: Point }[] = [
   { id: 'berries-east', position: { x: 5, z: -1.5 } },
   { id: 'berries-south', position: { x: 4, z: 4.5 } },
 ];
+
+// Fixed campaign resource sites; depletion lasts until the next morning.
+export function initialMaterialNodes(): MaterialNode[] {
+  return [
+    {
+      id: 'yard-timber',
+      areaId: 'homestead',
+      position: { x: -1, z: -5 },
+      kind: 'timber',
+      remaining: 6,
+      respawnAt: 0,
+    },
+    {
+      id: 'yard-stone',
+      areaId: 'homestead',
+      position: { x: 6, z: 4 },
+      kind: 'stone',
+      remaining: 6,
+      respawnAt: 0,
+    },
+    {
+      id: 'glade-timber',
+      areaId: 'glade',
+      position: { x: -4, z: 5 },
+      kind: 'timber',
+      remaining: 6,
+      respawnAt: 0,
+    },
+    {
+      id: 'glade-stone',
+      areaId: 'glade',
+      position: { x: 5, z: -5 },
+      kind: 'stone',
+      remaining: 6,
+      respawnAt: 0,
+    },
+  ];
+}
