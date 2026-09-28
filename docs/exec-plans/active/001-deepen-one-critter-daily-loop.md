@@ -2,7 +2,7 @@
 
 **Status:** M1 and M2 complete and published on 2026-09-26 (M1: `122a6ea`, M2: `6b7cf49`).
 M3 implementation and local verification complete and merged into `main` via PR #1
-(`d9ba9d7`) on 2026-09-27; human product acceptance pending.
+(`d9ba9d7`) on 2026-09-27; human evaluation concluded (see recorded findings below).
 M4–M9 restructured to systematically build the first living stead vertical slice.
 Source baseline: `3a346fc` (documentation bootstrap on gameplay `06aa91e`),
 identical in content to the published bootstrap `7e14cac`.
@@ -140,63 +140,63 @@ playtest is a pending product gate, not a claim of failure or success.
 
 ### M4 — Rancher stats, generalized checks, and physical encumbrance
 
-**Status:** not started; specified for execution following M3 human comparison.
+**Status:** complete and locally verified on `codex/first-living-stead`, based on `f1c86a4`.
 **Player-visible expectation:** The rancher gains STR, END, SPD, INT stats and primary skills; physical resource nodes (timber, boulders) appear in the world; chopping/breaking them triggers the host check engine with visible degree of success, stamina drain, and movement slowdown when carrying heavy materials.
 
-- [ ] Add STR, END, SPD, INT capability stats and primary skills (Woodcutting, Mining,
+- [x] Add STR, END, SPD, INT capability stats and primary skills (Woodcutting, Mining,
       Hauling, Foraging) to `state.player`, using a shared `ActorCapabilities` model
       compatible with critters.
-- [ ] Implement the pure host check resolution engine:
+- [x] Implement the pure host check resolution engine:
       `resolveCheck(actor, skill, statWeights, toolQuality, difficulty) -> CheckResult`,
       returning success degree, stamina cost, time elapsed, and skill/stat experience.
-- [ ] Add new physical resource nodes in Bramblewick Yard and Clover Glade: fallen timber
+- [x] Add new physical resource nodes in Bramblewick Yard and Clover Glade: fallen timber
       logs (chopped for timber) and quarry boulders (cracked for stone).
-- [ ] Interacting with timber/rock nodes initiates the check: skill, stats, and tool quality
+- [x] Interacting with timber/rock nodes initiates the check: skill, stats, and tool quality
       visibly dictate swing speed, stamina spent, and damage dealt to the node.
-- [ ] Implement graduated physical encumbrance: carrying harvested timber or stone mass
+- [x] Implement graduated physical encumbrance: carrying harvested timber or stone mass
       noticeably reduces movement speed and increases stamina consumption.
-- [ ] Decouple the Three.js viewport canvas from the bottom interaction dock to ensure layout
+- [x] Decouple the Three.js viewport canvas from the bottom interaction dock to ensure layout
       stability ([D32](../../DECISIONS.md#d32--viewport-decoupling-from-interaction-dock-ui)).
-- [ ] Performing checks awards visible experience to relevant skills and slow organic gains
+- [x] Performing checks awards visible experience to relevant skills and slow organic gains
       to contributing stats.
-- [ ] Unit, persistence, and browser checks verify state rules, check resolution, encumbrance
+- [x] Unit, persistence, and browser checks verify state rules, check resolution, encumbrance
       penalties, and save migration without regressions.
 
 ### M5 — Localized storage, physical carrying, and first production chain
 
-**Status:** not started; builds on M4 check and physical resource models.
+**Status:** complete and locally verified (2026-09-28), following pushed M4 `5290082`.
 **Player-visible expectation:** Items physically exist in designated containers (wooden yard chest, companion satchel, machine hoppers); player and critter can physically carry cargo and deposit it; a sawmill/chopping block refines logs into lumber, stalling if input is exhausted or output is full.
 
-- [ ] Decompose the global `state.inventory` array into localized `Container` entities:
+- [x] Decompose the global `state.inventory` array into localized `Container` entities:
       player backpack, critter satchel, yard storage chest, and workstation hoppers.
-- [ ] Implement physical carrying mechanics: player and active critter can pick up, visually
+- [x] Implement physical carrying mechanics: player and active critter can pick up, visually
       hold, and deposit items into nearby containers.
-- [ ] Add the first refining workstation: **Woodchopping Block / Sawmill** in Bramblewick Yard.
-- [ ] Workstation state machine: consumes logs from its input hopper over time to produce
+- [x] Add the first refining workstation: **Woodchopping Block / Sawmill** in Bramblewick Yard.
+- [x] Workstation state machine: consumes logs from its input hopper over time to produce
       refined lumber in its output crate.
-- [ ] Emergent failure chain: if the input hopper runs out of logs or the output crate reaches
+- [x] Emergent failure chain: if the input hopper runs out of logs or the output crate reaches
       capacity, the machine halts and displays an inspectable explanation.
-- [ ] Save migration explicitly converts existing global inventory into the player's primary
+- [x] Save migration explicitly converts existing global inventory into the player's primary
       backpack container without item loss.
-- [ ] Unit and browser tests verify container transfers, physical carrying, production cycles,
+- [x] Unit and browser tests verify container transfers, physical carrying, production cycles,
       stoppage conditions, and save safety.
 
 ### M6 — Compositional learning and first autonomous job (Hauling)
 
-**Status:** not started; builds on M5 localized containers and workstation buffers.
+**Status:** complete locally (2026-09-28); save v6, learned route and worker self-care verified.
 **Player-visible expectation:** The companion observes the player carrying lumber from sawmill to storage chest, learns hauling through cues, and independently clears sawmill output; companion self-manages basic needs by eating and resting when needed.
 
-- [ ] Generalize `BEHAVIORS` to multi-step compositional jobs: author `lumber-hauling`
+- [x] Generalize `BEHAVIORS` to multi-step compositional jobs: author `lumber-hauling`
       behavior with ordered stages (unfamiliar, observing, cued, autonomous).
-- [ ] Companion learns by watching player haul lumber from the sawmill output crate to the
+- [x] Companion learns by watching player haul lumber from the sawmill output crate to the
       yard storage chest.
-- [ ] Autonomous hauling: when independent, companion recognizes finished lumber in the
+- [x] Autonomous hauling: when independent, companion recognizes finished lumber in the
       sawmill output, picks it up, carries it to the yard chest, and deposits it.
-- [ ] Basic critter self-management: if hunger exceeds threshold, companion seeks food from
+- [x] Basic critter self-management: if hunger exceeds threshold, companion seeks food from
       the feed trough; if stamina is exhausted, companion rests at the nook before resuming work.
-- [ ] Delegating hauling visibly reduces player chores, freeing player time for training or
+- [x] Delegating hauling visibly reduces player chores, freeing player time for training or
       resource gathering.
-- [ ] Save continuity, unit tests, and Playwright verification of the autonomous hauling cycle.
+- [x] Save continuity, unit tests, and Playwright verification of the autonomous hauling cycle.
 
 ### M7 — Multi-crop farming, cottage interior, and household calendar
 
@@ -316,11 +316,19 @@ Based on `b8d8203`, delivered and merged via PR #1 (`d9ba9d7`) on 2026-09-27.
 
 ### Local verification complete
 
-- `npm test -- --watch=false`: **80 passed**, covering cost boundaries, continuity, rest rules,
-  and autonomous reserve.
-- `npm run lint`, Prettier format check, `git diff --check`: passed.
-- Production build at `/critterstead/` and `npm run check:pwa`: passed (907.89 kB bundle).
-- `npx playwright test`: **52 passed, 12 intentional skips**, zero failures.
+-
+
+pm test -- --watch=false`: **80 passed**, covering cost boundaries, continuity, rest rules,
+and autonomous reserve.
+-
+
+pm run lint`, Prettier format check, `git diff --check`: passed.
+
+- Production build at `/critterstead/` and
+  pm run check:pwa`: passed (907.89 kB bundle).
+-
+
+px playwright test`: **52 passed, 12 intentional skips**, zero failures.
 
 ### Comparable routine evidence
 
@@ -364,22 +372,102 @@ The outstanding human comparison between M3 routines has been conducted on the d
 
 ---
 
+## M4 evidence — 2026-09-27
+
+- Shared ActorCapabilities, deterministic degree-based checks, visible timed axe/pick
+  work, timber/stone sites in both areas, organic gains, carried meshes, persistent
+  dropped cargo, four encumbrance bands, and fixed viewport/dock layers implemented.
+- 86 unit tests pass (80 baseline + six focused check/work/migration scenarios).
+  Paid work reloads without a second charge or reward; legacy v3 fixture retains all
+  existing progress. Rejected actions and overload recovery are covered.
+- Browser work loop passes on phone and desktop, including normal-key walking,
+  chopping, mining, heavy load, drop/pickup across reload, and equal canvas dimensions.
+  Responsive smoke passes all four viewports; desktop layout passes three sizes.
+  Focused run: 7 passed, 5 intentional skips. Phone/desktop cargo screenshots inspected.
+- Lint, production /critterstead/ build and Pages assets pass. Build has a nonblocking
+  16.48kB component stylesheet warning (20kB error budget unchanged).
+- Provisional: fractional skill gains, slow stat gains, resource difficulty/respawn,
+  8kg timber/12kg stone, load thresholds, starter tools, 180px reserved interaction bay.
+  No tool durability, tool selection, or cargo physics solver is claimed.
+
 ## Current handoff
 
-- **Completed:** M1, M2, and M3 implemented, verified, and merged into `origin/main`
-  (PR #1, commit `d9ba9d7`). Human M3 product evaluation completed on 2026-09-27.
-- **Product assessment recorded:** Rest together functioning verified, but human play confirmed
-  the daily loop still feels fundamentally the same; outcome validates the expanded M4–M9 runway;
-  M3 is closed and does not block M4.
-- **Runway preserved:** M4–M9 remain our implementation north star to establish the first living
-  stead vertical slice (rancher stats/checks, localized storage/production, compositional jobs/hauling,
-  multi-crop farming/calendar, diverse training minigames/Colosseum, and integration gate).
-- **Next gameplay action:** Start **M4 — Rancher stats, generalized checks, and physical encumbrance**.
-  Execution can begin directly from the M4 concrete specification:
-  1. Add STR/END/SPD/INT stats and primary skills (Woodcutting, Mining, Hauling, Foraging)
-     to `state.player` via shared `ActorCapabilities`.
-  2. Implement pure host check engine (`resolveCheck`).
-  3. Add physical fallen timber and quarry boulder resource nodes in the yard and glade.
-  4. Implement graduated physical encumbrance on movement speed and stamina.
-  5. Decouple the Three.js viewport canvas from the interaction dock for layout stability.
-  6. Award organic skill and stat experience from check execution.
+M1–M6 complete. M4 is pushed as `5290082`; M5 as `5cb3a37`. M6 is the next
+durable checkpoint. M7–M9 remain authorized. Next: implement the four-plot seasonal
+garden, cottage interior, and inspectable household calendar.
+
+M4 desktop persistence suite: 9 passed, including v1/v2 migration, paid activity,
+malformed/future/ambiguous save protection, and single-writer ownership.
+Inspected evidence: [phone timber](../evidence/001-m4/phone-timber.png) and
+[desktop heavy cargo](../evidence/001-m4/desktop-heavy.png).
+
+## M5 implementation notes — 2026-09-27
+
+Save v5 explicitly moves every legacy inventory stack into the rancher's backpack,
+keeping IDs, quantities, quality, ground cargo, work, seed, and paid activities intact.
+Each persistent critter receives its own satchel. Chests, trough and mill buffers are
+fixed local containers with item filters and unit capacities. Player supplies stay
+in the backpack; gathered companion berries stay in that individual's satchel.
+The honesty stall can sell the nearby companion's berries, never distant storage.
+
+The yard sawmill makes two lumber per timber per 12 game minutes. It does not consume
+an input until output fits, never banks stopped time, and continues during ordinary
+actions and overnight. Transfers use local interaction commands, preserve quality,
+reject full destinations atomically, and let the nearby companion carry/deposit.
+The trough is positioned away from the nook interaction so Rest remains accessible.
+These placements, rates, capacities and mass coefficients remain provisional.
+
+M5 unit verification: 91 passed. New checks cover transfer conservation/locality,
+per-individual satchels, full/empty production stoppage and reload, frozen v4 migration,
+and malformed container protection. M6 will add learning and autonomous task phases;
+current companion container transfers are direct player instructions.
+
+### M5 verification completed — 2026-09-28
+
+- 91 unit tests, lint, /critterstead/ production build, SPA/manifest/service-worker
+  assets, and production offline care persistence pass. The offline harness now
+  waits for actual prefetched caches before disconnecting (initial controller
+  activation can race first-install caching). Stylesheet warning remains 16.48kB.
+- The selected desktop browser set covers controller input, M4 work/cargo, all nine
+  persistence scenarios and the new production route. Two initial failures were
+  corrected: an exact button-name assertion omitted the desktop E hint, and a
+  save test was interrupted by development-server reload. Both pass on rerun.
+- The existing full normal-input day passes with satchels: care, training, gathering,
+  observation/cues/autonomy, market, nook upgrade/rest, garden, trial, sleep/reload.
+  Old starter-checklist assertions now check the resulting authoritative progress.
+- Production/carrying journey passes on phone and desktop. The player supplies two
+  logs, sees sawing then a full output crate, takes lumber, asks Mallow to carry one,
+  walks to the chest, deposits both, and verifies storage across reload.
+- Inspected [phone cargo](../evidence/001-m5/phone-cargo.png) and
+  [desktop mill](../evidence/001-m5/desktop-mill.png). New station labels show only
+  the nearest site to reduce clutter. Foreground vegetation still obscures some
+  worksite angles; improve route visibility while integrating M6.
+
+No human fun/balance acceptance or physical-controller test is claimed. No main
+merge or Pages deployment is implied by the campaign branch push.
+
+## M6 evidence — 2026-09-28
+
+- Authored collect/deliver steps and persistent per-individual job phases. Two whole
+  demonstrations followed by two cued deliveries teach autonomous lumber hauling.
+  Picking lumber out of the chest cannot teach the route. Manual cargo removal and
+  pausing cannot duplicate delivery credit. The learned helper physically empties
+  the mill into the chest while the rancher can work elsewhere in the yard.
+- Workers seek the local feed trough when hungry and the nook when tired, then resume.
+  Empty troughs/full chests stop work visibly; training and other areas pause it.
+  Only the selected companion works. Food, cargo, phase and learning survive reload.
+- Save v6 migrates v5 without changing containers, in-flight work or mill progress.
+  A frozen v5 fixture protects migration; invalid phases/lessons fail closed.
+- 97 unit tests, lint, production Pages build, offline persistence pass. Browser set:
+  8 passed, 11 intentional skips, one sidebar overflow repaired; its three-size
+  desktop layout rerun passes. Both phone and desktop demonstrate, cue, reload a
+  carried board and observe repeated independent deliveries. Desktop additionally
+  verifies local food/rest. Responsive smoke passes all four viewports and mocked
+  controller command routing passes. No physical-controller/human-balance claim.
+- Inspected [phone route](../evidence/001-m6/phone-route.png),
+  [desktop deliveries](../evidence/001-m6/desktop-deliveries.png), and worker rest.
+  Reduced two foreground trees so the route is visible; kept the fixed dock bay.
+- Provisional: learning thresholds 2/6, one-board trips, 4 energy per pickup/deposit,
+  meal threshold 70 hunger, autonomous rest reserve 20/resume 50. No offscreen worker
+  simulation, general scheduling planner, or new dependency. Stylesheet warning
+  remains below its unchanged 20kB error budget.

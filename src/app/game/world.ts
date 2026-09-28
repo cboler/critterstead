@@ -1,4 +1,6 @@
+import { backpack, satchel } from './model';
 import * as THREE from 'three';
+import { productionStatus, quantity } from './logistics';
 import { AREAS } from './content';
 import { activeCritter, type GameState, type Point } from './model';
 
@@ -40,6 +42,14 @@ export class GameWorld {
   private readonly labels: WorldLabel[] = [];
   private readonly critterLabel: HTMLDivElement;
   private readonly berries = new Map<string, THREE.Group>();
+  private readonly materialsInWorld = new Map<string, THREE.Group>();
+  private readonly groundLoads = new THREE.Group();
+  private readonly carriedLoad = new THREE.Group();
+  private readonly companionLoad = new THREE.Group();
+  private readonly containerModels = new Map<string, THREE.Group>();
+  private readonly millBlade = new THREE.Group();
+  private readonly workTool = new THREE.Group();
+  private cargoSignature = '';
   private readonly crops = new THREE.Group();
   private readonly smoke = new THREE.Group();
   private readonly shedRoof = new THREE.Group();
@@ -104,7 +114,17 @@ export class GameWorld {
     backdrop.receiveShadow = true;
     this.scene.add(backdrop);
     this.buildFarmer();
+    this.carriedLoad.add(this.mesh(this.cylinder, '#986441', [0, 1, 0.42], [0.22, 1.25, 0.22]));
+    this.carriedLoad.children[0].rotation.z = Math.PI / 2;
+    this.carriedLoad.add(this.mesh(this.pebble, '#8d9b9a', [0, 1, 0.42], [0.5, 0.3, 0.3]));
+    this.workTool.add(this.mesh(this.box, '#996d45', [0, 0.4, 0], [0.08, 0.85, 0.08]));
+    this.workTool.add(this.mesh(this.box, '#c6d4d3', [0.12, 0.78, 0], [0.35, 0.23, 0.1]));
+    this.workTool.position.set(0.45, 0.9, 0.25);
+    this.farmerBody.add(this.carriedLoad, this.workTool);
     this.buildCritter();
+    this.companionLoad.add(this.mesh(this.box, '#c59160', [0, 0.9, 0.3], [0.85, 0.18, 0.35]));
+    this.companionLoad.add(this.mesh(this.box, '#866546', [0.37, 0.6, 0], [0.27, 0.35, 0.4]));
+    this.critterBody.add(this.companionLoad);
     this.buildFeedback();
     this.permanentGeometryCount = this.geometries.length;
     this.renderer.domElement.addEventListener('pointerdown', this.walk);
@@ -186,6 +206,66 @@ export class GameWorld {
       this.projection.set(visualCritterPosition.x, 1.9 + jumpHeight, visualCritterPosition.z),
     );
     this.animateFeedback(state, dt);
+    const timber = backpack(state).items.some(
+      (item) => (item.itemId === 'timber' || item.itemId === 'lumber') && item.quantity > 0,
+    );
+    const stone = backpack(state).items.some(
+      (item) => item.itemId === 'stone' && item.quantity > 0,
+    );
+    this.carriedLoad.visible = (timber || stone) && !state.work;
+    this.carriedLoad.children[0].visible = timber;
+    this.carriedLoad.children[1].visible = !timber && stone;
+    this.companionLoad.visible = satchel(state).items.some((item) => item.quantity > 0);
+    this.companionLoad.children[0].visible = satchel(state).items.some((item) =>
+      ['timber', 'lumber', 'stone'].includes(item.itemId),
+    );
+    for (const container of state.containers) {
+      const model = this.containerModels.get(container.id);
+      if (model)
+        model.children.forEach((child, index) => {
+          child.visible = index < quantity(container);
+        });
+    }
+    if (
+      state.areaId === 'homestead' &&
+      productionStatus(state.containers).startsWith('Sawing') &&
+      !this.reducedMotion
+    )
+      this.millBlade.rotation.z += dt * 5;
+    this.workTool.visible = !!state.work;
+    if (state.work) {
+      const node = state.materialNodes.find((item) => item.id === state.work!.nodeId)!;
+      this.farmer.rotation.y = Math.atan2(
+        node.position.x - state.player.position.x,
+        node.position.z - state.player.position.z,
+      );
+      this.workTool.rotation.x = this.reducedMotion
+        ? -0.5
+        : Math.sin((this.clock * 8) / state.work.result.durationSeconds) * 1.1;
+    }
+    for (const node of state.materialNodes) {
+      const model = this.materialsInWorld.get(node.id);
+      if (model) model.scale.setScalar(node.remaining > 0 ? 0.65 + node.remaining / 18 : 0.25);
+    }
+    const signature = JSON.stringify(state.groundCargo);
+    if (signature !== this.cargoSignature) {
+      this.cargoSignature = signature;
+      this.groundLoads.clear();
+      for (const pile of state.groundCargo.filter((pile) => pile.areaId === state.areaId)) {
+        const group = new THREE.Group();
+        group.position.set(pile.position.x, 0, pile.position.z);
+        pile.items.forEach((item, index) => {
+          const mesh = this.mesh(
+            item.itemId === 'stone' ? this.pebble : this.box,
+            item.itemId === 'stone' ? '#8d9b9a' : '#aa7c50',
+            [index * 0.4, 0.25, 0],
+            [0.65, 0.35, 0.6],
+          );
+          group.add(mesh);
+        });
+        this.groundLoads.add(group);
+      }
+    }
     for (const [id, cluster] of this.berries) {
       cluster.visible = state.resources.find((node) => node.id === id)?.available ?? false;
     }
@@ -211,12 +291,26 @@ export class GameWorld {
     this.sun.intensity = 1.3 + daylight * 2;
     this.hemisphere.intensity = 1.8 + daylight * 0.8;
     this.sun.color.set(daylight < 0.25 ? '#f7bd87' : '#fff0ce');
+    const closestLabel = this.labels
+      .filter((label) => !label.always)
+      .sort(
+        (a, b) =>
+          Math.hypot(
+            a.position.x - state.player.position.x,
+            a.position.z - state.player.position.z,
+          ) -
+          Math.hypot(
+            b.position.x - state.player.position.x,
+            b.position.z - state.player.position.z,
+          ),
+      )[0];
     for (const label of this.labels) {
       const distance = Math.hypot(
         label.position.x - state.player.position.x,
         label.position.z - state.player.position.z,
       );
-      label.element.style.opacity = label.always || distance < 5 ? '1' : '0';
+      label.element.style.opacity =
+        label.always || (label === closestLabel && distance < 5) ? '1' : '0';
       this.positionLabel(label.element, label.position);
     }
     this.renderer.render(this.scene, this.camera);
@@ -303,6 +397,11 @@ export class GameWorld {
     this.scenery.clear();
     this.geometries.splice(this.permanentGeometryCount).forEach((geometry) => geometry.dispose());
     this.berries.clear();
+    this.materialsInWorld.clear();
+    this.containerModels.clear();
+    this.millBlade.clear();
+    this.groundLoads.clear();
+    this.cargoSignature = '';
     this.crops.clear();
     this.smoke.clear();
     this.shedRoof.clear();
@@ -311,6 +410,82 @@ export class GameWorld {
     this.island();
     if (state.areaId === 'homestead') this.homestead();
     else this.glade(state);
+    for (const node of state.materialNodes.filter((node) => node.areaId === state.areaId)) {
+      const group = new THREE.Group();
+      group.position.set(node.position.x, 0, node.position.z);
+      if (node.kind === 'timber') {
+        const log = this.mesh(this.cylinder, '#8c603e', [0, 0.42, 0], [0.46, 2.1, 0.46]);
+        log.rotation.z = Math.PI / 2;
+        const end = this.mesh(this.cylinder, '#ddb87e', [1.06, 0.42, 0], [0.37, 0.04, 0.37]);
+        end.rotation.z = Math.PI / 2;
+        group.add(log, end);
+      } else {
+        group.add(this.mesh(this.pebble, '#819394', [0, 0.65, 0], [1, 0.85, 0.85]));
+        group.add(this.mesh(this.box, '#d6dfd6', [0.1, 0.9, 0.65], [0.07, 0.65, 0.04]));
+      }
+      this.materialsInWorld.set(node.id, group);
+      this.scenery.add(group);
+      this.label(
+        node.kind === 'timber' ? 'Fallen timber' : 'Quarry stone',
+        node.position.x,
+        1.7,
+        node.position.z,
+      );
+    }
+    this.scenery.add(this.groundLoads);
+    if (state.areaId === 'homestead') {
+      for (const container of state.containers) {
+        if (!('position' in container.location)) continue;
+        const { x, z } = container.location.position;
+        const group = new THREE.Group();
+        group.position.set(x, 0, z);
+        const trough = container.kind === 'trough';
+        group.add(
+          this.mesh(this.box, trough ? '#857b60' : '#9b714b', [0, 0.25, 0], [1.1, 0.45, 0.85]),
+        );
+        for (const side of [-1, 1])
+          group.add(this.mesh(this.box, '#d1ac79', [side * 0.55, 0.5, 0], [0.1, 0.4, 0.95]));
+        const contents = new THREE.Group();
+        for (let i = 0; i < (container.capacity ?? 4); i++) {
+          // Display at most eight pieces; counts remain inspectable in the dock.
+          if (i >= 8) break;
+          contents.add(
+            this.mesh(
+              this.box,
+              trough ? '#8ca060' : '#d7b17b',
+              [(i % 2) * 0.35 - 0.18, 0.5 + Math.floor(i / 2) * 0.12, 0],
+              [0.3, 0.1, 0.65],
+            ),
+          );
+        }
+        group.add(contents);
+        this.containerModels.set(container.id, contents);
+        this.scenery.add(group);
+        this.label(
+          container.kind === 'chest'
+            ? 'Yard chest'
+            : trough
+              ? 'Feed trough'
+              : container.kind === 'mill-input'
+                ? 'Timber hopper'
+                : 'Lumber crate',
+          x,
+          1.35,
+          z,
+        );
+      }
+      const frame = new THREE.Group();
+      frame.position.set(5.65, 0, 0.3);
+      frame.add(this.mesh(this.box, '#786344', [0, 0.75, 0], [1.8, 0.2, 0.65]));
+      for (const side of [-1, 1])
+        frame.add(this.mesh(this.box, '#6c7868', [side * 0.65, 0.45, 0], [0.15, 0.9, 0.5]));
+      this.millBlade.add(this.mesh(this.cylinder, '#d3ded8', [0, 0, 0], [0.5, 0.06, 0.5]));
+      this.millBlade.children[0].rotation.x = Math.PI / 2;
+      this.millBlade.add(this.mesh(this.box, '#7e9390', [0, 0, 0.05], [0.08, 0.9, 0.08]));
+      this.millBlade.position.set(0, 1, 0);
+      frame.add(this.millBlade);
+      this.scenery.add(frame);
+    }
     this.grass(state.areaId === 'homestead' ? 97 : 301);
   }
 
@@ -446,8 +621,8 @@ export class GameWorld {
       [7.3, -6.8, 1.18],
       [7.8, -3.7, 0.85],
       [-8, -1.7, 0.82],
-      [7.2, 4.4, 1],
-      [6.6, 7.1, 0.8],
+      [8.3, 3.5, 0.45],
+      [7.8, 7.7, 0.5],
       [-7.1, 7.4, 0.72],
     ];
     trees.forEach(([x, z, scale], index) => this.tree(x, z, scale, index));

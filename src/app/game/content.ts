@@ -1,4 +1,11 @@
-import { AreaDefinition, AreaId, BehaviorDefinition, BehaviorId, Point } from './model';
+import {
+  AreaDefinition,
+  AreaId,
+  BehaviorDefinition,
+  BehaviorId,
+  MaterialNode,
+  Point,
+} from './model';
 
 // Provisional loop-testing starter, separate from Grandpa’s narrative Pip.
 export const STARTER = { id: 'critter-mallow', name: 'Mallow' } as const;
@@ -22,6 +29,44 @@ export const GAME_CONFIG = {
 
 // One authored learning arc. Work/reward execution remains an explicit host rule.
 export const BEHAVIORS: Record<BehaviorId, BehaviorDefinition> = {
+  'lumber-hauling': {
+    id: 'lumber-hauling',
+    name: 'Lumber hauling',
+    steps: ['collect', 'deliver'],
+    gains: { observation: 1, cue: 2, autonomous: 1 },
+    practiceCeiling: 20,
+    stages: [
+      {
+        id: 'unfamiliar',
+        threshold: 0,
+        label: 'New to hauling',
+        hint: 'Let {name} watch you take lumber from the mill and store it in the yard chest twice.',
+        milestone: '',
+      },
+      {
+        id: 'observing',
+        threshold: 1,
+        label: 'Watching the route',
+        hint: 'Show the whole mill-to-chest route once more.',
+        milestone: '{name} watches where the lumber belongs. Show that route again.',
+      },
+      {
+        id: 'cued',
+        threshold: 2,
+        label: 'Hauls on cue',
+        hint: 'At the mill or chest, ask {name} to haul a board to the chest.',
+        milestone: '{name} understands the route. Try a hauling cue at the mill or chest.',
+      },
+      {
+        id: 'autonomous',
+        threshold: 6,
+        label: 'Independent hauler',
+        hint: '{name} can clear the mill while you do other work in the yard.',
+        milestone:
+          '{name} knows the whole route! Lumber hauling is on; ask them to follow to pause it.',
+      },
+    ],
+  },
   'sunberry-foraging': {
     id: 'sunberry-foraging',
     name: 'Sunberry foraging',
@@ -125,3 +170,41 @@ export const BERRY_NODES: { id: string; position: Point }[] = [
   { id: 'berries-east', position: { x: 5, z: -1.5 } },
   { id: 'berries-south', position: { x: 4, z: 4.5 } },
 ];
+
+// Fixed campaign resource sites; depletion lasts until the next morning.
+export function initialMaterialNodes(): MaterialNode[] {
+  return [
+    {
+      id: 'yard-timber',
+      areaId: 'homestead',
+      position: { x: -1, z: -5 },
+      kind: 'timber',
+      remaining: 6,
+      respawnAt: 0,
+    },
+    {
+      id: 'yard-stone',
+      areaId: 'homestead',
+      position: { x: 6, z: 4 },
+      kind: 'stone',
+      remaining: 6,
+      respawnAt: 0,
+    },
+    {
+      id: 'glade-timber',
+      areaId: 'glade',
+      position: { x: -4, z: 5 },
+      kind: 'timber',
+      remaining: 6,
+      respawnAt: 0,
+    },
+    {
+      id: 'glade-stone',
+      areaId: 'glade',
+      position: { x: 5, z: -5 },
+      kind: 'stone',
+      remaining: 6,
+      respawnAt: 0,
+    },
+  ];
+}

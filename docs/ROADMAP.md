@@ -59,11 +59,11 @@ staged progression (M1 through M9) that systematically builds the foundational v
   |
 [M3: Daily Choice & Rest] (Complete - 2026-09-27)
   |
-[M4: Rancher Stats & Checks] (Specified) <--- CURRENT ENTRYPOINT
+[M4: Rancher Stats & Checks] (Complete - 5290082)
   |
-[M5: Localized Storage & Production] (Specified)
+[M5: Localized Storage & Production] (Complete - save v5)
   |
-[M6: Compositional Jobs & Hauling] (Specified)
+[M6: Compositional Jobs & Hauling] (Next implementation checkpoint)
   |
 [M7: Multi-Crop Farming & Calendar] (Specified)
   |
@@ -94,9 +94,9 @@ staged progression (M1 through M9) that systematically builds the foundational v
   create a materially different or choice-driven loop by itself; this finding validates
   moving forward into the broader M4–M9 multi-system runway rather than reopening M3.
 
-#### M4 — Rancher stats, generalized checks, and physical encumbrance (Next Milestone)
+#### M4 — Rancher stats, generalized checks, and physical encumbrance (Complete)
 
-- **Immediate action**: Next active implementation milestone.
+- **Delivered**: `5290082` on `codex/first-living-stead`; save v4. See campaign evidence.
 - **Player-visible change**:
   1. Give the rancher the same 4-stat system (STR, END, SPD, INT) and primary skills
      (Woodcutting, Mining, Hauling, Foraging).

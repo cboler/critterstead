@@ -1,3 +1,5 @@
+import { initialContainers } from './logistics';
+import { backpack, InventoryItem } from './model';
 import { createInitialState, LocalGameHost } from './host';
 import { readSave, validateSave } from './storage';
 import { activeCritter } from './model';
@@ -38,7 +40,7 @@ describe('versioned homestead save validation', () => {
     activeCritter(value).stamina = -1;
     expect(() => validateSave(value)).toThrow(/critter.stamina/);
     activeCritter(value).stamina = 100;
-    value.inventory[0].quantity = 1.5;
+    backpack(value).items[0].quantity = 1.5;
     expect(() => validateSave(value)).toThrow(/inventory.quantity/);
   });
 
@@ -72,15 +74,27 @@ describe('versioned homestead save validation', () => {
 describe('v1 migration and individual references', () => {
   it('preserves the entire populated legacy save without mutating it or inventing narrative Pip', () => {
     const original = structuredClone(legacyV1);
-    const { critter, ...world } = original;
+    const { critter, inventory, ...world } = original;
     const { berryKnowledge, ...individual } = critter;
     const migrated = readSave(original);
     expect(migrated).toEqual({
       ...world,
-      version: 3,
+      version: 6,
+      haulLesson: null,
+      containers: initialContainers(original.player.id, critter.id, inventory as InventoryItem[]),
+      production: { progressMinutes: 0 },
+      player: {
+        ...original.player,
+        stats: createInitialState().player.stats,
+        skills: createInitialState().player.skills,
+      },
+      materialNodes: createInitialState().materialNodes,
+      groundCargo: [],
+      work: null,
       critters: [
         {
           ...individual,
+          hauling: { enabled: false, phase: 'idle', cued: false },
           learnedBehaviors: { 'sunberry-foraging': berryKnowledge },
           ownerId: original.player.id,
           lastPettedDay: original.day,
@@ -165,6 +179,12 @@ describe('v1 migration and individual references', () => {
       name: 'Pip',
       ownerId: 'grandpa',
     });
+    value.containers.push({
+      ...structuredClone(value.containers.find((container) => container.kind === 'satchel')!),
+      id: 'satchel-grandpa-pip',
+      location: { actorId: 'grandpa-pip' },
+      items: [],
+    });
     expect(() => validateSave(value)).not.toThrow();
     value.activeCritterId = 'missing';
     expect(() => validateSave(value)).toThrow(/activeCritterId/);
@@ -189,11 +209,29 @@ describe('v2 learning migration and v3 protection', () => {
   it('preserves every individual and world field, including paid activity and seeded state', () => {
     const before = structuredClone(legacyV2);
     const migrated = readSave(before);
+    const { inventory, ...oldWorld } = before;
     expect(migrated).toEqual({
-      ...before,
-      version: 3,
+      ...oldWorld,
+      version: 6,
+      haulLesson: null,
+      containers: initialContainers(
+        before.player.id,
+        before.activeCritterId,
+        inventory as InventoryItem[],
+        before.critters.map((critter) => critter.id),
+      ),
+      production: { progressMinutes: 0 },
+      player: {
+        ...before.player,
+        stats: createInitialState().player.stats,
+        skills: createInitialState().player.skills,
+      },
+      materialNodes: createInitialState().materialNodes,
+      groundCargo: [],
+      work: null,
       critters: before.critters.map(({ berryKnowledge, ...individual }) => ({
         ...individual,
+        hauling: { enabled: false, phase: 'idle', cued: false },
         learnedBehaviors: { 'sunberry-foraging': berryKnowledge },
       })),
     });
@@ -220,7 +258,7 @@ describe('v2 learning migration and v3 protection', () => {
               ? 'Learning by watching'
               : 'Curious companion',
       );
-      expect(host.state.inventory).toEqual(old.inventory);
+      expect(backpack(host.state).items).toEqual(old.inventory);
       expect(host.critter.history).toEqual(old.critters[1].history);
       expect(host.state.journal).toEqual(old.journal);
       expect(host.state.seed).toBe(old.seed);

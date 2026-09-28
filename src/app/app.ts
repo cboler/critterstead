@@ -1,3 +1,4 @@
+import { backpack, satchel } from './game/model';
 import {
   AfterViewInit,
   Component,
@@ -13,6 +14,7 @@ import { AREAS } from './game/content';
 import { LocalGameHost } from './game/host';
 import { activeCritter, GameCommand, GameState, Interaction, Point } from './game/model';
 import { IndexedDbStorage } from './game/storage';
+import { encumbrance } from './game/checks';
 import { GameWorld } from './game/world';
 
 interface InstallPrompt extends Event {
@@ -59,7 +61,17 @@ export class App implements AfterViewInit, OnDestroy {
   protected readonly controllerConnected = signal(false);
   protected readonly gamepadAction = signal<string | null>(null);
   protected readonly learning = signal(this.host.learning());
+  protected readonly hauling = signal(this.host.haulingLearning());
   protected readonly learningSteps = Array.from({ length: this.learning().goal }, (_, i) => i + 1);
+  protected readonly bag = computed(() => backpack(this.state()));
+  protected readonly companionBag = computed(() => satchel(this.state()));
+  protected readonly load = computed(() =>
+    encumbrance(this.state().player, backpack(this.state()).items),
+  );
+  protected readonly rancherSkills = ['woodcutting', 'mining', 'hauling', 'foraging'] as const;
+  protected dropCargo(): void {
+    this.command({ type: 'drop-cargo' });
+  }
   protected readonly areas = AREAS;
   protected readonly statNames = ['strength', 'endurance', 'speed', 'intelligence'] as const;
   protected readonly goals = [
@@ -208,6 +220,7 @@ export class App implements AfterViewInit, OnDestroy {
 
   private refresh(): void {
     this.learning.set(this.host.learning());
+    this.hauling.set(this.host.haulingLearning());
     this.state.set(structuredClone(this.host.state));
     const interaction = this.host.interaction();
     this.nearby.set(interaction);
@@ -457,8 +470,8 @@ export class App implements AfterViewInit, OnDestroy {
     return `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`;
   }
   protected count(itemId: string): number {
-    return this.state()
-      .inventory.filter((item) => item.itemId === itemId)
+    return backpack(this.state())
+      .items.filter((item) => item.itemId === itemId)
       .reduce((total, item) => total + item.quantity, 0);
   }
   protected round(value: number): number {

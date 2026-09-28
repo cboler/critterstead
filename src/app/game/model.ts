@@ -9,7 +9,44 @@ export interface Stats {
   speed: number;
   intelligence: number;
 }
-export type BehaviorId = 'sunberry-foraging';
+export interface ActorCapabilities {
+  stats: Stats;
+  skills: Record<string, number>;
+}
+export interface CheckResult {
+  degree: number;
+  staminaCost: number;
+  timeMinutes: number;
+  durationSeconds: number;
+  damage: number;
+  skillXpGained: number;
+  statXpGained: Partial<Stats>;
+}
+export interface MaterialNode {
+  id: string;
+  areaId: AreaId;
+  position: Point;
+  kind: 'timber' | 'stone';
+  remaining: number;
+  respawnAt: number;
+}
+export interface GroundCargo {
+  id: string;
+  areaId: AreaId;
+  position: Point;
+  items: InventoryItem[];
+}
+export interface ResourceWork {
+  nodeId: string;
+  remainingSeconds: number;
+  result: CheckResult;
+}
+export type BehaviorId = 'sunberry-foraging' | 'lumber-hauling';
+export interface HaulingJob {
+  enabled: boolean;
+  phase: 'idle' | 'collect' | 'deliver' | 'eat' | 'rest';
+  cued: boolean;
+}
 export interface BehaviorStage {
   id: 'unfamiliar' | 'observing' | 'cued' | 'autonomous';
   threshold: number;
@@ -23,8 +60,9 @@ export interface BehaviorDefinition {
   stages: readonly BehaviorStage[];
   gains: { observation: number; cue: number; autonomous: number };
   practiceCeiling: number;
+  steps?: readonly ('collect' | 'deliver')[];
 }
-export interface Critter {
+export interface Critter extends ActorCapabilities {
   id: string;
   ownerId: string;
   lastPettedDay: number | null;
@@ -41,7 +79,8 @@ export interface Critter {
   bond: number;
   hunger: number;
   learnedBehaviors: Partial<Record<BehaviorId, number>>;
-  skills: { harvesting: number; racing: number };
+  hauling: HaulingJob;
+  skills: Record<string, number> & { harvesting: number; racing: number };
   visualTraits: { coat: string; accent: string };
   pedigree: { parentIds: string[] };
   genetics: Record<string, string>;
@@ -50,9 +89,18 @@ export interface Critter {
 }
 export interface InventoryItem {
   id: string;
-  itemId: 'berry' | 'feed' | 'seed';
+  itemId: 'berry' | 'feed' | 'seed' | 'timber' | 'stone' | 'lumber';
   quantity: number;
   quality: number;
+}
+export interface Container {
+  id: string;
+  kind: 'backpack' | 'satchel' | 'chest' | 'mill-input' | 'mill-output' | 'trough';
+  location: { actorId: string } | { areaId: AreaId; position: Point };
+  // Carried bags use mass-based encumbrance. Fixed storage limits total item units.
+  capacity: number | null;
+  allowed: InventoryItem['itemId'][];
+  items: InventoryItem[];
 }
 export interface ResourceNode {
   id: string;
@@ -76,17 +124,22 @@ export interface Training {
   kind: 'training' | 'race';
 }
 export interface GameState {
-  version: 3;
+  version: 6;
   seed: number;
   day: number;
   minute: number;
   totalMinutes: number;
   areaId: AreaId;
   areaInstanceId: string;
-  player: { id: string; position: Point; stamina: number; coins: number };
+  player: ActorCapabilities & { id: string; position: Point; stamina: number; coins: number };
+  materialNodes: MaterialNode[];
+  groundCargo: GroundCargo[];
+  work: ResourceWork | null;
   critters: Critter[];
   activeCritterId: string;
-  inventory: InventoryItem[];
+  containers: Container[];
+  production: { progressMinutes: number };
+  haulLesson: { critterId: string; lumber: number } | null;
   resources: ResourceNode[];
   crop: Crop;
   shedLevel: number;
@@ -98,6 +151,7 @@ export type GameCommand =
   | { type: 'move'; x: number; z: number; seconds: number }
   | { type: 'interact'; targetId: string; action: string }
   | { type: 'training-hit' }
+  | { type: 'drop-cargo' }
   | { type: 'debug'; action: 'next-day' | 'restore' };
 export interface InteractionAction {
   id: string;
@@ -133,4 +187,21 @@ export function activeCritter(state: GameState): Critter {
   if (!critter || critter.ownerId !== state.player.id)
     throw new Error('The selected companion must be a player-owned individual.');
   return critter;
+}
+
+export function backpack(state: GameState): Container {
+  return state.containers.find(
+    (container) =>
+      container.kind === 'backpack' &&
+      'actorId' in container.location &&
+      container.location.actorId === state.player.id,
+  )!;
+}
+export function satchel(state: GameState): Container {
+  return state.containers.find(
+    (container) =>
+      container.kind === 'satchel' &&
+      'actorId' in container.location &&
+      container.location.actorId === state.activeCritterId,
+  )!;
 }
