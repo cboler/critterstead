@@ -183,20 +183,20 @@ playtest is a pending product gate, not a claim of failure or success.
 
 ### M6 — Compositional learning and first autonomous job (Hauling)
 
-**Status:** not started; builds on M5 localized containers and workstation buffers.
+**Status:** complete locally (2026-09-28); save v6, learned route and worker self-care verified.
 **Player-visible expectation:** The companion observes the player carrying lumber from sawmill to storage chest, learns hauling through cues, and independently clears sawmill output; companion self-manages basic needs by eating and resting when needed.
 
-- [ ] Generalize `BEHAVIORS` to multi-step compositional jobs: author `lumber-hauling`
+- [x] Generalize `BEHAVIORS` to multi-step compositional jobs: author `lumber-hauling`
       behavior with ordered stages (unfamiliar, observing, cued, autonomous).
-- [ ] Companion learns by watching player haul lumber from the sawmill output crate to the
+- [x] Companion learns by watching player haul lumber from the sawmill output crate to the
       yard storage chest.
-- [ ] Autonomous hauling: when independent, companion recognizes finished lumber in the
+- [x] Autonomous hauling: when independent, companion recognizes finished lumber in the
       sawmill output, picks it up, carries it to the yard chest, and deposits it.
-- [ ] Basic critter self-management: if hunger exceeds threshold, companion seeks food from
+- [x] Basic critter self-management: if hunger exceeds threshold, companion seeks food from
       the feed trough; if stamina is exhausted, companion rests at the nook before resuming work.
-- [ ] Delegating hauling visibly reduces player chores, freeing player time for training or
+- [x] Delegating hauling visibly reduces player chores, freeing player time for training or
       resource gathering.
-- [ ] Save continuity, unit tests, and Playwright verification of the autonomous hauling cycle.
+- [x] Save continuity, unit tests, and Playwright verification of the autonomous hauling cycle.
 
 ### M7 — Multi-crop farming, cottage interior, and household calendar
 
@@ -392,9 +392,9 @@ The outstanding human comparison between M3 routines has been conducted on the d
 
 ## Current handoff
 
-M1–M5 complete. M4 is pushed as `5290082`; M5 is the next durable checkpoint.
-M6–M9 remain authorized. Next: teach the source-to-chest lumber route through
-observation and cues, then make the companion execute it and manage hunger/rest.
+M1–M6 complete. M4 is pushed as `5290082`; M5 as `5cb3a37`. M6 is the next
+durable checkpoint. M7–M9 remain authorized. Next: implement the four-plot seasonal
+garden, cottage interior, and inspectable household calendar.
 
 M4 desktop persistence suite: 9 passed, including v1/v2 migration, paid activity,
 malformed/future/ambiguous save protection, and single-writer ownership.
@@ -445,3 +445,29 @@ current companion container transfers are direct player instructions.
 
 No human fun/balance acceptance or physical-controller test is claimed. No main
 merge or Pages deployment is implied by the campaign branch push.
+
+## M6 evidence — 2026-09-28
+
+- Authored collect/deliver steps and persistent per-individual job phases. Two whole
+  demonstrations followed by two cued deliveries teach autonomous lumber hauling.
+  Picking lumber out of the chest cannot teach the route. Manual cargo removal and
+  pausing cannot duplicate delivery credit. The learned helper physically empties
+  the mill into the chest while the rancher can work elsewhere in the yard.
+- Workers seek the local feed trough when hungry and the nook when tired, then resume.
+  Empty troughs/full chests stop work visibly; training and other areas pause it.
+  Only the selected companion works. Food, cargo, phase and learning survive reload.
+- Save v6 migrates v5 without changing containers, in-flight work or mill progress.
+  A frozen v5 fixture protects migration; invalid phases/lessons fail closed.
+- 97 unit tests, lint, production Pages build, offline persistence pass. Browser set:
+  8 passed, 11 intentional skips, one sidebar overflow repaired; its three-size
+  desktop layout rerun passes. Both phone and desktop demonstrate, cue, reload a
+  carried board and observe repeated independent deliveries. Desktop additionally
+  verifies local food/rest. Responsive smoke passes all four viewports and mocked
+  controller command routing passes. No physical-controller/human-balance claim.
+- Inspected [phone route](../evidence/001-m6/phone-route.png),
+  [desktop deliveries](../evidence/001-m6/desktop-deliveries.png), and worker rest.
+  Reduced two foreground trees so the route is visible; kept the fixed dock bay.
+- Provisional: learning thresholds 2/6, one-board trips, 4 energy per pickup/deposit,
+  meal threshold 70 hunger, autonomous rest reserve 20/resume 50. No offscreen worker
+  simulation, general scheduling planner, or new dependency. Stylesheet warning
+  remains below its unchanged 20kB error budget.

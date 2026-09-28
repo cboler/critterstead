@@ -277,16 +277,21 @@
         <p class="load-status">
           {{ load().band }} · {{ load().mass.toFixed(1) }} / {{ load().capacity.toFixed(0) }} kg
         </p>
-        <small
-          >Heavy loads slow your steps and spend energy. Set materials down to lighten up.</small
-        >
         @if (count('timber') + count('stone') + count('lumber') > 0) {
           <p>
             Timber {{ count('timber') }} · Stone {{ count('stone') }} · Lumber {{ count('lumber') }}
           </p>
         }
+        <p class="hauling-status">
+          <strong
+            >{{ hauling().label }} ·
+            {{ hauling().progress > hauling().goal ? hauling().goal : hauling().progress }}/{{
+              hauling().goal
+            }}</strong
+          ><br />{{ hauling().status }}
+        </p>
         <details>
-          <summary>Rancher skills</summary>
+          <summary>Rancher skills &amp; hauling</summary>
           @for (skill of rancherSkills; track skill) {
             <p>{{ skill }} · {{ state().player.skills[skill].toFixed(2) }}</p>
           }

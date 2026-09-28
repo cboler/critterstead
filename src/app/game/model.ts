@@ -41,7 +41,12 @@ export interface ResourceWork {
   remainingSeconds: number;
   result: CheckResult;
 }
-export type BehaviorId = 'sunberry-foraging';
+export type BehaviorId = 'sunberry-foraging' | 'lumber-hauling';
+export interface HaulingJob {
+  enabled: boolean;
+  phase: 'idle' | 'collect' | 'deliver' | 'eat' | 'rest';
+  cued: boolean;
+}
 export interface BehaviorStage {
   id: 'unfamiliar' | 'observing' | 'cued' | 'autonomous';
   threshold: number;
@@ -55,6 +60,7 @@ export interface BehaviorDefinition {
   stages: readonly BehaviorStage[];
   gains: { observation: number; cue: number; autonomous: number };
   practiceCeiling: number;
+  steps?: readonly ('collect' | 'deliver')[];
 }
 export interface Critter extends ActorCapabilities {
   id: string;
@@ -73,6 +79,7 @@ export interface Critter extends ActorCapabilities {
   bond: number;
   hunger: number;
   learnedBehaviors: Partial<Record<BehaviorId, number>>;
+  hauling: HaulingJob;
   skills: Record<string, number> & { harvesting: number; racing: number };
   visualTraits: { coat: string; accent: string };
   pedigree: { parentIds: string[] };
@@ -117,7 +124,7 @@ export interface Training {
   kind: 'training' | 'race';
 }
 export interface GameState {
-  version: 5;
+  version: 6;
   seed: number;
   day: number;
   minute: number;
@@ -132,6 +139,7 @@ export interface GameState {
   activeCritterId: string;
   containers: Container[];
   production: { progressMinutes: number };
+  haulLesson: { critterId: string; lumber: number } | null;
   resources: ResourceNode[];
   crop: Crop;
   shedLevel: number;

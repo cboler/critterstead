@@ -12,7 +12,6 @@ describe('localized storage and the first production chain', () => {
     for (const key of [
       'seed',
       'player',
-      'critters',
       'work',
       'groundCargo',
       'materialNodes',
@@ -20,6 +19,12 @@ describe('localized storage and the first production chain', () => {
       'journal',
     ] as const)
       expect(state[key]).toEqual(before[key]);
+    expect(state.critters).toEqual(
+      before.critters.map((critter) => ({
+        ...critter,
+        hauling: { enabled: false, phase: 'idle', cued: false },
+      })),
+    );
     expect('inventory' in state).toBe(false);
     expect(state.containers.filter((item) => item.kind === 'satchel')).toHaveLength(2);
     expect(readSave(state)).toEqual(state);

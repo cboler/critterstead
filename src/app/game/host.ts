@@ -44,10 +44,11 @@ export function learnedStage(critter: Critter, behavior: BehaviorDefinition): Be
 }
 
 const foraging = BEHAVIORS['sunberry-foraging'];
+const hauling = BEHAVIORS['lumber-hauling'];
 
 export function createInitialState(): GameState {
   return {
-    version: 5,
+    version: 6,
     seed: 240921,
     day: 1,
     minute: 480,
@@ -84,6 +85,7 @@ export function createInitialState(): GameState {
         bond: 20,
         hunger: 35,
         learnedBehaviors: {},
+        hauling: { enabled: false, phase: 'idle', cued: false },
         skills: { harvesting: 0, racing: 0 },
         visualTraits: { coat: 'peach', accent: 'moss' },
         pedigree: { parentIds: [] },
@@ -97,6 +99,7 @@ export function createInitialState(): GameState {
       { id: 'stack-seed-1', itemId: 'seed', quantity: 3, quality: 1 },
     ]),
     production: { progressMinutes: 0 },
+    haulLesson: null,
     resources: BERRY_NODES.map((node) => ({
       ...node,
       position: { ...node.position },
@@ -165,6 +168,89 @@ export class LocalGameHost {
                 ? 'Find ripe sunberries together in Clover Glade.'
                 : 'No ripe bush nearby. Walk closer or wait for regrowth.')),
     };
+  }
+
+  haulingLearning() {
+    const critter = this.critter;
+    const job = critter.hauling;
+    const stage = learnedStage(critter, hauling);
+    const output = this.state.containers.find((item) => item.kind === 'mill-output')!;
+    const chest = this.state.containers.find((item) => item.kind === 'chest')!;
+    const status =
+      this.state.areaId !== 'homestead'
+        ? 'Hauling waits while you explore together.'
+        : this.state.training
+          ? 'Work pauses for your activity together.'
+          : job.phase === 'eat'
+            ? containerQuantity(
+                this.state.containers.find((item) => item.kind === 'trough')!,
+                'feed',
+              )
+              ? 'Heading to the trough for a meal.'
+              : 'The trough is empty. Bring feed so work can resume.'
+            : job.phase === 'rest'
+              ? 'Taking a break at the nook; work resumes at 50 energy.'
+              : job.phase === 'deliver'
+                ? room(chest, 'lumber')
+                  ? 'Carrying a board to the yard chest.'
+                  : 'The chest is full. Make room; the board stays in the satchel.'
+                : job.phase === 'collect'
+                  ? 'Walking to the mill output crate.'
+                  : job.enabled
+                    ? room(chest, 'lumber') < 1
+                      ? 'The yard chest is full.'
+                      : containerQuantity(output, 'lumber')
+                        ? 'Looking for the next board.'
+                        : 'Waiting for lumber. Supply the mill with timber.'
+                    : stage.id === 'autonomous'
+                      ? 'Following you. Enable hauling at the mill or chest.'
+                      : stage.hint.replaceAll('{name}', critter.name);
+    return {
+      label: stage.label,
+      progress: critter.learnedBehaviors[hauling.id] ?? 0,
+      goal: 6,
+      status,
+      enabled: job.enabled,
+    };
+  }
+
+  private haulingActions(): InteractionAction[] {
+    const job = this.critter.hauling;
+    const stage = learnedStage(this.critter, hauling).id;
+    const output = this.state.containers.find((item) => item.kind === 'mill-output')!;
+    const reason =
+      this.state.areaId !== 'homestead'
+        ? 'Return to the yard for a hauling lesson.'
+        : stage !== 'cued' && stage !== 'autonomous'
+          ? 'Show two complete mill-to-chest deliveries first.'
+          : job.cued || job.enabled
+            ? 'Already helping. Ask to follow to pause work.'
+            : containerQuantity(satchel(this.state), 'lumber')
+              ? 'Store the carried lumber before starting a new lesson.'
+              : !containerQuantity(output, 'lumber')
+                ? 'The mill output has no lumber yet.'
+                : this.critter.stamina < 8 || this.critter.hunger > 80
+                  ? 'Offer food or rest together before a hauling lesson.'
+                  : this.state.player.stamina < 2
+                    ? 'You need 2 energy for a cue.'
+                    : undefined;
+    return [
+      {
+        id: 'cue-haul',
+        label: `Ask ${this.critter.name} to haul a board · 2 your energy`,
+        disabled: !!reason,
+        reason,
+      },
+      ...(stage === 'autonomous' || job.cued
+        ? [
+            {
+              id: 'toggle-hauling',
+              label:
+                job.enabled || job.cued ? 'Follow me · pause hauling' : 'Haul lumber independently',
+            },
+          ]
+        : []),
+    ];
   }
 
   private berryWorkReason(mode: 'command' | 'autonomous', node?: ResourceNode): string | undefined {
@@ -385,6 +471,7 @@ export class LocalGameHost {
                 : undefined,
           ),
           ...this.containerActions(satchel(state)),
+          ...this.haulingActions(),
         ],
       };
     const container = state.containers.find((item) => item.id === id);
@@ -400,7 +487,12 @@ export class LocalGameHost {
                 ? 'Yard sawmill · input hopper'
                 : 'Sawmill · output crate',
         description: `${container.items.length ? container.items.map((item) => `${item.quantity} ${item.itemId}`).join(' · ') : 'Empty'} · ${containerQuantity(container)}/${container.capacity ?? '—'} units. ${container.kind.startsWith('mill') ? productionStatus(state.containers) : 'Supplies stay here until someone carries them.'}`,
-        actions: this.containerActions(container),
+        actions: [
+          ...this.containerActions(container),
+          ...(container.kind === 'mill-output' || container.kind === 'chest'
+            ? this.haulingActions()
+            : []),
+        ],
       };
     const material = state.materialNodes.find(
       (item) => item.id === id && item.areaId === state.areaId,
@@ -620,11 +712,57 @@ export class LocalGameHost {
       const source = state.containers.find((container) => container.id === sourceId)!;
       const destination = state.containers.find((container) => container.id === destinationId)!;
       if (!transfer(source, destination, itemId as InventoryItem['itemId'])) return false;
+      if (itemId === 'lumber') {
+        if (
+          source.kind === 'mill-output' &&
+          destination === backpack(state) &&
+          distance(critter.position, this.containerPosition(source)) <= 4
+        ) {
+          state.haulLesson = { critterId: critter.id, lumber: (state.haulLesson?.lumber ?? 0) + 1 };
+          this.note(
+            `${critter.name} watches you lift lumber. Carry it to the yard chest to show the whole route.`,
+          );
+        } else if (source === backpack(state) && state.haulLesson) {
+          if (
+            destination.kind === 'chest' &&
+            distance(critter.position, this.containerPosition(destination)) <= 4 &&
+            state.haulLesson.critterId === critter.id
+          ) {
+            this.learn(hauling, 'observation');
+            state.haulLesson = null;
+            this.flag('moved-cargo');
+            return true;
+          } else if (--state.haulLesson.lumber <= 0) state.haulLesson = null;
+        }
+        if (
+          source === satchel(state) &&
+          !containerQuantity(source, 'lumber') &&
+          critter.hauling.phase === 'deliver'
+        ) {
+          critter.hauling.phase = 'idle';
+          critter.hauling.cued = false;
+        }
+      }
       this.note(`${itemId} carried from ${source.kind} to ${destination.kind}.`);
       this.flag('moved-cargo');
       return true;
     }
     switch (action) {
+      case 'cue-haul':
+        state.player.stamina -= 2;
+        critter.hauling = { enabled: false, phase: hauling.steps![0], cued: true };
+        this.note(`${critter.name} sets off: collect one board, then carry it to the chest.`);
+        return true;
+      case 'toggle-hauling': {
+        const enabled = !critter.hauling.enabled && !critter.hauling.cued;
+        critter.hauling = { enabled, phase: 'idle', cued: false };
+        this.note(
+          enabled
+            ? `${critter.name} will keep the lumber moving while you work in the yard.`
+            : `${critter.name} comes along. Any carried cargo stays safe in the satchel.`,
+        );
+        return true;
+      }
       case 'work-material': {
         const node = state.materialNodes.find((item) => item.id === id)!;
         const result = this.materialCheck(node.kind);
@@ -670,6 +808,8 @@ export class LocalGameHost {
         return true;
       }
       case 'rest': {
+        // A shared break replaces the worker's separate rest, rather than doubling it.
+        critter.hauling.phase = 'idle';
         const playerGain = Math.min(GAME_CONFIG.restPlayerEnergy, 100 - state.player.stamina);
         const critterGain = Math.min(GAME_CONFIG.restCritterEnergy, 100 - critter.stamina);
         this.advanceMinutes(GAME_CONFIG.restMinutes);
@@ -956,12 +1096,100 @@ export class LocalGameHost {
     if (after.id !== before.id) {
       critter.history.push(`Day ${this.state.day}: ${after.label}.`);
       this.note(after.milestone.replaceAll('{name}', critter.name));
+      if (behavior.id === 'lumber-hauling' && after.id === 'autonomous')
+        critter.hauling.enabled = true;
     }
+  }
+
+  private haul(seconds: number): boolean {
+    const state = this.state;
+    const critter = this.critter;
+    const job = critter.hauling;
+    if (state.areaId !== 'homestead' || (!job.enabled && !job.cued)) return false;
+    const bag = satchel(state);
+    const output = state.containers.find((item) => item.kind === 'mill-output')!;
+    const chest = state.containers.find((item) => item.kind === 'chest')!;
+    const trough = state.containers.find((item) => item.kind === 'trough')!;
+    const walkTo = (target: Point): boolean => {
+      const gap = distance(critter.position, target);
+      if (gap <= 0.75) return true;
+      const load = encumbrance(critter, bag.items);
+      const step = Math.min(gap - 0.6, seconds * 3.6 * load.speed);
+      critter.position = {
+        x: critter.position.x + ((target.x - critter.position.x) / gap) * step,
+        z: critter.position.z + ((target.z - critter.position.z) / gap) * step,
+      };
+      critter.stamina = Math.max(0, critter.stamina - step * load.drain);
+      return false;
+    };
+    if (critter.hunger > 70 || (job.phase === 'eat' && critter.hunger > 55)) job.phase = 'eat';
+    else if (job.phase === 'eat') job.phase = 'idle';
+    if (job.phase === 'eat') {
+      if (walkTo(this.containerPosition(trough)) && containerQuantity(trough, 'feed')) {
+        // Feed remains local; consume one stack unit without routing it through the player.
+        const feed = trough.items.find((item) => item.itemId === 'feed' && item.quantity > 0)!;
+        feed.quantity--;
+        trough.items = trough.items.filter((item) => item.quantity > 0);
+        critter.hunger = clamp(critter.hunger - 35);
+        critter.stamina = clamp(critter.stamina + 10);
+        this.note(`${critter.name} takes a meal from the trough before returning to work.`);
+        if (critter.hunger <= 55) job.phase = 'idle';
+      }
+      return true;
+    }
+    if (critter.stamina < (job.cued ? 8 : 20) && job.phase !== 'rest') job.phase = 'rest';
+    if (job.phase === 'rest') {
+      walkTo({ x: 4, z: -2 });
+      return true;
+    }
+    if (job.phase === 'idle')
+      job.phase = containerQuantity(bag, 'lumber') ? hauling.steps![1] : hauling.steps![0];
+    if (job.phase === 'collect') {
+      if (room(chest, 'lumber') < 1 || !containerQuantity(output, 'lumber')) {
+        if (!job.cued) job.phase = 'idle';
+        return true;
+      }
+      const projected = [
+        ...bag.items,
+        { id: 'preview', itemId: 'lumber' as const, quantity: 1, quality: 1 },
+      ];
+      if (!encumbrance(critter, projected).speed) return true;
+      if (walkTo(this.containerPosition(output))) {
+        transfer(output, bag, 'lumber');
+        critter.stamina = Math.max(0, critter.stamina - 4);
+        job.phase = hauling.steps![1];
+        this.note(`${critter.name} lifts a board from the mill and heads for the yard chest.`);
+      }
+      return true;
+    }
+    if (
+      job.phase === 'deliver' &&
+      walkTo(this.containerPosition(chest)) &&
+      room(chest, 'lumber') > 0
+    ) {
+      if (!transfer(bag, chest, 'lumber')) {
+        job.phase = 'idle';
+        job.cued = false;
+        return true;
+      }
+      critter.stamina = Math.max(0, critter.stamina - 4);
+      critter.skills['hauling'] = Math.min(99, (critter.skills['hauling'] ?? 0) + 0.5);
+      critter.stats.strength = Math.min(999, critter.stats.strength + 0.015);
+      critter.stats.endurance = Math.min(999, critter.stats.endurance + 0.01);
+      this.note(`${critter.name} stores a board in the yard chest. One less trip for you.`);
+      this.learn(hauling, job.cued ? 'cue' : 'autonomous');
+      job.cued = false;
+      job.phase = 'idle';
+      this.flag('hauled-lumber');
+    }
+    return true;
   }
 
   private companion(seconds: number): void {
     const state = this.state;
     const critter = activeCritter(state);
+    if (state.training) return;
+    if (this.haul(seconds)) return;
     let target: Point = state.player.position;
     const harvest = this.berryOpportunity();
     if (harvest) target = harvest.position;
@@ -988,6 +1216,21 @@ export class LocalGameHost {
     state.day = Math.floor(state.totalMinutes / 1440) + 1;
     state.minute = state.totalMinutes % 1440;
     activeCritter(state).hunger = clamp(activeCritter(state).hunger + minutes * 0.025);
+    const worker = this.critter;
+    if (
+      !state.training &&
+      state.areaId === 'homestead' &&
+      worker.hauling.phase === 'rest' &&
+      distance(worker.position, { x: 4, z: -2 }) <= 1
+    ) {
+      worker.stamina = clamp(
+        worker.stamina + (minutes * GAME_CONFIG.restCritterEnergy) / GAME_CONFIG.restMinutes,
+      );
+      if (worker.stamina >= 50) {
+        worker.hauling.phase = 'idle';
+        this.note(`${worker.name} stretches, rested and ready to help again.`);
+      }
+    }
     if (state.day > previousDay) {
       activeCritter(state).ageDays += state.day - previousDay;
       state.flags = state.flags.filter((flag) => flag !== 'petted-today');
@@ -1051,6 +1294,7 @@ export class LocalGameHost {
     );
     if (!items.length) return false;
     const state = this.state;
+    state.haulLesson = null;
     let pile = state.groundCargo.find(
       (item) =>
         item.areaId === state.areaId && distance(item.position, state.player.position) < 0.5,

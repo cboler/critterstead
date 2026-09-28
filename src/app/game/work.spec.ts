@@ -97,7 +97,12 @@ describe('physical work and rancher capabilities', () => {
     const old = structuredClone(legacyV3);
     const migrated = readSave(old);
     expect(migrated.player).toMatchObject(old.player);
-    expect(migrated.critters).toEqual(old.critters);
+    expect(migrated.critters).toEqual(
+      old.critters.map((critter) => ({
+        ...critter,
+        hauling: { enabled: false, phase: 'idle', cued: false },
+      })),
+    );
     expect(backpack(migrated).items).toEqual(old.inventory);
     expect(migrated.training).toEqual(old.training);
     expect(migrated.seed).toBe(old.seed);

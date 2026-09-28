@@ -29,6 +29,44 @@ export const GAME_CONFIG = {
 
 // One authored learning arc. Work/reward execution remains an explicit host rule.
 export const BEHAVIORS: Record<BehaviorId, BehaviorDefinition> = {
+  'lumber-hauling': {
+    id: 'lumber-hauling',
+    name: 'Lumber hauling',
+    steps: ['collect', 'deliver'],
+    gains: { observation: 1, cue: 2, autonomous: 1 },
+    practiceCeiling: 20,
+    stages: [
+      {
+        id: 'unfamiliar',
+        threshold: 0,
+        label: 'New to hauling',
+        hint: 'Let {name} watch you take lumber from the mill and store it in the yard chest twice.',
+        milestone: '',
+      },
+      {
+        id: 'observing',
+        threshold: 1,
+        label: 'Watching the route',
+        hint: 'Show the whole mill-to-chest route once more.',
+        milestone: '{name} watches where the lumber belongs. Show that route again.',
+      },
+      {
+        id: 'cued',
+        threshold: 2,
+        label: 'Hauls on cue',
+        hint: 'At the mill or chest, ask {name} to haul a board to the chest.',
+        milestone: '{name} understands the route. Try a hauling cue at the mill or chest.',
+      },
+      {
+        id: 'autonomous',
+        threshold: 6,
+        label: 'Independent hauler',
+        hint: '{name} can clear the mill while you do other work in the yard.',
+        milestone:
+          '{name} knows the whole route! Lumber hauling is on; ask them to follow to pause it.',
+      },
+    ],
+  },
   'sunberry-foraging': {
     id: 'sunberry-foraging',
     name: 'Sunberry foraging',

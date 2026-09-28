@@ -84,6 +84,16 @@ cargo. Nearby actions explain stoppages and storage contents. Container transfer
 use the existing keyboard/touch/controller path. The optional journal lists supplies
 by location without allowing remote use. M6 learning/autonomous hauling is next.
 
+## Current implementation additions — M6 (2026-09-28)
+
+Save v6 adds a persistent collect/deliver/eat/rest job to each individual and a
+whole-route observation ledger. Behavior content authors steps and learning stages;
+the host executes the narrow lumber route through the same atomic container rules.
+Needs redirect the active worker to local feed or the nook. Other areas and training
+pause work; disabled jobs follow the rancher. Cargo stays in the actual satchel across
+reload or pause. Dormant individuals remain dormant. Migration v5 -> v6 preserves
+all paid work, production and supplies; validators reject impossible job phases.
+
 ## Architectural reality audit (reconciliation baseline before M4)
 
 The following audit records the reconciled pre-M4 baseline. The dated additions

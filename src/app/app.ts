@@ -61,6 +61,7 @@ export class App implements AfterViewInit, OnDestroy {
   protected readonly controllerConnected = signal(false);
   protected readonly gamepadAction = signal<string | null>(null);
   protected readonly learning = signal(this.host.learning());
+  protected readonly hauling = signal(this.host.haulingLearning());
   protected readonly learningSteps = Array.from({ length: this.learning().goal }, (_, i) => i + 1);
   protected readonly bag = computed(() => backpack(this.state()));
   protected readonly companionBag = computed(() => satchel(this.state()));
@@ -219,6 +220,7 @@ export class App implements AfterViewInit, OnDestroy {
 
   private refresh(): void {
     this.learning.set(this.host.learning());
+    this.hauling.set(this.host.haulingLearning());
     this.state.set(structuredClone(this.host.state));
     const interaction = this.host.interaction();
     this.nearby.set(interaction);

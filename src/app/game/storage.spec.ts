@@ -79,7 +79,8 @@ describe('v1 migration and individual references', () => {
     const migrated = readSave(original);
     expect(migrated).toEqual({
       ...world,
-      version: 5,
+      version: 6,
+      haulLesson: null,
       containers: initialContainers(original.player.id, critter.id, inventory as InventoryItem[]),
       production: { progressMinutes: 0 },
       player: {
@@ -93,6 +94,7 @@ describe('v1 migration and individual references', () => {
       critters: [
         {
           ...individual,
+          hauling: { enabled: false, phase: 'idle', cued: false },
           learnedBehaviors: { 'sunberry-foraging': berryKnowledge },
           ownerId: original.player.id,
           lastPettedDay: original.day,
@@ -210,7 +212,8 @@ describe('v2 learning migration and v3 protection', () => {
     const { inventory, ...oldWorld } = before;
     expect(migrated).toEqual({
       ...oldWorld,
-      version: 5,
+      version: 6,
+      haulLesson: null,
       containers: initialContainers(
         before.player.id,
         before.activeCritterId,
@@ -228,6 +231,7 @@ describe('v2 learning migration and v3 protection', () => {
       work: null,
       critters: before.critters.map(({ berryKnowledge, ...individual }) => ({
         ...individual,
+        hauling: { enabled: false, phase: 'idle', cued: false },
         learnedBehaviors: { 'sunberry-foraging': berryKnowledge },
       })),
     });

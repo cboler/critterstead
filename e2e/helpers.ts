@@ -73,3 +73,26 @@ export async function walk(page: Page, x: number, z: number): Promise<void> {
   }
   throw new Error(`Could not walk to ${x}, ${z}; observed ${JSON.stringify(await position(page))}`);
 }
+
+export async function seedSave(page: Page, value: unknown): Promise<void> {
+  // A same-origin static document lets us set a damaged-record fixture before the app starts.
+  await page.goto('/icons/critterstead.svg');
+  await page.evaluate(async (save) => {
+    const database = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open('critterstead', 1);
+      request.onupgradeneeded = () => request.result.createObjectStore('saves');
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const transaction = database.transaction('saves', 'readwrite');
+        transaction.objectStore('saves').put(save, 'homestead');
+        transaction.oncomplete = () => resolve();
+        transaction.onabort = () => reject(transaction.error);
+      });
+    } finally {
+      database.close();
+    }
+  }, value);
+}
