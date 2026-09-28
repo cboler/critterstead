@@ -1,3 +1,4 @@
+import { backpack, satchel } from './model';
 import { describe, expect, it } from 'vitest';
 import { BEHAVIORS, GAME_CONFIG } from './content';
 import { createInitialState, learnedStage, LocalGameHost } from './host';
@@ -46,7 +47,7 @@ describe('LocalGameHost authority and care', () => {
     expect(host.critter.bond).toBe(bond);
     expect(act(host, 'critter-mallow', 'feed')).toBe(true);
     expect(act(host, 'critter-mallow', 'feed')).toBe(false);
-    expect(host.state.inventory.find((item) => item.itemId === 'feed')?.quantity).toBe(3);
+    expect(backpack(host.state).items.find((item) => item.itemId === 'feed')?.quantity).toBe(3);
     host.dispatch({ type: 'debug', action: 'next-day' });
     expect(act(host, 'critter-mallow', 'pet')).toBe(true);
   });
@@ -110,7 +111,7 @@ describe('progression, resources, and persistence', () => {
     const saved = readSave(host.state);
     const loaded = new LocalGameHost(saved);
     loaded.update(0.1);
-    expect(loaded.state.inventory).toEqual(saved.inventory);
+    expect(backpack(loaded.state).items).toEqual(backpack(saved).items);
     expect(loaded.state.seed).toBe(saved.seed);
     expect(loaded.critter.history).toEqual(saved.critters[0].history);
   });
@@ -139,14 +140,14 @@ describe('progression, resources, and persistence', () => {
     expect(act(host, 'crop', 'harvest')).toBe(false);
     for (let second = 0; second < 225; second++) host.update(1);
     expect(act(host, 'crop', 'harvest')).toBe(true);
-    expect(host.state.inventory.find((item) => item.itemId === 'feed')?.quantity).toBe(7);
-    expect(host.state.inventory.find((item) => item.itemId === 'seed')?.quantity).toBe(3);
+    expect(backpack(host.state).items.find((item) => item.itemId === 'feed')?.quantity).toBe(7);
+    expect(backpack(host.state).items.find((item) => item.itemId === 'seed')?.quantity).toBe(3);
     expect(act(host, 'crop', 'harvest')).toBe(false);
   });
 
   it('prices quality, consumes sold berries, and makes the shed improvement permanent', () => {
     const host = at({ x: -6, z: 5 }, (state) => {
-      state.inventory.push({ id: 'stack-berry-2', itemId: 'berry', quality: 2, quantity: 3 });
+      backpack(state).items.push({ id: 'stack-berry-2', itemId: 'berry', quality: 2, quantity: 3 });
     });
     expect(act(host, 'market', 'sell')).toBe(true);
     expect(host.state.player.coins).toBe(12);
@@ -217,13 +218,25 @@ describe('learning conditions and continuity', () => {
         player ? 9487 : actor === 'critter-gather' ? 9492 : 9472.08,
       );
       expect(host.critter.skills).toEqual({ harvesting: player ? 4 : 5, racing: 6 });
-      expect(host.state.inventory.filter((item) => item.itemId === 'berry')).toEqual(
+      expect(backpack(host.state).items.filter((item) => item.itemId === 'berry')).toEqual(
         player
           ? [
               { id: 'stack-berry-2', itemId: 'berry', quantity: 7, quality: 2 },
               { id: 'stack-berry-1', itemId: 'berry', quantity: 2, quality: 1 },
             ]
-          : [{ id: 'stack-berry-2', itemId: 'berry', quantity: 10, quality: 2 }],
+          : [{ id: 'stack-berry-2', itemId: 'berry', quantity: 7, quality: 2 }],
+      );
+      expect(satchel(host.state).items).toEqual(
+        player
+          ? []
+          : [
+              {
+                id: `satchel-${host.critter.id}-berry-2`,
+                itemId: 'berry',
+                quantity: 3,
+                quality: 2,
+              },
+            ],
       );
       expect(host.critter.history).toEqual([
         ...legacyV2.critters[1].history,
@@ -407,7 +420,7 @@ describe('learning conditions and continuity', () => {
     const host = new LocalGameHost(state);
     expect(host.learning().status).toMatch(reason);
     host.update(0.1);
-    expect(host.state.inventory).toEqual(state.inventory);
+    expect(backpack(host.state).items).toEqual(backpack(state).items);
     expect(host.state.resources).toEqual(state.resources);
     expect(host.critter.stamina).toBe(activeCritter(state).stamina);
     expect(host.critter.learnedBehaviors).toEqual(activeCritter(state).learnedBehaviors);
@@ -556,7 +569,7 @@ describe('daily effort and recovery', () => {
     const host = at({ x: 4, z: -2 }, (state) => {
       state.player.stamina = 90;
       activeCritter(state).stamina = 0;
-      state.inventory = [];
+      backpack(state).items = [];
       state.player.coins = 0;
       state.crop = { id: 'crop-feed', plantedAt: 300, watered: true, readyAt: 530 };
       state.resources[0].available = false;
@@ -566,6 +579,12 @@ describe('daily effort and recovery', () => {
         id: 'grandpa-pip',
         ownerId: 'grandpa',
         name: 'Pip',
+      });
+      state.containers.push({
+        ...structuredClone(satchel(state)),
+        id: 'satchel-grandpa-pip',
+        location: { actorId: 'grandpa-pip' },
+        items: [],
       });
     });
     const before = structuredClone(host.state);
@@ -580,7 +599,7 @@ describe('daily effort and recovery', () => {
     expect(host.state.day).toBe(1);
     expect(host.state.crop.readyAt).toBeLessThanOrEqual(host.state.totalMinutes);
     expect(host.state.resources[0].available).toBe(true);
-    expect(host.state.inventory).toEqual([]);
+    expect(backpack(host.state).items).toEqual([]);
     expect(host.state.player.coins).toBe(0);
     expect(host.state.critters[0]).toEqual(before.critters[0]);
     expect(host.state.seed).toBe(before.seed);
@@ -634,7 +653,7 @@ describe('daily effort and recovery', () => {
     let host = at({ x: 4, z: -2 }, (state) => {
       state.player.stamina = 0;
       state.player.coins = 0;
-      state.inventory = [];
+      backpack(state).items = [];
       activeCritter(state).stamina = 0;
       activeCritter(state).hunger = 100;
     });
@@ -675,7 +694,7 @@ describe('daily effort and recovery', () => {
     const loaded = new LocalGameHost(readSave(host.state));
     const before = structuredClone(loaded.state);
     for (let tick = 0; tick < 10; tick++) loaded.update(1);
-    expect(loaded.state.inventory).toEqual(before.inventory);
+    expect(backpack(loaded.state).items).toEqual(backpack(before).items);
     expect(loaded.state.resources).toEqual(before.resources);
     expect(loaded.state.seed).toBe(before.seed);
     expect(loaded.critter.stamina).toBe(before.critters[0].stamina);
@@ -778,6 +797,12 @@ describe('individual identity and ownership', () => {
       id: 'second-owned',
       name: 'Fern',
       lastPettedDay: null,
+    });
+    state.containers.push({
+      ...structuredClone(satchel(state)),
+      id: 'satchel-second-owned',
+      location: { actorId: 'second-owned' },
+      items: [],
     });
     state.activeCritterId = 'second-owned';
     const second = new LocalGameHost(state);

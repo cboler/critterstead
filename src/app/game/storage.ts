@@ -1,5 +1,6 @@
 import { Critter, GameState, Training } from './model';
 import { BEHAVIORS, initialMaterialNodes } from './content';
+import { initialContainers, MILL_MINUTES } from './logistics';
 
 export interface SaveStorage {
   load(): Promise<GameState | null>;
@@ -140,7 +141,7 @@ export function readSave(value: unknown): GameState {
     const legacy = structuredClone(value as LegacyGameStateV3);
     if ('stats' in legacy.player || 'skills' in legacy.player)
       corrupt('ambiguous player capabilities');
-    const migrated: GameState = {
+    const migrated: LegacyGameStateV4 = {
       ...legacy,
       version: 4,
       player: {
@@ -152,6 +153,24 @@ export function readSave(value: unknown): GameState {
       groundCargo: [],
       work: null,
     };
+    return readSave(migrated);
+  }
+  if (root['version'] === 4) {
+    validateState(value, 4);
+    if (root['containers'] !== undefined || root['production'] !== undefined)
+      corrupt('ambiguous containers');
+    const { inventory, ...legacy } = structuredClone(value as LegacyGameStateV4);
+    const migrated: GameState = {
+      ...legacy,
+      version: 5,
+      containers: initialContainers(
+        legacy.player.id,
+        legacy.activeCritterId,
+        inventory,
+        legacy.critters.map((critter) => critter.id),
+      ),
+      production: { progressMinutes: 0 },
+    };
     validateSave(migrated);
     return migrated;
   }
@@ -161,8 +180,12 @@ export function readSave(value: unknown): GameState {
 
 // Versioned differences; frozen legacy fixtures must not depend on new-game defaults.
 type LegacyCritter = Omit<Critter, 'learnedBehaviors'> & { berryKnowledge: number };
+type LegacyGameStateV4 = Omit<GameState, 'version' | 'containers' | 'production'> & {
+  version: 4;
+  inventory: GameState['containers'][number]['items'];
+};
 type LegacyGameStateV3 = Omit<
-  GameState,
+  LegacyGameStateV4,
   'version' | 'player' | 'materialNodes' | 'groundCargo' | 'work'
 > & {
   version: 3;
@@ -183,10 +206,10 @@ type LegacyGameStateV1 = Omit<
 
 /** Writes accept only the current schema. Older records must pass readSave first. */
 export function validateSave(value: unknown): asserts value is GameState {
-  validateState(value, 4);
+  validateState(value, 5);
 }
 
-function validateState(value: unknown, version: 1 | 2 | 3 | 4): void {
+function validateState(value: unknown, version: 1 | 2 | 3 | 4 | 5): void {
   const root = record(value, 'save');
   if (root['version'] !== version) {
     throw new Error(
@@ -238,18 +261,79 @@ function validateState(value: unknown, version: 1 | 2 | 3 | 4): void {
     if (!selected || selected['ownerId'] !== player['id']) corrupt('activeCritterId');
     if (root['critter'] !== undefined) corrupt('obsolete critter field');
   }
-  for (const value of array(root['inventory'], 'inventory')) {
-    const item = record(value, 'inventory item');
-    entityId(item['id'], ids);
-    choice(
-      item['itemId'],
-      version >= 4
-        ? ['berry', 'feed', 'seed', 'timber', 'stone', 'lumber']
-        : ['berry', 'feed', 'seed'],
-      'inventory.itemId',
+  if (version < 5)
+    for (const value of array(root['inventory'], 'inventory')) {
+      const item = record(value, 'inventory item');
+      entityId(item['id'], ids);
+      choice(
+        item['itemId'],
+        version >= 4
+          ? ['berry', 'feed', 'seed', 'timber', 'stone', 'lumber']
+          : ['berry', 'feed', 'seed'],
+        'inventory.itemId',
+      );
+      number(item['quantity'], 'inventory.quantity', 0, Number.MAX_SAFE_INTEGER, true);
+      number(item['quality'], 'inventory.quality', 1, 3);
+    }
+  if (version >= 5) {
+    if (root['inventory'] !== undefined) corrupt('obsolete inventory');
+    const containers = array(root['containers'], 'containers');
+    const expected = initialContainers(
+      player['id'] as string,
+      root['activeCritterId'] as string,
+      [],
+      individuals.map((item) => record(item, 'critter')['id'] as string),
     );
-    number(item['quantity'], 'inventory.quantity', 0, Number.MAX_SAFE_INTEGER, true);
-    number(item['quality'], 'inventory.quality', 1, 3);
+    if (containers.length !== expected.length) corrupt('container count');
+    for (const value of containers) {
+      const container = record(value, 'container');
+      entityId(container['id'], ids);
+      const authored = expected.find((item) => item.id === container['id']);
+      if (
+        !authored ||
+        container['kind'] !== authored.kind ||
+        container['capacity'] !== authored.capacity ||
+        array(container['allowed'], 'container.allowed').length !== authored.allowed.length ||
+        !authored.allowed.every((item) => (container['allowed'] as string[]).includes(item))
+      )
+        corrupt('container definition');
+      const location = record(container['location'], 'container.location');
+      if ('actorId' in authored.location) {
+        if (
+          location['actorId'] !== authored.location.actorId ||
+          location['position'] !== undefined ||
+          location['areaId'] !== undefined
+        )
+          corrupt('container owner');
+      } else {
+        const at = record(location['position'], 'container.position');
+        if (
+          location['actorId'] !== undefined ||
+          location['areaId'] !== authored.location.areaId ||
+          at['x'] !== authored.location.position.x ||
+          at['z'] !== authored.location.position.z
+        )
+          corrupt('container position');
+      }
+      let count = 0;
+      for (const entry of array(container['items'], 'container.items')) {
+        const item = record(entry, 'container.item');
+        entityId(item['id'], ids);
+        choice(item['itemId'], authored.allowed, 'container.itemId');
+        number(item['quantity'], 'inventory.quantity', 0, Number.MAX_SAFE_INTEGER, true);
+        number(item['quality'], 'inventory.quality', 1, 3);
+        count += item['quantity'] as number;
+      }
+      if (authored.capacity !== null && count > authored.capacity) corrupt('container capacity');
+    }
+    number(
+      record(root['production'], 'production')['progressMinutes'],
+      'production.progress',
+      0,
+      MILL_MINUTES,
+    );
+    if ((record(root['production'], 'production')['progressMinutes'] as number) >= MILL_MINUTES)
+      corrupt('production.progress');
   }
   if (version >= 4) {
     const nodes = array(root['materialNodes'], 'materialNodes');
@@ -336,7 +420,7 @@ function validateState(value: unknown, version: 1 | 2 | 3 | 4): void {
   }
 }
 
-function validateCritter(critter: Record<string, unknown>, version: 1 | 2 | 3 | 4): void {
+function validateCritter(critter: Record<string, unknown>, version: 1 | 2 | 3 | 4 | 5): void {
   for (const key of ['id', 'name', 'speciesId', 'personality'])
     string(critter[key], `critter.${key}`);
   choice(critter['sex'], ['female', 'male'], 'critter.sex');

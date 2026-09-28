@@ -304,7 +304,7 @@
     </aside>
   </main>
   <footer class="satchel-bar">
-    <div class="satchel-label"><span aria-hidden="true">▱</span><strong>Your satchel</strong></div>
+    <div class="satchel-label"><span aria-hidden="true">▱</span><strong>Your backpack</strong></div>
     <div class="inventory-items">
       <div title="Sunberries · quality affects their selling price">
         <span class="item-icon berries">●</span><span>Sunberries</span
@@ -411,13 +411,26 @@
             <li>Your story is just beginning.</li>
           }
         </ol>
-        <h3>In your satchel</h3>
+        <h3>In your backpack</h3>
         <div class="quality-items">
-          @for (item of state().inventory; track item.id) {
+          @for (item of bag().items; track item.id) {
             <span
               >{{ item.itemId }} × {{ item.quantity }}
               <small>quality {{ item.quality }}</small></span
             >
+          }
+        </div>
+        <h3>Supplies have a place</h3>
+        <div class="quality-items">
+          @for (container of state().containers; track container.id) {
+            <span
+              >{{ container.kind }}:
+              @for (item of container.items; track item.id) {
+                {{ item.itemId }} × {{ item.quantity }}
+              } @empty {
+                empty
+              }
+            </span>
           }
         </div>
         @if (companion().competitions.length) {

@@ -87,6 +87,17 @@ try {
   await page.waitForFunction(() => navigator.serviceWorker.controller !== null, undefined, {
     timeout: 60000,
   });
+  // Control can precede completion of the first prefetch. Verify the actual cache
+  // before disconnecting; otherwise this check races its own first installation.
+  const manifest = JSON.parse(await readFile(resolve(root, 'ngsw.json'), 'utf8'));
+  const prefetched = manifest.assetGroups
+    .filter((group) => group.installMode === 'prefetch')
+    .flatMap((group) => group.urls);
+  await page.waitForFunction(
+    async (urls) => (await Promise.all(urls.map((url) => caches.match(url)))).every(Boolean),
+    prefetched,
+    { timeout: 60000 },
+  );
   await context.setOffline(true);
   await page.reload();
   await page.locator('.world-canvas canvas').waitFor({ state: 'visible' });

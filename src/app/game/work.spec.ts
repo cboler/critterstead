@@ -1,3 +1,4 @@
+import { backpack } from './model';
 import { resolveCheck, encumbrance } from './checks';
 import { createInitialState, LocalGameHost } from './host';
 import { readSave, validateSave } from './storage';
@@ -62,13 +63,18 @@ describe('physical work and rancher capabilities', () => {
   it('slows loaded steps, charges only distance moved, and allows free overload recovery', () => {
     const light = new LocalGameHost();
     const loaded = new LocalGameHost();
-    loaded.state.inventory.push({ id: 'test-stone', itemId: 'stone', quantity: 3, quality: 1 });
-    expect(encumbrance(loaded.state.player, loaded.state.inventory).band).toBe('Heavy');
+    backpack(loaded.state).items.push({
+      id: 'test-stone',
+      itemId: 'stone',
+      quantity: 3,
+      quality: 1,
+    });
+    expect(encumbrance(loaded.state.player, backpack(loaded.state).items).band).toBe('Heavy');
     light.dispatch({ type: 'move', x: 1, z: 0, seconds: 0.1 });
     loaded.dispatch({ type: 'move', x: 1, z: 0, seconds: 0.1 });
     expect(loaded.state.player.position.x).toBeLessThan(light.state.player.position.x);
     expect(loaded.state.player.stamina).toBeLessThan(100);
-    loaded.state.inventory.find((item) => item.itemId === 'stone')!.quantity = 5;
+    backpack(loaded.state).items.find((item) => item.itemId === 'stone')!.quantity = 5;
     expect(loaded.dispatch({ type: 'move', x: 1, z: 0, seconds: 0.1 })).toBe(false);
     expect(loaded.dispatch({ type: 'drop-cargo' })).toBe(true);
     expect(loaded.state.groundCargo[0].items[0].quantity).toBe(5);
@@ -81,7 +87,9 @@ describe('physical work and rancher capabilities', () => {
         action: 'pickup-cargo',
       }),
     ).toBe(true);
-    expect(restored.state.inventory.find((item) => item.itemId === 'stone')!.quantity).toBe(5);
+    expect(backpack(restored.state).items.find((item) => item.itemId === 'stone')!.quantity).toBe(
+      5,
+    );
     expect(restored.state.groundCargo).toHaveLength(0);
   });
 
@@ -90,7 +98,7 @@ describe('physical work and rancher capabilities', () => {
     const migrated = readSave(old);
     expect(migrated.player).toMatchObject(old.player);
     expect(migrated.critters).toEqual(old.critters);
-    expect(migrated.inventory).toEqual(old.inventory);
+    expect(backpack(migrated).items).toEqual(old.inventory);
     expect(migrated.training).toEqual(old.training);
     expect(migrated.seed).toBe(old.seed);
     expect(old).toEqual(legacyV3);

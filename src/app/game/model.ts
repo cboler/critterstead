@@ -86,6 +86,15 @@ export interface InventoryItem {
   quantity: number;
   quality: number;
 }
+export interface Container {
+  id: string;
+  kind: 'backpack' | 'satchel' | 'chest' | 'mill-input' | 'mill-output' | 'trough';
+  location: { actorId: string } | { areaId: AreaId; position: Point };
+  // Carried bags use mass-based encumbrance. Fixed storage limits total item units.
+  capacity: number | null;
+  allowed: InventoryItem['itemId'][];
+  items: InventoryItem[];
+}
 export interface ResourceNode {
   id: string;
   areaId: AreaId;
@@ -108,7 +117,7 @@ export interface Training {
   kind: 'training' | 'race';
 }
 export interface GameState {
-  version: 4;
+  version: 5;
   seed: number;
   day: number;
   minute: number;
@@ -121,7 +130,8 @@ export interface GameState {
   work: ResourceWork | null;
   critters: Critter[];
   activeCritterId: string;
-  inventory: InventoryItem[];
+  containers: Container[];
+  production: { progressMinutes: number };
   resources: ResourceNode[];
   crop: Crop;
   shedLevel: number;
@@ -169,4 +179,21 @@ export function activeCritter(state: GameState): Critter {
   if (!critter || critter.ownerId !== state.player.id)
     throw new Error('The selected companion must be a player-owned individual.');
   return critter;
+}
+
+export function backpack(state: GameState): Container {
+  return state.containers.find(
+    (container) =>
+      container.kind === 'backpack' &&
+      'actorId' in container.location &&
+      container.location.actorId === state.player.id,
+  )!;
+}
+export function satchel(state: GameState): Container {
+  return state.containers.find(
+    (container) =>
+      container.kind === 'satchel' &&
+      'actorId' in container.location &&
+      container.location.actorId === state.activeCritterId,
+  )!;
 }

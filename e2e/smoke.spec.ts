@@ -1,3 +1,4 @@
+import { backpack } from '../src/app/game/model';
 import { expect, test, type Page } from '@playwright/test';
 import { activeCritter, type GameState } from '../src/app/game/model';
 import { createInitialState } from '../src/app/game/host';
@@ -208,7 +209,7 @@ test('plays a complete day and keeps the improved homestead after reload', async
   await walk(page, 3, 2);
   await page.getByRole('button', { name: /Practice hoops/ }).click();
   await activity(page, /Hop, Mallow!/);
-  await expect(page.locator('.intentions li').nth(1)).toHaveClass(/done/);
+  expect((await developmentState(page)).flags).toContain('trained');
   await walk(page, -5, 2);
   await page.getByRole('button', { name: /Plant feed seeds/ }).click();
   await page.getByRole('button', { name: /Water the garden/ }).click();
@@ -259,7 +260,7 @@ test('plays a complete day and keeps the improved homestead after reload', async
   await page.getByRole('button', { name: /^Sell berries/ }).click();
   await walk(page, 4, -2);
   await page.getByRole('button', { name: /Make it cozy/ }).click();
-  await expect(page.locator('.intentions li').nth(3)).toHaveClass(/done/);
+  expect((await developmentState(page)).shedLevel).toBe(1);
   await walk(page, 2, 6);
   await expect(page.getByRole('button', { name: /Run the trial/ })).toBeDisabled();
   await expect(page.locator('.action-reason')).toContainText('rest');
@@ -278,7 +279,7 @@ test('plays a complete day and keeps the improved homestead after reload', async
   expect(activeCritter(recovered).stamina).toBe(activeCritter(beforeRest).stamina + 35);
   expect(recovered.totalMinutes - beforeRest.totalMinutes).toBeGreaterThanOrEqual(120);
   expect(recovered.totalMinutes - beforeRest.totalMinutes).toBeLessThan(135);
-  expect(recovered.inventory).toEqual(beforeRest.inventory);
+  expect(backpack(recovered).items).toEqual(backpack(beforeRest).items);
   expect(recovered.player.coins).toBe(beforeRest.player.coins);
   await page.screenshot({ path: testInfo.outputPath('recovered.png'), fullPage: true });
 
@@ -377,7 +378,7 @@ test('preserves critter energy for a competition-oriented day by doing the harve
   expect(activeCritter(tomorrow).stamina).toBe(100);
   expect(activeCritter(tomorrow).competitions).toHaveLength(1);
   expect(activeCritter(tomorrow).learnedBehaviors['sunberry-foraging']).toBe(6);
-  expect(tomorrow.inventory.find((item) => item.itemId === 'feed')?.quantity).toBe(6);
+  expect(backpack(tomorrow).items.find((item) => item.itemId === 'feed')?.quantity).toBe(6);
   await testInfo.attach('competition-routine-tomorrow', {
     body: JSON.stringify(tomorrow, null, 2),
     contentType: 'application/json',
@@ -400,7 +401,7 @@ test('walks home exhausted, recovers without supplies, and feeds through ordinar
   exhausted.player.position = { x: -3, z: -2 };
   exhausted.player.stamina = 0;
   exhausted.player.coins = 0;
-  exhausted.inventory = [];
+  backpack(exhausted).items = [];
   activeCritter(exhausted).position = { x: -3, z: -2 };
   activeCritter(exhausted).stamina = 0;
   activeCritter(exhausted).hunger = 100;
@@ -457,7 +458,7 @@ test('walks home exhausted, recovers without supplies, and feeds through ordinar
   await page.reload();
   await expect(page.locator('.learning-status')).toContainText('keeping 20 energy in reserve');
   expect(activeCritter(await developmentState(page)).stamina).toBe(29);
-  expect((await developmentState(page)).inventory).toEqual(stopped.inventory);
+  expect(backpack(await developmentState(page)).items).toEqual(backpack(stopped).items);
   await walk(page, -5, -5);
   await page.getByRole('button', { name: /Berry treat/ }).click();
   await walk(page, -8, 0);

@@ -1,3 +1,4 @@
+import { backpack, satchel } from './game/model';
 import {
   AfterViewInit,
   Component,
@@ -61,8 +62,10 @@ export class App implements AfterViewInit, OnDestroy {
   protected readonly gamepadAction = signal<string | null>(null);
   protected readonly learning = signal(this.host.learning());
   protected readonly learningSteps = Array.from({ length: this.learning().goal }, (_, i) => i + 1);
+  protected readonly bag = computed(() => backpack(this.state()));
+  protected readonly companionBag = computed(() => satchel(this.state()));
   protected readonly load = computed(() =>
-    encumbrance(this.state().player, this.state().inventory),
+    encumbrance(this.state().player, backpack(this.state()).items),
   );
   protected readonly rancherSkills = ['woodcutting', 'mining', 'hauling', 'foraging'] as const;
   protected dropCargo(): void {
@@ -465,8 +468,8 @@ export class App implements AfterViewInit, OnDestroy {
     return `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`;
   }
   protected count(itemId: string): number {
-    return this.state()
-      .inventory.filter((item) => item.itemId === itemId)
+    return backpack(this.state())
+      .items.filter((item) => item.itemId === itemId)
       .reduce((total, item) => total + item.quantity, 0);
   }
   protected round(value: number): number {

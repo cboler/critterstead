@@ -1,4 +1,15 @@
 import {
+  addItem,
+  initialContainers,
+  ITEM_IDS,
+  MILL_MINUTES,
+  productionStatus,
+  quantity as containerQuantity,
+  room,
+  transfer,
+} from './logistics';
+import { backpack, satchel } from './model';
+import {
   AREAS,
   BEHAVIORS,
   BERRY_NODES,
@@ -12,6 +23,7 @@ import {
   BehaviorDefinition,
   BehaviorStage,
   Critter,
+  Container,
   GameCommand,
   GameState,
   Interaction,
@@ -35,7 +47,7 @@ const foraging = BEHAVIORS['sunberry-foraging'];
 
 export function createInitialState(): GameState {
   return {
-    version: 4,
+    version: 5,
     seed: 240921,
     day: 1,
     minute: 480,
@@ -80,10 +92,11 @@ export function createInitialState(): GameState {
         competitions: [],
       },
     ],
-    inventory: [
+    containers: initialContainers('player-local', STARTER.id, [
       { id: 'stack-feed-1', itemId: 'feed', quantity: 4, quality: 1 },
       { id: 'stack-seed-1', itemId: 'seed', quantity: 3, quality: 1 },
-    ],
+    ]),
+    production: { progressMinutes: 0 },
     resources: BERRY_NODES.map((node) => ({
       ...node,
       position: { ...node.position },
@@ -158,6 +171,13 @@ export class LocalGameHost {
     const critter = this.critter;
     const stage = learnedStage(critter, foraging).id;
     if (this.state.training) return `${critter.name} is busy with the current activity.`;
+    if (
+      encumbrance(critter, [
+        ...satchel(this.state).items,
+        { id: 'preview', itemId: 'berry', quantity: 3, quality: 1 },
+      ]).speed === 0
+    )
+      return `${critter.name}'s satchel is too heavy. Take some cargo before more work.`;
     if (node && (!node.available || node.areaId !== this.state.areaId))
       return 'These berries are growing back.';
     if (stage !== 'cued' && stage !== 'autonomous')
@@ -240,7 +260,7 @@ export class LocalGameHost {
     if (
       !this.state.work &&
       !this.state.training &&
-      this.state.inventory.some((item) => ['timber', 'stone', 'lumber'].includes(item.itemId))
+      backpack(this.state).items.some((item) => ['timber', 'stone', 'lumber'].includes(item.itemId))
     ) {
       const dock = target ?? {
         id: this.state.player.id,
@@ -272,6 +292,12 @@ export class LocalGameHost {
       ...state.resources.filter((node) => node.areaId === state.areaId),
       ...state.materialNodes.filter((node) => node.areaId === state.areaId),
       ...state.groundCargo.filter((pile) => pile.areaId === state.areaId && pile.items.length),
+      ...state.containers
+        .filter(
+          (container) =>
+            'areaId' in container.location && container.location.areaId === state.areaId,
+        )
+        .map((container) => ({ id: container.id, position: this.containerPosition(container) })),
     ].filter((target) => this.inReach(target.id));
     candidates.sort(
       (a, b) =>
@@ -284,6 +310,13 @@ export class LocalGameHost {
 
   private inReach(id: string): boolean {
     const state = this.state;
+    const container = state.containers.find((item) => item.id === id);
+    if (container)
+      return (
+        this.containerLocal(container) &&
+        distance(this.containerPosition(container), state.player.position) <=
+          GAME_CONFIG.interactionDistance
+      );
     const object = AREAS[state.areaId].objects.find((item) => item.id === id);
     if (object) {
       const reach =
@@ -351,7 +384,23 @@ export class LocalGameHost {
                 ? `${critter.name} is comfortably full.`
                 : undefined,
           ),
+          ...this.containerActions(satchel(state)),
         ],
+      };
+    const container = state.containers.find((item) => item.id === id);
+    if (container)
+      return {
+        id,
+        title:
+          container.kind === 'chest'
+            ? 'Wooden yard chest'
+            : container.kind === 'trough'
+              ? 'Feed trough'
+              : container.kind === 'mill-input'
+                ? 'Yard sawmill · input hopper'
+                : 'Sawmill · output crate',
+        description: `${container.items.length ? container.items.map((item) => `${item.quantity} ${item.itemId}`).join(' · ') : 'Empty'} · ${containerQuantity(container)}/${container.capacity ?? '—'} units. ${container.kind.startsWith('mill') ? productionStatus(state.containers) : 'Supplies stay here until someone carries them.'}`,
+        actions: this.containerActions(container),
       };
     const material = state.materialNodes.find(
       (item) => item.id === id && item.areaId === state.areaId,
@@ -510,7 +559,9 @@ export class LocalGameHost {
             action(
               'sell',
               `Sell berries · ${this.berryValue()} coins · 5 min`,
-              !this.quantity('berry') ? 'Your basket has no berries yet.' : undefined,
+              !this.berryValue()
+                ? 'Bring berries in your backpack or your nearby companion’s satchel.'
+                : undefined,
             ),
             action(
               'buy-feed',
@@ -564,6 +615,15 @@ export class LocalGameHost {
   private interact(id: string, action: string): boolean {
     const state = this.state;
     const critter = activeCritter(state);
+    if (action.startsWith('transfer:')) {
+      const [, sourceId, destinationId, itemId] = action.split(':');
+      const source = state.containers.find((container) => container.id === sourceId)!;
+      const destination = state.containers.find((container) => container.id === destinationId)!;
+      if (!transfer(source, destination, itemId as InventoryItem['itemId'])) return false;
+      this.note(`${itemId} carried from ${source.kind} to ${destination.kind}.`);
+      this.flag('moved-cargo');
+      return true;
+    }
     switch (action) {
       case 'work-material': {
         const node = state.materialNodes.find((item) => item.id === id)!;
@@ -683,7 +743,9 @@ export class LocalGameHost {
       case 'sell': {
         const amount = this.berryValue();
         state.player.coins += amount;
-        state.inventory = state.inventory.filter((item) => item.itemId !== 'berry');
+        backpack(state).items = backpack(state).items.filter((item) => item.itemId !== 'berry');
+        if (distance(critter.position, state.player.position) <= GAME_CONFIG.interactionDistance)
+          satchel(state).items = satchel(state).items.filter((item) => item.itemId !== 'berry');
         this.flag('sold');
         this.advanceMinutes(5);
         this.note(`Your sunberries find a new home. ${amount} coins in the jar.`);
@@ -727,7 +789,7 @@ export class LocalGameHost {
     if (![x, z, seconds].every(Number.isFinite) || seconds <= 0) return false;
     const length = Math.hypot(x, z);
     if (length === 0) return false;
-    const load = encumbrance(this.state.player, this.state.inventory);
+    const load = encumbrance(this.state.player, backpack(this.state).items);
     const step =
       Math.min(seconds, 0.1) *
       GAME_CONFIG.movementSpeed *
@@ -849,7 +911,8 @@ export class LocalGameHost {
           Math.min(0.75, critter.skills.harvesting / 20 + critter.stats.intelligence / 40)
             ? 1
             : 0);
-    this.add('berry', amount, quality);
+    if (actor === 'player') this.add('berry', amount, quality);
+    else addItem(satchel(state), 'berry', amount, quality);
     node.available = false;
     node.respawnAt = state.totalMinutes + GAME_CONFIG.berryRespawnMinutes;
     if (actor === 'player') {
@@ -905,7 +968,9 @@ export class LocalGameHost {
     const gap = distance(critter.position, target);
     const stop = harvest ? 0.7 : 1.15;
     if (gap > stop) {
-      const step = Math.min(gap - stop, seconds * 3.6);
+      const load = encumbrance(critter, satchel(state).items);
+      const step = Math.min(gap - stop, seconds * 3.6 * load.speed);
+      critter.stamina = Math.max(0, critter.stamina - step * load.drain);
       critter.position = {
         x: critter.position.x + ((target.x - critter.position.x) / gap) * step,
         z: critter.position.z + ((target.z - critter.position.z) / gap) * step,
@@ -917,6 +982,7 @@ export class LocalGameHost {
 
   private advanceMinutes(minutes: number): void {
     const state = this.state;
+    this.produce(minutes);
     const previousDay = state.day;
     state.totalMinutes += minutes;
     state.day = Math.floor(state.totalMinutes / 1440) + 1;
@@ -975,12 +1041,12 @@ export class LocalGameHost {
     }
     this.state.work = null;
     this.note(
-      `${work.result.degree > 0.25 ? 'Clean, confident' : work.result.degree < -0.5 ? 'Slow, stubborn' : 'Steady'} work. ${node.remaining ? `${node.remaining}/6 resistance remains.` : `Two ${node.kind} bundles lifted into your arms.`} ${skill} +0.35; strength grows a little. Load: ${encumbrance(this.state.player, this.state.inventory).band.toLowerCase()}.`,
+      `${work.result.degree > 0.25 ? 'Clean, confident' : work.result.degree < -0.5 ? 'Slow, stubborn' : 'Steady'} work. ${node.remaining ? `${node.remaining}/6 resistance remains.` : `Two ${node.kind} bundles lifted into your arms.`} ${skill} +0.35; strength grows a little. Load: ${encumbrance(this.state.player, backpack(this.state).items).band.toLowerCase()}.`,
     );
   }
 
   private dropCargo(): boolean {
-    const items = this.state.inventory.filter((item) =>
+    const items = backpack(this.state).items.filter((item) =>
       ['timber', 'stone', 'lumber'].includes(item.itemId),
     );
     if (!items.length) return false;
@@ -1007,36 +1073,133 @@ export class LocalGameHost {
       if (existing) existing.quantity += item.quantity;
       else pile.items.push({ ...item, id: `${pile.id}-${item.itemId}-${item.quality}` });
     }
-    state.inventory = state.inventory.filter((item) => !items.includes(item));
+    backpack(state).items = backpack(state).items.filter((item) => !items.includes(item));
     this.note('Cargo set safely on the ground. Walk back to pick it up.');
     return true;
   }
 
+  private containerPosition(container: Container): Point {
+    if ('position' in container.location) return container.location.position;
+    return container.location.actorId === this.state.player.id
+      ? this.state.player.position
+      : this.critter.position;
+  }
+  private containerLocal(container: Container): boolean {
+    return 'actorId' in container.location
+      ? [this.state.player.id, this.state.activeCritterId].includes(container.location.actorId)
+      : container.location.areaId === this.state.areaId;
+  }
+  private containerActions(container: Container): InteractionAction[] {
+    const bag = backpack(this.state);
+    const helper = satchel(this.state);
+    const actions: InteractionAction[] = [];
+    const offer = (
+      source: Container,
+      destination: Container,
+      itemId: InventoryItem['itemId'],
+      label: string,
+    ) => {
+      if (
+        source === destination ||
+        !containerQuantity(source, itemId) ||
+        !destination.allowed.includes(itemId) ||
+        destination.kind === 'mill-output'
+      )
+        return;
+      const usesCompanion = source === helper || destination === helper;
+      const projected = [...helper.items, { id: 'preview', itemId, quantity: 1, quality: 1 }];
+      const reason =
+        room(destination, itemId) < 1
+          ? 'This container is full.'
+          : usesCompanion &&
+              distance(this.critter.position, this.containerPosition(container)) >
+                GAME_CONFIG.interactionDistance
+            ? `Wait for ${this.critter.name} to reach the cargo.`
+            : destination === helper && encumbrance(this.critter, projected).speed === 0
+              ? 'Too heavy for your companion. Carry this yourself.'
+              : undefined;
+      actions.push({
+        id: `transfer:${source.id}:${destination.id}:${itemId}`,
+        label,
+        disabled: !!reason,
+        reason,
+      });
+    };
+    for (const itemId of ITEM_IDS) {
+      offer(bag, container, itemId, `Store 1 ${itemId}`);
+      offer(container, bag, itemId, `Take 1 ${itemId}`);
+      if (container !== helper) {
+        offer(container, helper, itemId, `Ask ${this.critter.name}: carry 1 ${itemId}`);
+        offer(helper, container, itemId, `Ask ${this.critter.name}: deposit 1 ${itemId}`);
+      }
+    }
+    return actions;
+  }
+  private produce(minutes: number): void {
+    const input = this.state.containers.find((container) => container.kind === 'mill-input')!;
+    const output = this.state.containers.find((container) => container.kind === 'mill-output')!;
+    if (!containerQuantity(input, 'timber') || room(output, 'lumber') < 2) return;
+    const progress = this.state.production.progressMinutes + minutes;
+    const batches = Math.min(
+      Math.floor(progress / MILL_MINUTES),
+      containerQuantity(input, 'timber'),
+      Math.floor(room(output, 'lumber') / 2),
+    );
+    let left = batches;
+    for (const item of input.items) {
+      const used = Math.min(left, item.quantity);
+      item.quantity -= used;
+      left -= used;
+    }
+    input.items = input.items.filter((item) => item.quantity > 0);
+    if (batches) {
+      addItem(output, 'lumber', batches * 2);
+      this.flag('refined-lumber');
+    }
+    // Blocked elapsed time is never banked; unspent partial work remains resumable.
+    this.state.production.progressMinutes =
+      !containerQuantity(input, 'timber') || room(output, 'lumber') < 2
+        ? 0
+        : progress - batches * MILL_MINUTES;
+  }
+
   private quantity(itemId: InventoryItem['itemId']): number {
-    return this.state.inventory
-      .filter((item) => item.itemId === itemId)
+    return backpack(this.state)
+      .items.filter((item) => item.itemId === itemId)
       .reduce((sum, item) => sum + item.quantity, 0);
   }
   private berryValue(): number {
-    return this.state.inventory
+    return [
+      ...backpack(this.state).items,
+      ...(distance(this.critter.position, this.state.player.position) <=
+      GAME_CONFIG.interactionDistance
+        ? satchel(this.state).items
+        : []),
+    ]
       .filter((item) => item.itemId === 'berry')
       .reduce((sum, item) => sum + item.quantity * item.quality, 0);
   }
   private add(itemId: InventoryItem['itemId'], quantity: number, quality = 1): void {
-    const stack = this.state.inventory.find(
+    const stack = backpack(this.state).items.find(
       (item) => item.itemId === itemId && item.quality === quality,
     );
     if (stack) stack.quantity += quantity;
-    else this.state.inventory.push({ id: `stack-${itemId}-${quality}`, itemId, quantity, quality });
+    else
+      backpack(this.state).items.push({
+        id: `stack-${itemId}-${quality}`,
+        itemId,
+        quantity,
+        quality,
+      });
   }
   private take(itemId: InventoryItem['itemId'], quantity: number): void {
-    for (const stack of this.state.inventory.filter((item) => item.itemId === itemId)) {
+    for (const stack of backpack(this.state).items.filter((item) => item.itemId === itemId)) {
       const amount = Math.min(stack.quantity, quantity);
       stack.quantity -= amount;
       quantity -= amount;
       if (!quantity) break;
     }
-    this.state.inventory = this.state.inventory.filter((item) => item.quantity > 0);
+    backpack(this.state).items = backpack(this.state).items.filter((item) => item.quantity > 0);
   }
   private flag(flag: string): void {
     if (!this.state.flags.includes(flag)) this.state.flags.push(flag);

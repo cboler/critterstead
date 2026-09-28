@@ -51,7 +51,7 @@ fractional skill/stat gains. Starter axe/pick quality is fixed; advanced quality
 scales with proficiency in the resolver, but no tool tiers or maintenance are shipped.
 The four load bands affect movement and energy per distance. Zero-energy heavy
 walking remains possible; severe overload is recoverable by setting cargo down.
-The inventory still acts as the player's carried bag until M5 replaces it.
+M5 replaces the former carried inventory with localized containers (see below).
 
 The viewport and dock occupy independent absolute layers, with a fixed 180px dock
 bay that stays reserved even when no interaction is present. Dock overflow scrolls
@@ -61,6 +61,28 @@ shows stats, skills, weight, and held materials; original meshes show work and c
 Migration v3 -> v4 preserves all existing fields, seeds, individuals, and paid
 training, adds explicit rancher defaults and sites, and rejects conflicting new
 fields. Frozen v1/v2/v3 fixtures protect legacy continuity.
+
+## Current implementation additions — M5 (2026-09-28)
+
+Save v5 replaces global inventory with localized containers: the rancher backpack,
+a separate ID-bound satchel for every saved critter, wooden yard chest, feed trough,
+and sawmill input/output buffers. Ground cargo remains persistent at its actual
+area/position. Migration preserves every former stack ID, quantity and quality,
+all critters, paid work/training, ground piles, seed and existing progress.
+
+`logistics.ts` owns container definitions, item-conserving transfers, capacities,
+and production constants. The host checks both actors' proximity before a transfer.
+Player actions consume backpack supplies only. Companion berries enter its satchel;
+the stall can sell them only while that companion is physically nearby. Dormant
+individuals' satchels are inaccessible through active-companion commands.
+
+The fixed yard sawmill consumes one delivered timber to produce two lumber per
+12 game minutes. Input is consumed atomically with output. Empty input or full
+output stops production; stopped time cannot accumulate into future free work.
+Partial work survives reload. Meshes show buffers, machine operation and carried
+cargo. Nearby actions explain stoppages and storage contents. Container transfers
+use the existing keyboard/touch/controller path. The optional journal lists supplies
+by location without allowing remote use. M6 learning/autonomous hauling is next.
 
 ## Architectural reality audit (reconciliation baseline before M4)
 

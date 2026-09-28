@@ -164,21 +164,21 @@ playtest is a pending product gate, not a claim of failure or success.
 
 ### M5 — Localized storage, physical carrying, and first production chain
 
-**Status:** not started; builds on M4 check and physical resource models.
+**Status:** complete and locally verified (2026-09-28), following pushed M4 `5290082`.
 **Player-visible expectation:** Items physically exist in designated containers (wooden yard chest, companion satchel, machine hoppers); player and critter can physically carry cargo and deposit it; a sawmill/chopping block refines logs into lumber, stalling if input is exhausted or output is full.
 
-- [ ] Decompose the global `state.inventory` array into localized `Container` entities:
+- [x] Decompose the global `state.inventory` array into localized `Container` entities:
       player backpack, critter satchel, yard storage chest, and workstation hoppers.
-- [ ] Implement physical carrying mechanics: player and active critter can pick up, visually
+- [x] Implement physical carrying mechanics: player and active critter can pick up, visually
       hold, and deposit items into nearby containers.
-- [ ] Add the first refining workstation: **Woodchopping Block / Sawmill** in Bramblewick Yard.
-- [ ] Workstation state machine: consumes logs from its input hopper over time to produce
+- [x] Add the first refining workstation: **Woodchopping Block / Sawmill** in Bramblewick Yard.
+- [x] Workstation state machine: consumes logs from its input hopper over time to produce
       refined lumber in its output crate.
-- [ ] Emergent failure chain: if the input hopper runs out of logs or the output crate reaches
+- [x] Emergent failure chain: if the input hopper runs out of logs or the output crate reaches
       capacity, the machine halts and displays an inspectable explanation.
-- [ ] Save migration explicitly converts existing global inventory into the player's primary
+- [x] Save migration explicitly converts existing global inventory into the player's primary
       backpack container without item loss.
-- [ ] Unit and browser tests verify container transfers, physical carrying, production cycles,
+- [x] Unit and browser tests verify container transfers, physical carrying, production cycles,
       stoppage conditions, and save safety.
 
 ### M6 — Compositional learning and first autonomous job (Hauling)
@@ -392,12 +392,56 @@ The outstanding human comparison between M3 routines has been conducted on the d
 
 ## Current handoff
 
-M1–M4 complete. M3 is concluded with its human finding preserved. M5 is the next
-implementation checkpoint; M4–M9 continuation remains authorized. Start by converting
-the carried bag and ground cargo to localized containers, preserving all item IDs,
-quantities and qualities; then add yard storage, companion satchel and sawmill buffers.
+M1–M5 complete. M4 is pushed as `5290082`; M5 is the next durable checkpoint.
+M6–M9 remain authorized. Next: teach the source-to-chest lumber route through
+observation and cues, then make the companion execute it and manage hunger/rest.
 
 M4 desktop persistence suite: 9 passed, including v1/v2 migration, paid activity,
 malformed/future/ambiguous save protection, and single-writer ownership.
 Inspected evidence: [phone timber](../evidence/001-m4/phone-timber.png) and
 [desktop heavy cargo](../evidence/001-m4/desktop-heavy.png).
+
+## M5 implementation notes — 2026-09-27
+
+Save v5 explicitly moves every legacy inventory stack into the rancher's backpack,
+keeping IDs, quantities, quality, ground cargo, work, seed, and paid activities intact.
+Each persistent critter receives its own satchel. Chests, trough and mill buffers are
+fixed local containers with item filters and unit capacities. Player supplies stay
+in the backpack; gathered companion berries stay in that individual's satchel.
+The honesty stall can sell the nearby companion's berries, never distant storage.
+
+The yard sawmill makes two lumber per timber per 12 game minutes. It does not consume
+an input until output fits, never banks stopped time, and continues during ordinary
+actions and overnight. Transfers use local interaction commands, preserve quality,
+reject full destinations atomically, and let the nearby companion carry/deposit.
+The trough is positioned away from the nook interaction so Rest remains accessible.
+These placements, rates, capacities and mass coefficients remain provisional.
+
+M5 unit verification: 91 passed. New checks cover transfer conservation/locality,
+per-individual satchels, full/empty production stoppage and reload, frozen v4 migration,
+and malformed container protection. M6 will add learning and autonomous task phases;
+current companion container transfers are direct player instructions.
+
+### M5 verification completed — 2026-09-28
+
+- 91 unit tests, lint, /critterstead/ production build, SPA/manifest/service-worker
+  assets, and production offline care persistence pass. The offline harness now
+  waits for actual prefetched caches before disconnecting (initial controller
+  activation can race first-install caching). Stylesheet warning remains 16.48kB.
+- The selected desktop browser set covers controller input, M4 work/cargo, all nine
+  persistence scenarios and the new production route. Two initial failures were
+  corrected: an exact button-name assertion omitted the desktop E hint, and a
+  save test was interrupted by development-server reload. Both pass on rerun.
+- The existing full normal-input day passes with satchels: care, training, gathering,
+  observation/cues/autonomy, market, nook upgrade/rest, garden, trial, sleep/reload.
+  Old starter-checklist assertions now check the resulting authoritative progress.
+- Production/carrying journey passes on phone and desktop. The player supplies two
+  logs, sees sawing then a full output crate, takes lumber, asks Mallow to carry one,
+  walks to the chest, deposits both, and verifies storage across reload.
+- Inspected [phone cargo](../evidence/001-m5/phone-cargo.png) and
+  [desktop mill](../evidence/001-m5/desktop-mill.png). New station labels show only
+  the nearest site to reduce clutter. Foreground vegetation still obscures some
+  worksite angles; improve route visibility while integrating M6.
+
+No human fun/balance acceptance or physical-controller test is claimed. No main
+merge or Pages deployment is implied by the campaign branch push.

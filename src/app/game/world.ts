@@ -1,4 +1,6 @@
+import { backpack, satchel } from './model';
 import * as THREE from 'three';
+import { productionStatus, quantity } from './logistics';
 import { AREAS } from './content';
 import { activeCritter, type GameState, type Point } from './model';
 
@@ -43,6 +45,9 @@ export class GameWorld {
   private readonly materialsInWorld = new Map<string, THREE.Group>();
   private readonly groundLoads = new THREE.Group();
   private readonly carriedLoad = new THREE.Group();
+  private readonly companionLoad = new THREE.Group();
+  private readonly containerModels = new Map<string, THREE.Group>();
+  private readonly millBlade = new THREE.Group();
   private readonly workTool = new THREE.Group();
   private cargoSignature = '';
   private readonly crops = new THREE.Group();
@@ -117,6 +122,9 @@ export class GameWorld {
     this.workTool.position.set(0.45, 0.9, 0.25);
     this.farmerBody.add(this.carriedLoad, this.workTool);
     this.buildCritter();
+    this.companionLoad.add(this.mesh(this.box, '#c59160', [0, 0.9, 0.3], [0.85, 0.18, 0.35]));
+    this.companionLoad.add(this.mesh(this.box, '#866546', [0.37, 0.6, 0], [0.27, 0.35, 0.4]));
+    this.critterBody.add(this.companionLoad);
     this.buildFeedback();
     this.permanentGeometryCount = this.geometries.length;
     this.renderer.domElement.addEventListener('pointerdown', this.walk);
@@ -198,11 +206,32 @@ export class GameWorld {
       this.projection.set(visualCritterPosition.x, 1.9 + jumpHeight, visualCritterPosition.z),
     );
     this.animateFeedback(state, dt);
-    const timber = state.inventory.some((item) => item.itemId === 'timber' && item.quantity > 0);
-    const stone = state.inventory.some((item) => item.itemId === 'stone' && item.quantity > 0);
+    const timber = backpack(state).items.some(
+      (item) => (item.itemId === 'timber' || item.itemId === 'lumber') && item.quantity > 0,
+    );
+    const stone = backpack(state).items.some(
+      (item) => item.itemId === 'stone' && item.quantity > 0,
+    );
     this.carriedLoad.visible = (timber || stone) && !state.work;
     this.carriedLoad.children[0].visible = timber;
     this.carriedLoad.children[1].visible = !timber && stone;
+    this.companionLoad.visible = satchel(state).items.some((item) => item.quantity > 0);
+    this.companionLoad.children[0].visible = satchel(state).items.some((item) =>
+      ['timber', 'lumber', 'stone'].includes(item.itemId),
+    );
+    for (const container of state.containers) {
+      const model = this.containerModels.get(container.id);
+      if (model)
+        model.children.forEach((child, index) => {
+          child.visible = index < quantity(container);
+        });
+    }
+    if (
+      state.areaId === 'homestead' &&
+      productionStatus(state.containers).startsWith('Sawing') &&
+      !this.reducedMotion
+    )
+      this.millBlade.rotation.z += dt * 5;
     this.workTool.visible = !!state.work;
     if (state.work) {
       const node = state.materialNodes.find((item) => item.id === state.work!.nodeId)!;
@@ -262,12 +291,26 @@ export class GameWorld {
     this.sun.intensity = 1.3 + daylight * 2;
     this.hemisphere.intensity = 1.8 + daylight * 0.8;
     this.sun.color.set(daylight < 0.25 ? '#f7bd87' : '#fff0ce');
+    const closestLabel = this.labels
+      .filter((label) => !label.always)
+      .sort(
+        (a, b) =>
+          Math.hypot(
+            a.position.x - state.player.position.x,
+            a.position.z - state.player.position.z,
+          ) -
+          Math.hypot(
+            b.position.x - state.player.position.x,
+            b.position.z - state.player.position.z,
+          ),
+      )[0];
     for (const label of this.labels) {
       const distance = Math.hypot(
         label.position.x - state.player.position.x,
         label.position.z - state.player.position.z,
       );
-      label.element.style.opacity = label.always || distance < 5 ? '1' : '0';
+      label.element.style.opacity =
+        label.always || (label === closestLabel && distance < 5) ? '1' : '0';
       this.positionLabel(label.element, label.position);
     }
     this.renderer.render(this.scene, this.camera);
@@ -355,6 +398,8 @@ export class GameWorld {
     this.geometries.splice(this.permanentGeometryCount).forEach((geometry) => geometry.dispose());
     this.berries.clear();
     this.materialsInWorld.clear();
+    this.containerModels.clear();
+    this.millBlade.clear();
     this.groundLoads.clear();
     this.cargoSignature = '';
     this.crops.clear();
@@ -388,6 +433,59 @@ export class GameWorld {
       );
     }
     this.scenery.add(this.groundLoads);
+    if (state.areaId === 'homestead') {
+      for (const container of state.containers) {
+        if (!('position' in container.location)) continue;
+        const { x, z } = container.location.position;
+        const group = new THREE.Group();
+        group.position.set(x, 0, z);
+        const trough = container.kind === 'trough';
+        group.add(
+          this.mesh(this.box, trough ? '#857b60' : '#9b714b', [0, 0.25, 0], [1.1, 0.45, 0.85]),
+        );
+        for (const side of [-1, 1])
+          group.add(this.mesh(this.box, '#d1ac79', [side * 0.55, 0.5, 0], [0.1, 0.4, 0.95]));
+        const contents = new THREE.Group();
+        for (let i = 0; i < (container.capacity ?? 4); i++) {
+          // Display at most eight pieces; counts remain inspectable in the dock.
+          if (i >= 8) break;
+          contents.add(
+            this.mesh(
+              this.box,
+              trough ? '#8ca060' : '#d7b17b',
+              [(i % 2) * 0.35 - 0.18, 0.5 + Math.floor(i / 2) * 0.12, 0],
+              [0.3, 0.1, 0.65],
+            ),
+          );
+        }
+        group.add(contents);
+        this.containerModels.set(container.id, contents);
+        this.scenery.add(group);
+        this.label(
+          container.kind === 'chest'
+            ? 'Yard chest'
+            : trough
+              ? 'Feed trough'
+              : container.kind === 'mill-input'
+                ? 'Timber hopper'
+                : 'Lumber crate',
+          x,
+          1.35,
+          z,
+        );
+      }
+      const frame = new THREE.Group();
+      frame.position.set(5.65, 0, 0.3);
+      frame.add(this.mesh(this.box, '#786344', [0, 0.75, 0], [1.8, 0.2, 0.65]));
+      for (const side of [-1, 1])
+        frame.add(this.mesh(this.box, '#6c7868', [side * 0.65, 0.45, 0], [0.15, 0.9, 0.5]));
+      this.millBlade.add(this.mesh(this.cylinder, '#d3ded8', [0, 0, 0], [0.5, 0.06, 0.5]));
+      this.millBlade.children[0].rotation.x = Math.PI / 2;
+      this.millBlade.add(this.mesh(this.box, '#7e9390', [0, 0, 0.05], [0.08, 0.9, 0.08]));
+      this.millBlade.position.set(0, 1, 0);
+      frame.add(this.millBlade);
+      this.scenery.add(frame);
+    }
     this.grass(state.areaId === 'homestead' ? 97 : 301);
   }
 

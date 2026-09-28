@@ -1,3 +1,4 @@
+import { backpack } from '../src/app/game/model';
 import { expect, Page, test } from '@playwright/test';
 import { createInitialState } from '../src/app/game/host';
 import { activeCritter, type GameState } from '../src/app/game/model';
@@ -140,7 +141,7 @@ for (const fixture of [
     expect(await readSave(page)).toEqual(fixture.value);
     await page.getByRole('button', { name: 'Confirm: erase this homestead', exact: true }).click();
     await expect(page.getByRole('alert')).toHaveCount(0);
-    await expect.poll(async () => ((await readSave(page)) as { version: number }).version).toBe(4);
+    await expect.poll(async () => ((await readSave(page)) as { version: number }).version).toBe(5);
     await page.reload();
     await expect(page.locator('.world-canvas canvas')).toBeVisible();
     await expect(page.getByRole('alert')).toHaveCount(0);
@@ -156,7 +157,7 @@ test('migrates a populated v1 save, preserves Pip, and resumes paid training aft
   await expect(page.locator('.companion-card')).not.toContainText('Mallow');
   await expect(page.getByRole('button', { name: /Hop, Pip!/ })).toBeVisible();
   await page.getByRole('button', { name: 'Pause game', exact: true }).click();
-  await expect.poll(async () => ((await readSave(page)) as GameState).version).toBe(4);
+  await expect.poll(async () => ((await readSave(page)) as GameState).version).toBe(5);
   const migrated = (await readSave(page)) as GameState;
   expect(migrated.activeCritterId).toBe('critter-pip');
   expect(migrated.critters).toHaveLength(1);
@@ -179,7 +180,7 @@ test('migrates a populated v1 save, preserves Pip, and resumes paid training aft
   });
   expect(migrated.seed).toBe(legacyV1.seed);
   expect(migrated.player.coins).toBe(legacyV1.player.coins);
-  expect(migrated.inventory).toEqual(legacyV1.inventory);
+  expect(backpack(migrated).items).toEqual(legacyV1.inventory);
   expect(migrated.crop).toEqual(legacyV1.crop);
   expect(migrated.shedLevel).toBe(1);
   expect(migrated.training).toMatchObject({
@@ -226,18 +227,18 @@ test('migrates v2 learning without replayed rewards and explains why an independ
   await expect(page.locator('.learning-status')).toContainText('Feed Mallow');
   await expect(page.getByRole('button', { name: /^Ask Mallow to gather/ })).toBeDisabled();
   await page.getByRole('button', { name: 'Pause game', exact: true }).click();
-  await expect.poll(async () => ((await readSave(page)) as GameState).version).toBe(4);
+  await expect.poll(async () => ((await readSave(page)) as GameState).version).toBe(5);
   const migrated = (await readSave(page)) as GameState;
   expect(activeCritter(migrated).learnedBehaviors).toEqual({ 'sunberry-foraging': 7 });
   expect(migrated.critters[0].learnedBehaviors).toEqual({ 'sunberry-foraging': 20 });
   expect(migrated.critters[0].ownerId).toBe('grandpa');
   expect(migrated.critters[0].history).toEqual(old.critters[0].history);
-  expect(migrated.inventory).toEqual(old.inventory);
+  expect(backpack(migrated).items).toEqual(old.inventory);
   expect(migrated.journal).toEqual(old.journal);
   expect(migrated.seed).toBe(old.seed);
   expect(activeCritter(migrated).stamina).toBe(selected.stamina);
   await page.reload();
   await expect(page.locator('.learning-status')).toContainText('Feed Mallow');
   await page.screenshot({ path: testInfo.outputPath('learning-needs-feed.png'), fullPage: true });
-  expect(((await readSave(page)) as GameState).inventory).toEqual(old.inventory);
+  expect(backpack((await readSave(page)) as GameState).items).toEqual(old.inventory);
 });
