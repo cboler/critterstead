@@ -24,9 +24,10 @@ individual, including a companion named Pip, and all existing progress. The mode
 now distinguishes identity, ownership, and the selected companion; play still
 uses just one companion.
 
-In the intended story, Pip is Grandpa's ancient, experienced critter. The opening,
-roster management, breeding, seasons, and the Colosseum remain **planned**. The
-priority is a compelling one-critter daily loop before the full prologue. See the
+In the intended story, Pip is Grandpa's ancient, experienced critter. Broader
+systems—including rancher stats, physical logistics, multi-crop farming, the town
+of Oakhaven, breeding, and the Colosseum—are **planned** in the canonical design.
+The active campaign builds toward the first living stead vertical slice. See the
 [active plan](docs/exec-plans/active/001-deepen-one-critter-daily-loop.md) for local
 verification and publication status; the public site may be an earlier revision.
 

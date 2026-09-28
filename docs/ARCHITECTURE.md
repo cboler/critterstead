@@ -1,217 +1,292 @@
 # Architecture and implemented baseline
 
-Updated for campaign 001 M3 on 2026-09-27, against the implementation and its
-verification. This is the implementation authority, not a promise that planned
-features exist. Evidence and publication status live in the
-[active plan](exec-plans/active/001-deepen-one-critter-daily-loop.md).
+This document is the engineering authority for Critterstead. It records the software
+architecture, boundaries, current code reality, narrow abstractions, and architectural
+foundations needed for upcoming systems.
+
+For product and design intent, see [GAME-DESIGN.md](GAME-DESIGN.md).
+For historical context and settled rationale, see [DECISIONS.md](DECISIONS.md).
+For sequencing and active implementation plans, see [ROADMAP.md](ROADMAP.md) and
+[exec-plans/README.md](exec-plans/README.md).
+
+---
 
 ## Boundaries and invariants
 
-| Component                                    | Owns                                                                                                             | Must not own                                      |
-| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- |
-| [model.ts](../src/app/game/model.ts)         | State, commands, persistent identifiers, save schema types                                                       | Rendering or browser storage                      |
-| [content.ts](../src/app/game/content.ts)     | Authored areas, objects, configuration, prototype species definition                                             | Per-frame presentation logic                      |
-| [host.ts](../src/app/game/host.ts)           | Local authoritative simulation, command validation, time, movement/collision, rewards, learning, seeded outcomes | Angular, Three.js, or IndexedDB APIs              |
-| [storage.ts](../src/app/game/storage.ts)     | Save interface, explicit schema migration, validation, serialized IndexedDB operations                           | Progression rules                                 |
-| [app.ts](../src/app/app.ts), template/styles | HUD, menus, input routing, host lifecycle, save scheduling and tab ownership                                     | Direct application of gameplay rules              |
-| [world.ts](../src/app/game/world.ts)         | Orthographic Three.js world and presentation feedback, ground-pick requests                                      | Rewards, economy, or authoritative state mutation |
+The codebase enforces strict separation of concerns between simulation, presentation,
+and persistence:
 
-`LocalGameHost` clones its initial state, processes commands through `dispatch`,
-and advances the simulation through `update`. Its `state` getter currently exposes
-a mutable object; read-only consumption is a discipline, not a deep type-level
-guarantee. Angular clones state for UI signals. Keyboard, touch, click-to-walk,
-and standard gamepad input reach the same command boundary. The animation loop
-runs outside Angular, with UI refreshes routed back through Angular.
+| Component                                        | Owns                                                                                                              | Must not own                                                          |
+| :----------------------------------------------- | :---------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------- |
+| **[model.ts](../src/app/game/model.ts)**         | State definitions, commands, persistent identifiers, entity schemas, save types                                   | Presentation, Three.js objects, browser storage APIs                  |
+| **[content.ts](../src/app/game/content.ts)**     | Authored areas, world objects, static tables, behavior stages, species definitions                                | Per-frame simulation, state mutation, rendering                       |
+| **[host.ts](../src/app/game/host.ts)**           | Authoritative local simulation, command validation, clock/time, movement, collision, rewards, seeded random draws | Angular signals, DOM events, Three.js rendering, IndexedDB operations |
+| **[storage.ts](../src/app/game/storage.ts)**     | Save serialization, schema validation, explicit legacy migrations, IndexedDB driver                               | Game progression rules, entity logic, UI state                        |
+| **[app.ts](../src/app/app.ts), template/styles** | UI views, menus, HUD, input routing, audio cues, host lifecycle, Web Locks tab ownership                          | Direct mutation of authoritative state or game logic                  |
+| **[world.ts](../src/app/game/world.ts)**         | Three.js scene graph, procedural meshes, camera controls, particle effects, ground-click raycasting               | Authoritative state mutation, economy calculations, validation        |
 
-Important outcomes depend on state, commands, simulation time, and the central
-seeded random source. Do not introduce wall-clock or renderer randomness into
-gameplay. Critters remain persistent individuals with stable IDs. This local host
-is a possible future authority seam, not an existing remote server or networking
-protocol. Prefer platform facilities and existing dependencies over speculative
-frameworks, services, or abstractions.
+### Invariant principles
 
-## What exists today
+1. **Local authoritative host**: `LocalGameHost` maintains the single source of truth for
+   simulation state. Commands are dispatched into the host, validated, and processed deterministically.
+   Angular UI components read cloned snapshots via signals; Three.js renders state each animation frame.
+2. **Deterministic seeded outcomes**: Core random determinations (harvest yields, practice
+   target positions, contest timings) derive strictly from a persisted linear congruential
+   PRNG (`state.seed`). Gameplay must never consume `Math.random()` or wall-clock timestamps.
+3. **Persistent individual identity**: Critters have permanent, unique IDs. Array order has
+   zero selection semantics. Actions apply specifically to designated individual entities.
+4. **Fail-closed save protection**: If a save fails validation or explicit migration, the
+   existing record in IndexedDB remains intact; the game never silently resets player progress.
+5. **Platform independence**: Game logic runs purely in TypeScript without depending on Node.js,
+   cloud backends, or third-party service workers.
 
-| Area             | Implemented                                                                                                                                                                                            | Limit / planned distinction                                                                                                                                                                                                                                                                                                                                                |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Companions       | `GameState.critters`, each with stable ID and `ownerId`; `activeCritterId` selects one player-owned companion. Fresh games use provisional Mallow (`critter-mallow`), female, age 18 days, Brindlekin. | No roster/selection UI, multiple visible companions, Grandpa actor, cousin, or starter acquisition. Other stored individuals are dormant, not an NPC simulation. Established owner, party membership, and active working companion are distinct concepts; requiring player ownership for the active companion is a temporary Stage-1 implementation limit, not game canon. |
-| Individuality    | Name/ID, age counter, sex, personality string, four stats, needs, bond, skills, visual traits, history, results                                                                                        | No renaming UI or developed personality/life-stage simulation. Health is stored; no complete health/mortality system.                                                                                                                                                                                                                                                      |
-| Genetics         | Parent ID list and string-valued genetics/traits in saves                                                                                                                                              | No breeding, inheritance, cross-family generator, or fertility model. `lifespanDays: 1200` is authored placeholder data, not implemented death or canon balance.                                                                                                                                                                                                           |
-| Learning         | Authored `BEHAVIORS` stages and per-individual `learnedBehaviors`; observation, cued harvest, opportunity recognition, autonomy, and visible waiting reasons                                           | Only sunberry foraging is authored. Explicit host work rules; no planning engine, extra job, or critter-to-critter teaching.                                                                                                                                                                                                                                               |
-| Care/work        | Petting, feed/treats, hunger, player/critter stamina, timing practice, berry gathering/selling                                                                                                         | Repeated-day depth is unproven. Nook recovery, tuned effort, and the compact dock are implemented in M3; human daily-choice assessment remains pending.                                                                                                                                                                                                                    |
-| Farming/upgrades | One feed crop: plant, water, grow, harvest; one shed upgrade with visual change and happiness effect                                                                                                   | No barn capacity, broader crops, construction system, or house upgrade tree.                                                                                                                                                                                                                                                                                               |
-| Competition      | Once-per-day Clover Cup time trial using three cues, recorded result and coin reward                                                                                                                   | No Colosseum, opponents, combat, schedule, festivals, or tournament system.                                                                                                                                                                                                                                                                                                |
-| World            | Bramblewick Yard and Clover Glade, six renewable berry bushes, cottage/shed collision                                                                                                                  | Direct walking, no obstacle pathfinding; one critter render model. No town, story scenes, seasons, or narrative timeskips.                                                                                                                                                                                                                                                 |
-| Platform         | Angular 22, Three.js, responsive PWA, local saves, standard gamepad mapping, optional synthesized chime                                                                                                | No account, analytics service, cloud backup, multiplayer, Steam package, or localization system. Physical controller validation remains outstanding.                                                                                                                                                                                                                       |
+---
 
-The clock models a full 24-hour game day in about 30 real minutes; actions also
-advance game minutes, so a player's day can be shorter. Menus, pause, and hidden
-tabs suspend simulation updates. Sleeping advances to the following morning,
-restores stamina, and retains progression. Age increments when game days pass.
-Seasons, narrative years, natural death, and off-screen catch-up are not implemented.
+## Architectural reality audit
 
-### Care, effort, recovery, and the interaction dock
+To avoid implementation confusion, the codebase is audited across four distinct categories:
 
-**Rest together** at the companion's nook spends 120 game minutes and restores up to
-30 player / 35 selected-companion energy, capped at 100. It requires no energy,
-inventory, coins, or nook upgrade. Rest increases hunger by 3 through the existing
-clock, grows crops and regrows berries; it does not reset daily petting/trial limits,
-improve happiness/bond/skills, consume randomness, or replace overnight sleep.
-Both-full, remote, busy, and midnight-crossing rest requests fail without mutation.
-After 22:00 the player can still sleep at the cottage. Walking/travel cost no energy,
-so an exhausted household can get home, rest, and gather food without supplies.
+1. **Currently implemented**: functional, tested code running in the current build.
+2. **Narrow abstractions**: data structures or hooks that exist but cover only one narrow case.
+3. **Intended game design (unimplemented)**: designs described in [GAME-DESIGN.md](GAME-DESIGN.md)
+   that have no code representation yet.
+4. **Architectural generalizations needed**: foundational refactoring required before future
+   gameplay systems can be cleanly implemented.
 
-M3 effort prices are 30 companion / 5 player energy for practice (40 game minutes),
-35 / 5 for the trial (45 minutes), and 12 / 2 for a cued harvest (20 minutes).
-Self-gathering remains 6 player energy / 15 minutes. The modest existing player
-costs already separate self-work from cues; companion prices are the tuning change.
-Activities also advance the ordinary clock while taking cues. Energy is charged
-only when starting; saved activities already paid their old costs and are not charged
-again or rerolled. No save-schema change is needed.
+```
++-----------------------------------------------------------------------------------+
+| 1. Currently Implemented (M1 + M2 + M3 complete)                                  |
+|    - GameState v3, LocalGameHost, IndexedDB save migration (v1->v2->v3)           |
+|    - Single active companion (Mallow starter), Brindlekin procedural mesh         |
+|    - Bramblewick Yard & Clover Glade, single crop plot, 6 berry bushes            |
+|    - 1 behavior (sunberry-foraging), timing hoops practice, Clover Cup trial      |
+|    - Daytime "Rest together" at companion nook, retuned energy, compact dock UI   |
++-----------------------------------------------------------------------------------+
+| 2. Narrow Abstractions (Existing but constrained)                                 |
+|    - `Critter.stats`: 4 stats exist on critter, but player only has stamina/coins |
+|    - `Critter.skills`: hardcoded { harvesting, racing }                           |
+|    - `InventoryItem`: hardcoded 'berry' | 'feed' | 'seed'                         |
+|    - `ResourceNode`: berry bushes only                                            |
+|    - `Crop`: single hardcoded crop object                                         |
+|    - `GameState.critters`: array exists, but non-active critters remain dormant   |
+|    - Interaction dock: flow sibling below viewport causing canvas resizes         |
++-----------------------------------------------------------------------------------+
+| 3. Intended Game Design (Unimplemented)                                           |
+|    - Physical localized storage, hauling routes, production chains (logs, flour)  |
+|    - Player stats & skills, tool degradation, multi-crop farming, seasons/weather |
+|    - House interior, town of Oakhaven, shops, NPC schedules, Colosseum events     |
+|    - Monster Rancher-style training minigames, turn-based combat, adventuring     |
++-----------------------------------------------------------------------------------+
+| 4. Architecture Needed Next (Pre-requisites for expansion)                        |
+|    - Viewport decoupling (dock height changes must not resize 3D canvas)          |
+|    - Unified Actor capability model (player & critter stats/skills)               |
+|    - Extensible Check & Resolution engine                                         |
+|    - Localized Container & Item model (eliminating global inventory)              |
+|    - Compositional Task & Job scheduling pipeline                                 |
++-----------------------------------------------------------------------------------+
+```
 
-Feed retains up to +10 energy / 35 hunger relief; berries +3 / 15, plus the existing
-five-minute clock advance and care benefits. Hunger above 80 blocks companion work.
-Happiness, bond, food, timing, and endurance retain their existing influence on
-training. No new fatigue meter or condition multiplier exists.
+### Detailed audit matrix
 
-The ordinary interaction dock is a flow sibling below the world view, so the canvas
-and dock cannot overlap. Target, status, costs, actions, and disabled reasons stay
-visible; keyboard, pointer/touch, and controller use existing action dispatch.
-The canvas resizes to its available space. Dedicated training/race UI still overlays
-the world. Hunger is visible in the companion card and journal results show remaining
-energy or actual capped recovery. Parameters are provisional; product acceptance and
-human playtest status belong to the active plan.
+| Subsystem                | What is currently implemented                                                                    | Narrow abstraction limit                                                      | Intended design (unimplemented)                                                              | Architecture generalization needed                                                                          |
+| :----------------------- | :----------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------- |
+| **Rancher / Player**     | Position, single stamina pool, coin counter, input routing                                       | Player lacks STR, END, SPD, INT stats; lacks learned skill proficiencies      | Rancher has 4 stats and full skill taxonomy; levels up via organic use                       | **Unified Actor Model**: Abstract common capability interface shared by player and critters.                |
+| **Critters & Roster**    | Stable ID, ownerId, ageDays, health, hunger, stamina, happiness, bond, activeCritterId selection | Only 1 critter simulated at a time; others in `critters` array remain dormant | 3 active party companions; housed barn roster; Grandpa's Pip as mentor                       | **Party & Roster Manager**: Distinguish active party, working stead hands, and housed animals.              |
+| **Stats & Growth**       | 4 stats on Critter (STR, END, SPD, INT); raw numbers                                             | Hardcoded 1-50 starting values; no stat growth formulas or checks             | Stats range 1–999; slow organic growth through use and dedicated training                    | **Stat & Growth Pipeline**: Hooks connecting action checks and training outcomes to slow stat XP.           |
+| **Skills**               | `Critter.skills: { harvesting: number, racing: number }`                                         | Fixed two-field object; no skill XP progression or tool requirements          | Skills range 1–99 across mining, woodcutting, farming, cooking, smithing, etc.               | **Extensible Skill Registry**: Key-value skill map with XP curves, shared between player and critters.      |
+| **Simulation Checks**    | Ad-hoc threshold checks (e.g. `harvesting >= 2` for double berries)                              | Hardcoded if-statements scattered in host methods                             | Extensible formula: `Skill + f(Stats) + Tool + Modifiers vs Difficulty` with failure degrees | **Check & Resolution Engine**: Pure host function returning success degrees, costs, and side effects.       |
+| **Learning & Jobs**      | Authored `BEHAVIORS` table with stages; numeric progress map                                     | Only `sunberry-foraging` defined; single hardcoded harvest execution in host  | Multi-step compositional jobs (e.g. Garden Duty); critters observing and teaching            | **Compositional Task System**: Task definitions built from atomic sub-actions (locate, carry, apply).       |
+| **Inventory & Items**    | Flat `state.inventory: InventoryItem[]` array                                                    | Only `itemId: 'berry' \| 'feed' \| 'seed'`; global bag abstraction            | Physical localized storage (chests, fridge, troughs, hoppers); no magical global bag         | **Localized Container Architecture**: Container component on entities; physical item routing.               |
+| **Physical Logistics**   | None                                                                                             | No carrying objects, no hauling, no encumbrance                               | Physical hauling routes; graduated encumbrance slowing movement; failure chains              | **Physical Item & Encumbrance System**: Held items, mass/weight calculations, drop/pickup logic.            |
+| **Care & Recovery**      | Rest together at nook (120 min, +30 player / +35 critter energy); retuned costs                  | Nook recovery is fixed; no consumables, doctor, or fatigue scaling            | Grooming, nutritional feeds, veterinarian, pasture retirement                                | **Health & Fatigue Pipeline**: Expand beyond stamina into medical/wellbeing systems.                        |
+| **Farming**              | Single `state.crop: Crop` (plantedAt, watered, readyAt)                                          | Exactly one plot at fixed coordinates; single feed crop                       | Tilled soil grid, multi-crop catalog, fertilizer, quality grades, weeds, pests               | **Spatial Soil Grid & Crop Engine**: Plot-based or grid-based multi-crop state machine.                     |
+| **Production & Tools**   | One shed upgrade (visual mesh change + happiness bonus)                                          | Flat shed level counter; zero production machines or tool items               | Multi-tiered refining (logs->lumber, wheat->flour); tool wear, sharpening, breakage          | **Workstation & Tool Pipeline**: Workstation entity with input/output inventories, recipes, and tool slots. |
+| **World & Navigation**   | Bramblewick Yard & Clover Glade; 6 berry bushes; gates                                           | Fixed 2D bounding boxes; 2 hardcoded areas; no pathfinding                    | Multi-area world (cottage, town, quarry, mine, Colosseum, forest); path obstacles            | **Multi-Area World Manager**: Area streaming, path transition triggers, and navigation graphs.              |
+| **Viewport & UI**        | Angular diorama container; Three.js renderer; compact dock                                       | Dock is a flow sibling below canvas; target changes resize 3D viewport        | Stable viewport canvas that never resizes when dock opens/closes                             | **Decoupled Viewport Layout**: Canvas fixed in viewport layer; overlay docks float independently.           |
+| **Training & Minigames** | Single rhythm hoops minigame; Clover Cup time trial                                              | Hardcoded timing bar logic inside host state machine                          | Family of minigames (lifting, running, SIMON, command drills) matching metaphors             | **Extensible Minigame Framework**: Pluggable minigame interfaces with distinct input and check hooks.       |
+| **Calendar & Time**      | 24-hr clock (~30 min real-time); day counter; sleep advances                                     | Day counter increments infinitely; no months, seasons, or weather             | 4 seasons x 30 days = 120 days/year; festivals, deadlines, inspectable calendar              | **Calendar & Season System**: Season state machine, annual event schedules, and weather flags.              |
+| **Town & Economy**       | Honesty stall (instant sale of berries for coins)                                                | Single sell action; infinite instant demand                                   | Full town of Oakhaven; shops, resident schedules, appliance purchases, contracts             | **Town & Commerce Engine**: Merchant inventory catalogs, price variation, and contract boards.              |
+| **Combat & Arenas**      | Clover Cup time trial (3 timing hits against clock)                                              | Single-participant time trial                                                 | Dangerous real-time adventuring vs nonlethal theatrical turn-based Colosseum                 | **Dual Combat Engines**: Distinct real-time adventure loop vs turn-based Colosseum engine.                  |
 
-## Individuals and the selected companion
+---
 
-`activeCritter(state)` resolves by ID, checks player ownership, and is shared by
-the host, Angular, and renderer. Array order has no selection semantics. Commands,
-care, learning, movement, time/age updates, recovery, and competition affect only
-that individual. Other records are retained unchanged; world-wide aging and NPC
-routines are future work. `ownerId` can reference an NPC identity such as `grandpa`
-without creating an actor registry. The tests represent Grandpa-owned Pip beside
-Mallow; neither Grandpa nor narrative Pip is spawned in the playable game.
+## What exists today in the codebase
 
-A critter's established owner (`ownerId`), party membership (inclusion in
-the traveling party), and status as the active working companion (`activeCritterId`)
-are conceptually separate. Pip can remain Grandpa-owned while later accompanying
-the player, joining the active party, and potentially serving as the current
-working companion. The current Stage-1 one-critter constraint requiring the active
-companion to be player-owned (`critter.ownerId === state.player.id`) is a
-temporary implementation limitation, not permanent game canon or an architectural
-invariant.
+### State model (`model.ts`)
 
-Per-individual `lastPettedDay` controls daily scritches. The old `petted-today` flag
-is retained for legacy compatibility but does not grant or deny care. Training and
-race activities carry `critterId`; validation requires that participant to match
-the selected companion. Selection cannot be changed through gameplay in this slice.
-Identity-dependent text uses the selected name, including help, activity prompts,
-journal summaries, and the world label. Existing personal history is preserved as
-written; migration does not rewrite old memories to match later narrative canon.
-Original Brindlekin geometry remains unchanged.
+- **Save schema version**: `3`.
+- **`GameState`**: owns `seed`, `day`, `minute`, `totalMinutes`, `areaId`, `areaInstanceId`,
+  `player`, `critters`, `activeCritterId`, `inventory`, `resources`, `crop`, `shedLevel`,
+  `flags`, `journal`, and `training`.
+- **`Critter`**: holds `id`, `ownerId`, `lastPettedDay`, `name`, `speciesId`, `ageDays`,
+  `sex`, `personality`, `position`, `stats` (STR, END, SPD, INT), `stamina`, `health`,
+  `happiness`, `bond`, `hunger`, `learnedBehaviors`, `skills` (harvesting, racing),
+  `visualTraits`, `pedigree`, `genetics`, `history`, and `competitions`.
+- **`Player`**: currently limited to `{ id, position, stamina, coins }`.
+- **`activeCritter(state)` helper**: resolves the currently selected companion by ID and
+  verifies player ownership. (Requiring player ownership is a temporary Stage-1 implementation
+  limitation, not permanent game canon).
 
-## Learning and useful work
+### Simulation host (`host.ts`)
 
-`BEHAVIORS` in `content.ts` owns stable behavior IDs, ordered stages, thresholds,
-learning gains, and player-facing milestone/hint text. `Critter.learnedBehaviors`
-maps those IDs to numeric progress; absent progress means unlearned. The host's
-`learnedStage` and `learn` use that definition for the selected individual.
-Knowledge remains separate from harvesting skill, stats, and genetic aptitude.
+- Local authoritative state machine running on variable tick intervals (`update(seconds)`).
+- Time advances continuously (1 real second $\approx$ 48 game seconds) and via action
+  increments (e.g., harvesting takes 10–15 game minutes).
+- Explicit movement vector handling with circle/box collision against world obstacles.
+- Command validation for petting, feeding, harvesting berries, planting/watering crops,
+  training hoops, time trials, **Rest together** at the nook, and sleeping.
+- Deterministic seeded random numbers via linear congruential generator:
+  $$\text{seed} = (\text{seed} \times 1664525 + 1013904223) \pmod{2^{32}}$$
 
-The only authored behavior is `sunberry-foraging`. Its existing arc is preserved:
-curious at zero, watching after the first observation, cued at 3, independent at 7.
-A nearby successful player harvest grants 1; a successful cue grants 2; autonomous
-work grants 1. Practice caps at 20. Legacy observation was uncapped; that remains
-true, and practice never reduces an already-saved value above 20.
+### Care, effort, recovery, and the interaction dock (Implemented in M3)
 
-Work execution stays berry-specific in the host. Observation requires distance
-less than 5; cues require player interaction reach, companion distance at most 5,
-2 player energy, 12 companion energy, hunger at most 80, and a ripe same-area bush.
-Autonomy requires learned independence, bond at least 20, hunger at most 80,
-32 energy (12 to harvest and 20 held in reserve), and no current training/race. Explicit
-cues may spend the reserve. It recognizes ripe
-same-area bushes less than 4.3 units from the player, approaches the nearest to
-the companion, and harvests within 1 unit. Resource consumption, rewards, timing,
-and random draws retain the M1 rules except for M3's effort price and autonomous reserve.
+- **Rest together** at the companion's nook spends 120 game minutes and restores up to
+  30 player / 35 selected-companion energy, capped at 100. It requires no energy,
+  inventory, coins, or nook upgrade. Rest increases hunger by 3 through the existing
+  clock, grows crops and regrows berries; it does not reset daily petting/trial limits,
+  improve happiness/bond/skills, consume randomness, or replace overnight sleep.
+- M3 effort prices are 30 companion / 5 player energy for practice (40 game minutes),
+  35 / 5 for the trial (45 minutes), and 12 / 2 for a cued harvest (20 minutes).
+  Self-gathering remains 6 player energy / 15 minutes.
+- The compact interaction dock is a flow sibling below the world view. Target, status,
+  costs, actions, and disabled reasons stay visible without obscuring the characters.
+  Because the dock is currently a flow sibling, opening and closing interactions shifts
+  the viewport height—this motivates the **viewport decoupling** prioritized for M4.
 
-The learning card, accessible progress meter, interaction explanations, and journal
-derive learning from the authored stages. The card shares the host's eligibility
-and opportunity checks to explain a cue, approach, food/rest/bond/activity limit,
-or absence of a nearby ripe bush. It does not emit journal messages every frame.
-The reserve explanation offers self-gathering, a deliberate cue, or nook recovery.
-Teaching actors and additional jobs remain later milestones.
+### Content & area definitions (`content.ts`)
 
-## Save contract
+- Areas: `homestead` (Bramblewick Yard, halfSize 10) and `glade` (Clover Glade, halfSize 10).
+- World objects: cottage, shed (nook), feed garden crop, training hoops, honesty stall,
+  glade gate, and Clover Cup time trial marker.
+- Renewable berry bushes: 6 nodes in Clover Glade with 180-minute respawn timer.
+- Behaviors: `sunberry-foraging` with 4 stages (unfamiliar, observing, cued, autonomous).
 
-- `GameState.version` is **3**. IndexedDB database `critterstead`, object store
-  `saves`, key `homestead`, database version **1**. Database and game-schema versions
-  are separate concepts. There is one save in the current browser profile.
-- `readSave` accepts v1, v2, and v3. It validates the input, clones it, explicitly
-  converts a v1 singular `critter` into the sole `critters` entry owned by the
-  existing player, and selects the same individual ID. It sets `lastPettedDay` to
-  the saved day when `petted-today` exists, otherwise null. All original identity,
-  traits, care, learning, history, results, world/economy/crop/upgrade progress,
-  calendar, and seed are retained. Legacy novice Pip remains that player's Pip.
-- The v2 → v3 step replaces each individual's `berryKnowledge` with the exact
-  numeric value at `learnedBehaviors['sunberry-foraging']`, including dormant
-  non-player individuals. No milestone, reward, skill gain, or random draw is
-  replayed. V1 follows the same validated v2 → v3 step after identity migration.
-- Unfinished practice/race resumes with the same phase, hits, elapsed time, and
-  optional last-hit time, adding only its participant ID. Costs were already paid;
-  migration does not recharge, refund, finish, or reroll the activity. Golden
-  continuation tests compare outcomes with the pre-M1 host.
-- `validateSave` accepts only v3 writes. It checks shape, finite values, bounds,
-  unique entity IDs, calendar/activity validity, selected ownership, and participant
-  references. The migrated result must pass it before being returned. Duplicate,
-  missing, or non-player selected references fail closed.
-- Learned progress must be a record of known authored IDs with finite nonnegative
-  numeric values. Unknown behaviors, obsolete `berryKnowledge` in v3, and ambiguous
-  v1/v2 records already containing `learnedBehaviors` fail closed. Never discard
-  unknown or conflicting learning data to make a save load.
-- Reading/migration never writes. Only the normal save flow persists a successfully
-  loaded current state. Repeated v3 decoding clones without applying migration again.
-  Save requests validate and snapshot at request time, then serialize writes.
-  A failed write is surfaced without permanently poisoning the queue.
-- Invalid, failed-migration, and unsupported saves remain intact. The UI blocks
-  saving until an explicit reset; reset is deliberate, not automatic recovery.
-- UI commands request saves; movement is covered by periodic active-play saves.
-  Journal/day changes, page hide, and visibility changes also trigger saves.
-- `app.ts` uses the Web Locks API when available to keep a single writing tab.
-  A blocked tab must reload after the owner closes. **There is no equivalent
-  fallback lock when Web Locks is unavailable**; do not claim universal protection.
-- Storage can be evicted or cleared. No import/export or cloud backup exists.
+### Persistence & migration (`storage.ts`)
 
-Future schema work must retain explicit legacy fixtures independent of new-game
-defaults, preserve progress and seeded continuity, validate the result, and fail
-without overwriting the old record. Never rely on resetting the player's homestead
-to make a new model work.
+- IndexedDB database `critterstead`, store `saves`, key `homestead`.
+- Strict migration pipeline:
+  - **v1**: Single `critter` object with legacy berry fields.
+  - **v2**: Multi-critter array `critters`, explicit `ownerId`, and `activeCritterId`.
+  - **v3**: Replaces legacy berry fields with `learnedBehaviors['sunberry-foraging']`.
+- Fail-closed validation: invalid, corrupted, or future-schema saves reject cleanly without
+  overwriting the database.
+- Web Locks API used for single-tab writer coordination.
 
-## Evolution and remaining work
+---
 
-1. M3's implemented recovery/cost/dock experiment is described above. Its human
-   product assessment remains pending; automated checks do not settle balance.
-2. Later milestones and stages add a second useful learned job (M4), next-day
-   purpose (M5), multi-critter party membership, non-player-owned active
-   companions, housing capacity progression, calendar/life stages, and genetic
-   morphology. The stored individuals and one selected companion are
-   preparation, not those complete systems.
+## Architectural foundations needed next
 
-The next bounded changes are specified in the
-[one-critter plan](exec-plans/active/001-deepen-one-critter-daily-loop.md).
+Before future Astra sessions can implement broader gameplay, several foundational
+architectural generalizations must be introduced incrementally:
 
-## Verification and release seams
+### 1. Viewport & Canvas Decoupling
 
-Host/storage tests cover command authority, resource and care rules, learning,
-timing, seeded continuation against M1 golden outcomes, ownership isolation, v1/v2
-migration, and invalid saves. Playwright covers real
-browser input, responsive layouts, a complete day, reload, tab ownership, and
-v1 migration with resumed training, v2 learning migration, and damaged/newer save
-protection. Its full-day test reads precise Angular development
-state for observations but still uses player input; it is not a substitute for
-fresh-player pacing evaluation. Controller tests mock the standard Gamepad API.
+- **Current problem**: The Three.js canvas in `app.ts` shares flex/grid flow with the
+  bottom interaction dock. When approaching an object, the dock renders, changing the
+  viewport height and causing Three.js to recompute aspect ratio and render buffers,
+  producing noticeable visual jitter.
+- **Architecture needed**: Decouple the canvas into an absolute or fixed background diorama
+  layer. Interaction UI, HUD elements, and dialogs must live in a dedicated overlay layer
+  that floats above the canvas without triggering DOM reflows of the 3D viewport.
 
-The Angular service worker is enabled only for production. Pages derives its base
-path through `actions/configure-pages`; assets and app logic must remain repository
-independent. `prepare-pages.mjs` creates the SPA fallback and verifies output.
-Commands, offline verification, and platform caveats belong in
-[DEVELOPMENT.md](DEVELOPMENT.md).
+### 2. Unified Actor Capability Model
+
+- **Current problem**: The player entity has only `stamina` and `coins`, while critters have
+  `stats` (STR, END, SPD, INT) and hardcoded `skills` (harvesting, racing).
+- **Architecture needed**: Create a shared `ActorCapabilities` interface implemented by both
+  Player and Critter:
+  ```typescript
+  export interface ActorCapabilities {
+    stats: { strength: number; endurance: number; speed: number; intelligence: number };
+    skills: Record<string, number>;
+  }
+  ```
+  This allows check resolution and tool handling to treat humans and critters uniformly.
+
+### 3. Extensible Check & Resolution Engine
+
+- **Current problem**: Action outcomes are hardcoded if-statements in `host.ts`.
+- **Architecture needed**: A pure resolution function in the host:
+  ```typescript
+  export interface CheckRequest {
+    actorId: string;
+    skillId: string;
+    statWeights: Partial<Record<'strength' | 'endurance' | 'speed' | 'intelligence', number>>;
+    toolQuality?: number;
+    difficulty: number;
+    circumstances?: number;
+  }
+
+  export interface CheckResult {
+    success: boolean;
+    degree: number; // normalized margin (-1.0 to +1.0)
+    staminaCost: number;
+    timeMinutes: number;
+    skillXpGained: number;
+    statXpGained: Partial<Record<string, number>>;
+    sideEffects?: string[];
+  }
+  ```
+
+### 4. Localized Container Architecture
+
+- **Current problem**: All items exist in a single flat array `state.inventory`.
+- **Architecture needed**: Decompose inventory into localized containers:
+  ```typescript
+  export interface Container {
+    id: string;
+    ownerEntityId?: string; // player, critter, chest, refrigerator, mill hopper
+    capacitySlots: number;
+    allowedItemCategories?: string[];
+    items: InventoryItem[];
+  }
+  ```
+  The player's backpack, a companion's satchel, a tool rack, a wooden chest, and a grain
+  hopper all become instances of `Container`.
+
+### 5. Multi-Plot Spatial Farming Grid
+
+- **Current problem**: `state.crop` is a single hardcoded object representing one feed plot.
+- **Architecture needed**: A spatial collection of soil plots:
+  ```typescript
+  export interface SoilPlot {
+    id: string;
+    position: Point;
+    tilled: boolean;
+    moistureMinutesRemaining: number;
+    fertilizerId?: string;
+    crop?: {
+      speciesId: string;
+      plantedAtMinute: number;
+      currentStage: number;
+      qualityBonus: number;
+    };
+  }
+  ```
+
+### 6. Compositional Job & Task Scheduling
+
+- **Current problem**: Only sunberry foraging exists, executed directly inside host methods.
+- **Architecture needed**: A task decomposition pipeline where a job (e.g., "Maintain Garden")
+  breaks down into executable atomic sub-tasks:
+  1. `inspect_plot` $\rightarrow$ find dry or unweeded plot
+  2. `fetch_tool_or_water` $\rightarrow$ walk to well, fill can
+  3. `apply_action` $\rightarrow$ water plot
+  4. `deposit_harvest` $\rightarrow$ carry produce to local crate
+
+---
+
+## Save contract and evolution rules
+
+1. **Explicit version migration**: All changes to `GameState` schema require incrementing
+   `GameState.version` and providing a dedicated, chained migration function in `storage.ts`
+   (e.g., `migrateV3ToV4`).
+2. **Frozen legacy fixtures**: Every schema migration must be accompanied by frozen historical
+   fixtures in `src/app/game/fixtures/` proving that legacy saves migrate with 100% data
+   fidelity.
+3. **Fail-closed guarantees**: If a loaded save contains corrupted, unrecognized, or
+   out-of-bounds data, `validateSave` must reject it without modifying the persisted store.
+4. **No data discarding**: Never drop unrecognized fields or silently reset player progress
+   to force a schema migration to succeed.
+5. **Deterministic continuation**: Migration must never reroll ongoing training, recalculate
+   random outcomes, or replay one-time milestones.

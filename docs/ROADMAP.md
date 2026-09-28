@@ -1,64 +1,185 @@
 # Playable development roadmap
 
-This is staged direction, not a flat authorized backlog. The relevant execution
-plan defines the bounded work requested in a session. Later stages should be
-refined when evidence makes them useful, rather than predesigned in detail now.
+Canonical roadmap for Critterstead. This document defines the sequenced path from
+the current prototype to the full intended game.
 
-| Stage                                   | Playable outcome                                                                                                                      | Exit evidence                                                                                                                       |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| 0 — Repository memory                   | Shared design, honest implementation map, short tool entrypoints, recoverable plans                                                   | [Completed bootstrap record](exec-plans/completed/000-repository-memory-bootstrap.md)                                               |
-| 1 — Deepen the One-Critter Daily Loop   | A player can make understandable care/work/training/recovery choices, see useful learning, and want another day                       | Save-safe architecture preparation; several days of coherent play; observed choices, friction, and motivation recorded and reviewed |
-| 2 — Establish the household and opening | Grandpa/Pip demonstration, walk to town, individual starter encounters, exactly one chosen starter, return/sleep/first guided morning | Complete opening flows into the proven daily game; NPC ownership and existing saves stay coherent                                   |
-| 3 — Earn wider responsibility           | Housing/visible upgrades, a three-critter active group, richer farming/jobs and recurring Colosseum events                            | Added companions change planning without multiplying chores into tedium; non-player companions remain distinct from ownership       |
-| 4 — Develop lineages                    | Natural breeding plus expensive ordinary gene-combination services; authored family-pair morphology and stable lineages               | Meaningful inheritance, fertility rules, individual histories, and useful work niches; no random-parts art shortcut                 |
-| 5 — Carry the stead forward             | Playable childhood progression, timeskips, unavoidable loss, inheritance, and Pip's continuing presence and teaching                  | Emotional arc grows from established routines; calendar, longevity, and save continuity support years of play                       |
+- The roadmap is a sequenced strategy, not a flat, unreviewed backlog.
+- Each milestone must produce an observable gameplay difference in ordinary play
+  ([D18](DECISIONS.md#d18--player-visible-milestone-rule-after-foundation)).
+- Milestones build shared abstractions before depending on them, avoiding expensive
+  untested speculative frameworks.
 
-This sequence puts implementation of the full story after evidence for the daily
-loop, while preserving the narrative constraints now. Stages 3–5 may overlap or be
-reordered by explicit product decisions; their internals are not current scope.
-Pip's advanced lineage is a narrative fact without requiring the whole breeding
-simulator to ship before Pip can appear in the opening.
+For full game design, see [GAME-DESIGN.md](GAME-DESIGN.md).
+For engineering reality and boundaries, see [ARCHITECTURE.md](ARCHITECTURE.md).
+For active milestone execution, see [exec-plans/README.md](exec-plans/README.md).
 
-## Current campaign
+---
 
-[001 — Deepen the One-Critter Daily Loop](exec-plans/active/001-deepen-one-critter-daily-loop.md)
-has **M1 — Establish distinct critter identity and ownership** and **M2 — Generalize
-learning while retaining the berry experience** complete and published. M1 (identity,
-ownership, save v2) and M2 (authored behaviors, generalized learning, save v3) were
-intentionally foundational, providing underlying architecture and save migration with
-minimal visible gameplay change.
+## High-level stage progression
 
-M3's nook recovery, effort tuning, and compact dock are implemented and locally
-verified on `codex/m3-daily-recovery`. Product acceptance awaits a fresh human comparison of the
-work-oriented and competition-oriented routines; M4 has not begun.
+```
+[Stage 0: Bootstrap] -> [Stage 1: First Living Stead] -> [Stage 2: Household & Opening]
+       Complete             Active Campaign 001                Planned
+                                     |
+                                     v
+                        [Stage 3: Community & Expansion]
+                                  Planned
+                                     |
+                                     v
+                        [Stage 4: Lineages & Chimeras]
+                                  Planned
+                                     |
+                                     v
+                        [Stage 5: The Enduring Stead]
+                                  Planned
+```
 
-Following these foundational milestones, the campaign enforces the **player-visible
-milestone rule**: each subsequent implementation milestone must produce a clear,
-observable consequence during ordinary play. Architectural preparation that does not
-surface a player-facing change belongs in supporting subtasks rather than being
-represented as a complete product milestone.
+| Stage                           | Focus & Playable Outcome                                                                                                                                                            | Key Deliverables                                                                      |
+| :------------------------------ | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------ |
+| **0 — Repository memory**       | Shared truth, architecture boundaries, recoverable plans                                                                                                                            | [Completed bootstrap record](exec-plans/completed/000-repository-memory-bootstrap.md) |
+| **1 — The First Living Stead**  | Multi-system vertical slice with one critter: rancher stats, checks, physical logistics, production, multi-crop farming, cottage interior, calendar, and diverse training minigames | Campaign 001 (M1–M9); save v4; proven multi-day loop                                  |
+| **2 — Household and opening**   | Guided childhood prologue: Grandpa, Pip, walk to town, starter acquisition, Grandpa's passing, inheriting the stead                                                                 | Narrative opening; town of Oakhaven; mentor Pip; starter choice                       |
+| **3 — Community and expansion** | Expanded stead, 3-critter active party, town shops, cooking/baking appliances, requests, theatrical Colosseum tournaments                                                           | Roster & barn expansion; town commerce; turn-based combat                             |
+| **4 — Lineages and chimeras**   | Husbrandry, natural breeding, artificial growth technology, authored family spectra, stable lineages                                                                                | Chimera generation; pedigree history; trait inheritance                               |
+| **5 — The Enduring Stead**      | Multi-year generational play, seasons, aging, respectful mortality, Pip's legacy passed to youth                                                                                    | Long-term life simulation; memorials; legacy transmission                             |
 
-The sequencing for the campaign's milestones reflects this principle:
+---
 
-- **M1 & M2**: Intentionally foundational with minimal player-visible change.
-- **M3**: Makes an ordinary day materially different from the currently published build
-  via energy allocation choices, daytime recovery (**Rest together** at the nook),
-  retuned costs, and a compact bottom interaction dock replacing the obscuring nearby card.
-- **M4**: Adds a second useful learned job that changes what the player personally needs to do.
-- **M5**: Gives today's choices an understandable consequence or purpose for tomorrow.
-- **M6**: Evaluates whether the repeated one-critter loop is actually enjoyable enough
-  to proceed to the opening.
+## Active Campaign 001 — The First Living Stead
 
-Do not confuse a full-day browser test passing with a player wanting to play for
-several days. Agent inspection can find friction and verify alternatives; fresh
-human playtest feedback is the product gate before major story investment.
+Campaign 001 replaces the early underspecified M4–M6 runway with a comprehensive,
+staged progression (M1 through M9) that systematically builds the foundational vertical slice.
 
-## Cross-cutting work
+### Milestone status and runway
 
-Preserve PWA/offline operation, save safety, original visual identity, accessible
-inputs, and repository-independent deployment at every stage. Physical controller
-testing remains an explicit gap. Navigation around buildings, personality/animation,
-feedback/audio, localization, and color-blind support should be addressed when
-relevant to the active playable outcome; their mention is not permission for a
-parallel polish campaign. No backend, account service, or multiplayer work is
-scheduled here.
+```
+[M1: Identity & Ownership] (Complete - 2026-09-26)
+  |
+[M2: Generalized Learning] (Complete - 2026-09-26)
+  |
+[M3: Daily Choice & Rest] (Complete - 2026-09-27)
+  |
+[M4: Rancher Stats & Checks] (Specified) <--- CURRENT ENTRYPOINT
+  |
+[M5: Localized Storage & Production] (Specified)
+  |
+[M6: Compositional Jobs & Hauling] (Specified)
+  |
+[M7: Multi-Crop Farming & Calendar] (Specified)
+  |
+[M8: Diverse Training & Colosseum] (Specified)
+  |
+[M9: Vertical Slice Gate] (Specified)
+```
+
+#### M1 — Establish distinct critter identity and ownership (Complete)
+
+- **Delivered**: `GameState.critters` array, explicit `ownerId`, `activeCritterId` selection,
+  provisional starter Mallow, save schema v2 with 100% legacy migration fidelity.
+- **Evidence**: Commit `122a6ea` / `346b232` on `origin/main`.
+
+#### M2 — Generalize learning while retaining the berry experience (Complete)
+
+- **Delivered**: Authored `BEHAVIORS` definition table, per-individual `learnedBehaviors`
+  progress map, save schema v3 with chained migration.
+- **Evidence**: Commit `6b7cf49` on `origin/main`.
+
+#### M3 — Make care, effort, and recovery produce a daily choice (Complete)
+
+- **Delivered**: Daytime **Rest together** action at the companion's nook (120 game minutes,
+  restoring up to 30 player / 35 critter stamina), retuned activity energy costs, and a
+  compact bottom interaction dock replacing the obscuring card.
+- **Evidence**: Commit `c15cb30` / `d9ba9d7` merged via PR #1 into `main`. Fresh human routine
+  comparison script ready.
+
+#### M4 — Rancher stats, generalized checks, and physical encumbrance (Next Milestone)
+
+- **Immediate action**: Next active implementation milestone.
+- **Player-visible change**:
+  1. Give the rancher the same 4-stat system (STR, END, SPD, INT) and primary skills
+     (Woodcutting, Mining, Hauling, Foraging).
+  2. Introduce the pure host check resolution engine (`Skill + f(Stats) + Tool vs Difficulty`).
+  3. Add new physical resource nodes in the world: fallen timber (chopped with axe for logs)
+     and quarry boulders (broken with pick for stone slabs).
+  4. Implement graduated physical encumbrance: carrying heavy timber or stone slows movement
+     and increases stamina drain.
+  5. Decouple the Three.js viewport canvas from the bottom interaction dock to ensure layout
+     stability ([D32](DECISIONS.md#d32--viewport-decoupling-from-interaction-dock-ui)).
+  6. Organic progression: performing checks awards visible experience to relevant stats and skills.
+
+#### M5 — Localized storage, physical carrying, and first production chain
+
+- **Player-visible change**:
+  1. Eliminate the magical global inventory: implement localized `Container` entities
+     (player backpack, critter satchel, wooden yard chest, station hoppers).
+  2. Implement physical carrying: player and critters pick up, hold, and deposit physical
+     cargo into nearby containers.
+  3. Introduce the first refining workstation: **Woodchopping Block / Sawmill** in the yard
+     (converts chopped logs into refined lumber).
+  4. Emergent failure chains: the workstation halts when the input hopper runs out of logs
+     or the output crate is full.
+
+#### M6 — Compositional learning and first autonomous job (Hauling)
+
+- **Player-visible change**:
+  1. Generalize the learning cycle to multi-step tasks: observing hauling $\rightarrow$ cued
+     carrying $\rightarrow$ independent opportunity recognition.
+  2. The companion learns to inspect the sawmill output, pick up refined lumber, carry it
+     across the yard, and deposit it into the storage chest.
+  3. Basic critter self-management: when hungry, the companion seeks food from the feed trough;
+     when exhausted, it rests at the nook before resuming work.
+  4. A tangible reduction in player daily chores through successful delegation.
+
+#### M7 — Multi-crop farming, cottage interior, and household calendar
+
+- **Player-visible change**:
+  1. Expand the single feed crop into a 4-plot tilled garden grid supporting seasonal crops
+     (sunberries, crisp turnips, grain wheat).
+  2. Implement soil moisture, daily watering, weed management, and growth stages.
+  3. Unlock the cottage interior door: transition into the cozy cottage diorama.
+  4. Cottage interior features an **inspectable wall calendar** tracking the 120-day year
+     (4 seasons $\times$ 30 days), upcoming festivals, and market days.
+
+#### M8 — Diverse training disciplines and Colosseum exhibition
+
+- **Player-visible change**:
+  1. Expand training beyond rhythm hoops by introducing two activity-matched minigames:
+     - **Weight Lifting / Boulder Push** (STR: rhythmic force gauge against visible mass).
+     - **Distance Pacing / Sprint Relay** (END/SPD: sustained pacing challenge).
+  2. Daily diminishing returns: repeatedly training the same discipline incurs fatigue,
+     rewarding balanced routines.
+  3. Open the path to the Colosseum gate: enter the skeletal stadium shell and enter a
+     multi-stat athletic exhibition trial with audience fanfare.
+
+#### M9 — Vertical slice integration, multi-day playtesting, and campaign gate
+
+- **Player-visible change**:
+  1. A cohesive, multi-day experience demonstrating the complete living stead: farming,
+     resource gathering, physical hauling, refining lumber, training across varied disciplines,
+     resting together, delegating autonomous chores, and competing in exhibitions.
+  2. Comprehensive regression verification: full-day automated Playwright runs, PWA offline
+     reloads, and verified v1 $\rightarrow$ v2 $\rightarrow$ v3 $\rightarrow$ v4 save migration.
+  3. Structured human playtest evaluating attachment, pacing, and daily engagement as the
+     formal gate before beginning Stage 2.
+
+---
+
+## System implementation matrix
+
+This matrix provides a clear operational index distinguishing what is implemented today,
+what is developed in the active campaign, and what is deferred to future stages:
+
+| System                    | Currently Implemented                      | Active Campaign 001 (First Slice)                                    | Deferred to Future Stages                                 |
+| :------------------------ | :----------------------------------------- | :------------------------------------------------------------------- | :-------------------------------------------------------- |
+| **Rancher Stats**         | None (only stamina & coins)                | Unified 4-stat system (STR, END, SPD, INT) and skills (M4)           | Advanced skill mastery perks, apparel stat bonuses        |
+| **Critter Roster**        | 1 active companion (Mallow); dormant array | 1 active companion + mentoring Pip fixture                           | 3-companion party, barn stalls, roster management UI      |
+| **Simulation Checks**     | Ad-hoc threshold checks                    | Extensible pure check engine with failure degrees (M4)               | Catastrophic cascading disaster events (fire, collapses)  |
+| **Inventory & Logistics** | Flat global array (`inventory`)            | Localized containers, carrying, hauling, failure chains (M5, M6)     | Carts, draft harnesses, complex storage filter priorities |
+| **Farming**               | 1 plot, 1 feed crop                        | 4-plot garden grid, 3 seasonal crops, soil moisture (M7)             | 50+ crop catalog, giant vegetables, fertilizer synthesis  |
+| **Production**            | 1 cosmetic shed upgrade                    | Chopping block/sawmill (logs $\rightarrow$ lumber) (M5)              | Metallurgy (smelting, smithing), kitchen baking, brewing  |
+| **Training**              | Rhythm hoops only                          | Hoops + Weight Lifting + Pacing minigames + diminishing returns (M8) | 10+ minigames, sparring arena, medicinal recovery tonics  |
+| **Calendar & Time**       | 24-hr clock, infinite day counter          | 4 seasons $\times$ 30 days = 120 days, cottage wall calendar (M7)    | Multi-year timeskips, seasonal festivals, birthdays       |
+| **World Spaces**          | Bramblewick Yard, Clover Glade             | Yard, Glade, Cottage Interior, Colosseum Grounds (M7, M8)            | Oakhaven Town, Whispering Woods, Quarry Mine, Dungeons    |
+| **Town & Economy**        | Honesty stall (instant coin sell)          | Honesty stall + localized pricing preparation                        | Inhabited Oakhaven, scheduled NPCs, shops, contracts      |
+| **Competition & Combat**  | Clover Cup time trial                      | Clover Cup + Colosseum athletic exhibition (M8)                      | Turn-based theatrical combat, real-time dungeon battles   |
+| **Breeding & Genetics**   | Placeholder parentIds/genetics             | Preserved data structures                                            | Artificial growth technology, 9-family chimeras           |

@@ -1,213 +1,705 @@
-# Critterstead — game design
+# Critterstead — canonical game design
 
-Canonical product direction, reconciled from the September 25–26, 2026 design
-discussion. This describes the intended game, not a list of shipped features.
-[ARCHITECTURE.md](ARCHITECTURE.md) records the implementation;
-[DECISIONS.md](DECISIONS.md) records rationale and unresolved choices.
+Canonical product and system direction for Critterstead. This document records the
+intended game, core values, system mechanics, narrative canon, and design boundaries.
+It is the design authority for implementation; it describes what the game is intended
+to become, not a checklist of already-shipped features.
 
-## Core promise and priority
+For actual implementation reality and current boundaries, see [ARCHITECTURE.md](ARCHITECTURE.md).
+For historical context and settled rationale, see [DECISIONS.md](DECISIONS.md).
+For sequencing and milestone planning, see [ROADMAP.md](ROADMAP.md) and [active execution plans](exec-plans/README.md).
 
-**A critter’s usefulness and a critter’s value are not the same thing.** Critters
-are persistent individuals first, not disposable stat packages. Optimization,
-specialization, breeding, and competition can matter without implying that
-less-useful or less-optimal critters are less worthy of care. Evaluate the quality
-of the daily play experience, not whether a companion has earned care through
-performance.
+---
 
-Raise persistent, individual critters whose care, training, learned behaviors, and
-family histories change life on a growing stead. The player should enjoy spending
-time with one creature before wanting, and feeling ready for, several. Progress
-should change what companions can do and how the player organizes a day, not
-merely increase numbers.
+## Design-reference disclaimer
 
-The daily game must earn the player's attachment before the story asks for an
-emotional response. Near-term development prioritizes caring, training, working,
-resting, farming, and competing with one critter. Build only the architectural
-preparation needed for that work before attempting the full prologue.
+References throughout this documentation to external games—including _Rune Factory 4_,
+_Monster Rancher_, _Graveyard Keeper_, _Palworld_, _Mewgenics_, _Stardew Valley_,
+_Dragon's Dogma_, _RimWorld_, and similar titles—are comparative design shorthand.
+They are used solely to communicate system depth, interaction style, pacing, or
+mechanical intent between designers and engineers.
 
-The intended presentation is an original orthographic 2.5D world with discrete
-areas. The browser/PWA is the current platform; desktop play and a possible later
-Steam release are longer-term interests, not a shipping or packaging commitment.
-Keep touch, keyboard, and controller play viable. There is no backend requirement
-for the current game. Future limited multiplayer must not drive speculative work.
+They are **not** instructions to copy another game's protected expression, including:
 
-## Household, childhood, and inheritance
+- proprietary code or technical architecture,
+- visual art, 3D meshes, textures, animations, or visual effects,
+- maps, level layouts, or geographic designs,
+- characters, creature concepts, names, or backstories,
+- dialogue, lore, or narrative scripts,
+- trademarked names, logos, branding, or packaging,
+- distinctive user interfaces or HUD layouts,
+- proprietary balance numbers, data tables, or formulas.
 
-The player begins as an older child or young teenager living with grandparents.
-Grandpa is handing over his old stead; Grandpa and Pip helped maintain the home
-and garden and helped raise the player. The protagonist can be scripted for now.
-Later character customization remains possible but should not drive this phase.
+Critterstead implements its own original systems, visual style, content, balance tables,
+writing, UI, lore, and software architecture. These external references serve as
+starting points for communication and iteration. Some mechanics may remain structurally
+similar to proven genre conventions, others will be modified heavily, and many will
+diverge completely as Critterstead develops its own distinct identity.
 
-Grandpa was the Colosseum champion before his retirement and is widely known in
-the surrounding community. The player grows up knowing him primarily as Grandpa
-and does not initially understand the full scope of his reputation. Grandpa also
-participated regularly in the markets. The player was not aware that the fortunes
-he accumulated through his accomplished life were ultimately spent on the
-creation of Pip. Later in the game, after Grandpa is gone, people in the community
-may tell the player that they remind them of him and that he would have been proud.
-These are long-term narrative facts; exact dialogue, timing, or revelation order
-must not be prematurely scripted. Do not front-load the full significance of
-Grandpa's championship history, fortune, or Pip's creation into the opening;
-these facts should remain available for organic revelation later.
+---
 
-Roughly two to three narrative years establish competence and attachment through
-playable weeks/seasons, recurring chores, training, and competitions. Scripted
-timeskips are acceptable; exact duration and calendar ratios are unresolved.
-Increasing responsibility should feel earned through growing independence.
+## High-level game identity
 
-Grandpa's death is fixed and unavoidable. It approximately ends the guided
-childhood/tutorial era and begins independent responsibility for the stead. It is
-not a failure state or a consequence the player can optimize away. The story may
-be moving, but enjoyable play remains the prerequisite for building it.
+Critterstead is a life/farm RPG and creature-raising simulation combining several
+interlocking gameplay fantasies:
 
-Pip belongs to Grandpa, not to the player as a starter. Pip is extraordinarily old:
-the culmination of a lifetime of breeding, training, care, and learned behavior,
-and an example of what the player may someday achieve. Pip substantially outlives
-Grandpa. The player inherits responsibility for Pip, who continues familiar
-routines, may visit places associated with Grandpa, and can accompany younger
-critters as an experienced teacher. Learned behaviors persisting in younger
-critters can carry that legacy forward. Do not combine the two deaths into one
-scripted tragedy or make Pip a novice that the player must teach from scratch.
+1. **Rune Factory-like daily life**: farming, working, adventuring, gathering, town life,
+   resident relationships, requests, four distinct seasons, festivals, household
+   progression, crafting, and production.
+2. **Monster Rancher-like critter raising**: long-term stat development, varied training
+   disciplines, specialization, breeding, scheduled competitions, multiple training
+   minigames, and deep individual attachment.
+3. **Graveyard Keeper-like physical logistics**: resources physically exist in places;
+   they must be carried, hauled, staged, processed, and delivered. Production chains can
+   break and require player intervention.
+4. **Palworld-like worker needs and base activity**: critters work, rest, eat, become
+   unhappy or unwell, specialize, and can eventually automate the stead's routine tasks.
+5. **Dragon's Dogma-like learned behavior**: critters observe player actions, learn
+   techniques, recognize opportunities, develop task competence, and eventually act
+   autonomously.
+6. **RimWorld-like depth of assignment and priorities**: work management becomes deep
+   over time (jobs, priorities, schedules, storage filters), presented through a
+   friendly, character-focused, diegetic interface rather than a spreadsheet.
+7. **Mewgenics-like generational individuality**: inheritance, surprising trait
+   combinations, persistent life history, and deliberate breeding choices produce
+   distinct individuals over generations.
 
-A friendly competitive cousin of similar age may receive a critter and later
-become an ally. This relationship is secondary and optional in scope. Do not
-introduce a hostility/reconciliation arc by default.
+These systems are not disconnected minigames; they form mutually reinforcing loops:
 
-**Exploratory note:** the first playable winter arriving around or after Grandpa's
-death is a promising thematic transition. It is not a fixed seasonal requirement.
+```
+body / genetics -> stats -> skills -> checks -> work / training -> resources
+       ^                                                                |
+       |                                                                v
+expanded possibilities <- delegation <- upgrades <- production <- logistics
+```
 
-## Opening and acquisition
+and for care and development:
 
-The eventual opening takes the player with Grandpa and Pip through berry fields
-into town. Pip demonstrates mature autonomous harvesting en route. Through
-interactive encounters, the player meets several individual critters and learns
-about normal acquisition paths: breeders and pedigrees, rescue, wild encounters,
-other owners, breeding/stud services, and advanced gene combination.
+```
+care -> condition / happiness -> performance -> development -> specialization -> autonomy
+```
 
-The player ultimately chooses exactly one starter. Additional ownership is earned
-gradually. Returning home, sleeping, and a first guided morning of care, chores,
-and training are the intended opening shape; this prologue is later roadmap work.
-One critter should initially be substantial responsibility. Learning, improved
-facilities, and player competence gradually make more companions manageable.
+and for world interaction:
 
-## Ownership and physical presence
+```
+training / work / adventure -> stat / skill growth -> visibly greater capability -> new world interactions
+```
 
-Target traveling/working group size is **three visible critters**. Active group
-membership and total ownership are different: housing expansion, such as shed or
-barn upgrades, supports a larger owned roster. Critters physically inhabit the
-world; a roster is bookkeeping, not a fiction that stores creatures as items.
+---
 
-A critter's owner, party membership, and status as the currently active or
-working companion are distinct concepts:
+## Core values and critter philosophy
 
-- **Owner**: the established owner (e.g. Grandpa, the player, or another resident).
-- **Party membership**: inclusion in the traveling group accompanying the player.
-- **Active companion**: the specific critter currently working, being directed,
-  or taking part in activities.
+### Usefulness vs. value
 
-Pip can remain Grandpa-owned while later accompanying the player, joining the
-active party, and potentially serving as the current working companion. The
-current Stage-1 one-critter implementation may continue to require the active
-critter to be player-owned as a temporary implementation limitation, but this is
-not permanent game canon or a long-term model invariant.
+**A critter’s usefulness and a critter’s value are not the same thing.**
 
-A tutorial outing could show Pip, the player's starter, and the cousin's critter
-together without granting the player three owned critters. The exact party unlock
-sequence, housing capacities, and off-party routines remain open.
+Critters are persistent individuals first, not disposable stat packages. While
+optimization, specialization, breeding, competition, and min-maxing are enjoyable and
+legitimate goals, less-useful or less-optimal critters are never less worthy of care.
+The emotional core of Critterstead depends on players valuing their companions as
+living members of the household, not discardable production units.
 
-Each critter has persistent individuality: a freely chosen individual name, age
-and life stage, personality, bond, health/wellbeing, stamina, Strength, Endurance,
-Speed, Intelligence, skills, learned behaviors, pedigree, genetics, visual traits,
-history, and competition records. Player naming of individuals does not imply
-globally player-named species.
+### Individual attributes
 
-## Learning, work, and the daily loop
+Every critter possesses a rich individual identity that persists across saves:
 
-The berry prototype expresses the general pattern:
-**observe → learn → perform on cue → recognize opportunities → perform autonomously**.
-Future systems should generalize that pattern instead of adding one hardcoded
-knowledge field per job. Experienced critters, especially Pip, should eventually
-model useful behaviors for younger ones. Exact teaching and inheritance mechanics
-are not settled; genetic aptitude and acquired knowledge are distinct concepts.
+- **Persistent identity**: permanent ID, player-given name, sex, species/lineage.
+- **Life stage & age**: numeric age in game days, life stage (young, adult, elder),
+  and natural longevity.
+- **Condition & needs**: health, hunger, stamina/energy, happiness/wellbeing, and bond.
+- **Capability stats**: Strength (STR), Endurance (END), Speed (SPD), Intelligence (INT).
+- **Learned skills**: proficiencies in recognized trades and disciplines.
+- **Learned behaviors**: observation, cue response, opportunity recognition, and
+  autonomous execution across specific jobs.
+- **Physical morphology**: body shape, size, weight, locomotion type, manipulators/hands,
+  wings, equipment compatibility, and diet.
+- **Genetics & pedigree**: parentage, ancestral lineage, aptitude ceilings, and inheritable traits.
+- **Life history**: recorded milestones, competition trophies, injuries, honors, and memories.
+- **Personality & preferences**: evolving likes, dislikes, and temperamental quirks over time.
 
-Care, practice, useful work, and recovery should create understandable choices
-across a day and across repeated days. The core daily choice is whose energy to
-spend, what to preserve energy for, and whether spending time recovering is
-worthwhile. Automation is a reward for learning and a way to change the player's
-responsibilities. Learned autonomy must not become "free productivity"; a critter
-helping with work spends condition and energy that the player may have wanted for
-training, practice, or competition.
+### Happiness is a condition, not a stat
 
-A daytime recovery action, **Rest together** at the companion's nook, allows the
-player and active critter to recover condition during the day by spending a
-meaningful amount of game time. It does not reduce hunger, reset once-per-day
-activities, advance the calendar to tomorrow, or replace overnight sleep. A
-player must be able to recover from an ordinary exhausted or poorly scheduled
-day through normal play without a developer reset, forced overnight sleep as
-the only solution, compulsory grind, injury, or death. Consumable recovery
-items are anticipated as a possible future system, but are not part of the
-near-term daily loop.
+Happiness/wellbeing is **not** one of the four capability stats. It reflects _how an
+individual is doing_, not _what they are capable of doing_. Comfortable housing, adequate
+food and rest, affection, competence at assigned tasks, manageable workloads, illness,
+injury, and environmental conditions all influence happiness over time.
 
-Activities must communicate their costs and consequences legibly:
+---
 
-- Before commitment, the interaction should display both energy and game-time
-  requirements (e.g., practice and time trials displaying clock-time consumption
-  as well as stamina).
-- After commitment, results should make meaningful consequences visible,
-  including remaining condition and energy.
-- Presentation should build descriptively from the existing stamina and condition
-  model rather than introducing a redundant separate fatigue meter.
+## Core capability stats
 
-Environmental roles can include farming, gathering, construction, woodcutting,
-quarrying, mining, and future activities. All four core stats and all foundational
-families should eventually have meaningful niches. These are directions for
-staged expansion, not instructions to build every job in the first campaign.
+Humans and critters use the same conceptual four-stat capability system:
 
-Farming should deepen toward the variety and interconnected routines associated
-with farming/life games such as Rune Factory and Stardew Valley. It should grow
-beyond one abstract feed plot. Shed/barn, house, and farm upgrades should visibly
-change the world and change function or capacity. Preserve original assets and
-identity rather than copying the reference games' content.
+- **STR** — Strength
+- **END** — Endurance
+- **SPD** — Speed
+- **INT** — Intelligence
 
-## Families, lineages, and gene combination
+### Stat scale and progression
 
-The nine foundational families are Bird/Avian, Reptile, Dog/Canine, Cat/Feline,
-Cow/Ox/Bovine, Bear/Ursine, Horse/Equine, Slime, and Insect. Brindlekin is an example
-of a developed/stabilized lineage, not necessarily a tenth foundational family.
-Pip may embody many generations of accomplished breeding; exact ancestry is open.
+- Stats broadly range from approximately **1 to 999**.
+- The small stat set is deliberate: many diverse tasks draw upon the same four core
+  capabilities.
+- Stats grow primarily through **meaningful actions, checks, and training**, but grow
+  much more slowly than skills.
+- Very high stats represent major long-term achievements and produce impressive,
+  sometimes humorous, visibly exceptional outcomes in the world.
 
-Natural breeding can have biological compatibility limits, including mule-like
-hybrids with limited or absent fertility. Advanced gene-combination technology
-can produce viable offspring from **any two critters**. Its use is culturally
-normal and widespread in the setting, but expensive for an individual player.
-Its true origin need not be explained. Cottages, hand tools, and this technology
-can coexist without the technology being a strange new discovery.
+### STR (Strength)
 
-Technology-created chimeras can establish stable, fertile lineages where
-appropriate. Chimeras are central to raising and breeding, not rare one-off
-trophies. The exact fertility rules and economy remain to be designed. “Gene-Loom”
-is a provisional label from discussion, not a finalized machine or system name.
+- **Governs**: carrying capacity, inventory encumbrance tolerance, lifting, pushing,
+  pulling, heavy tool operation, moving construction materials, hauling heavy loads,
+  and physical-force combat checks.
+- **Trained by**: lifting weights, carrying heavy cargo, pulling loads, pushing boulders,
+  heavy manual labor, and strength-based combat actions.
+- **World impact**: A strong bovine pushing a quarry boulder visibly interacts with that
+  boulder's mass and encumbrance rather than merely receiving an invisible percentage bonus.
 
-Each family pairing should receive deliberate design consideration. Nine families
-give 36 unordered cross-family pairs, or 45 including the nine same-family pairs.
-That is a planning grid, not a cap on offspring diversity or a complete solution
-for later multi-family ancestry. Authored morphology rules may support several
-dominance levels, proportions, coverings, appendages, colors, and aptitudes.
-Fantastical forms are welcome; unrestricted random part assembly is not the art
-direction. A future chimera design bible should define valid forms and lineages.
+### END (Endurance)
 
-## Life cycle and competition
+- **Governs**: maximum stamina pool, sustained work capacity before exhaustion, long-distance
+  travel, distance running, hauling routes, prolonged combat/dungeon stamina, recovery
+  tolerance, and resistance to physical breakdown under prolonged load.
+- **Trained by**: sustained physical exertion, long hauling routes, extended labor, and
+  pacing drills.
+- **World impact**: END improves particularly slowly; ordinary years of dedicated work
+  meaningfully contribute to an individual's stamina reservoir.
 
-Aging and eventual natural death are part of the current direction, with long,
-genetically variable lifespans. Exact lengths, life-stage effects, care influence,
-and end-of-life pacing remain unresolved. A prototype constant is not a canon
-lifespan. Do not add routine accidental deaths; dangerous exploration and any
-associated mortality are unapproved possibilities, not current scope.
+### SPD (Speed)
 
-The Colosseum is the town's fairground/stadium/exhibition venue, not solely a
-battle arena. Different days can host nonlethal Monster Rancher-like combat,
-races, strength and athletic contests, problem-solving or skill exhibitions,
-critter shows, produce/vegetable judging, markets, and festivals. Its recurring
-calendar should help make all four stats useful. Combat in these competitions is
-nonlethal. Event cadence and the calendar itself remain open; the current Clover
-Cup is only a prototype time trial.
+- **Governs**: movement speed in the world, dexterity, reaction time, turn order in
+  turn-based Colosseum competition, timing-window leniency, attack frequency, and quick
+  tool manipulation.
+- **Trained by**: running drills, obstacle courses, reflex/timing exercises, and rapid
+  dexterous tasks.
+- **World impact**: High-SPD critters move visibly faster in the world, act earlier in
+  competitions, and complete rapid handiwork in less game time.
+
+### INT (Intelligence)
+
+- **Governs**: learning rate for new behaviors and skills, perception checks, understanding
+  multi-step job sequences, technical ability, machine and appliance operation, recognizing
+  unprompted work opportunities, task planning, independent problem-solving, and eventual
+  autonomous base self-management.
+- **Trained by**: observing complex tasks, command sequences, puzzle drills, operating
+  machinery, and alchemy/crafting synthesis.
+- **World impact**: High-INT critters learn new behaviors with fewer demonstrations,
+  detect broken production links, and self-manage complex daily chore sequences without
+  player intervention.
+
+---
+
+## Skills system
+
+Humans and critters both possess skills. Skills are distinct from capability stats:
+
+- **Skill range**: approximately **1 to 99**, progressing through experience.
+- **Taxonomy**: skills represent recognizable professions, learned techniques, or
+  disciplines, rather than granular output types.
+- **Sensible grouping**:
+  - _Mining_ encompasses both pickaxe mining and stone quarrying, because both involve
+    breaking rock with percussion tools and learned technique.
+  - _Woodcutting_ is distinct from Mining because the tools, cutting action, and technique differ.
+  - Skills are **not** split by material output (e.g., no separate "Iron Mining",
+    "Coal Mining", or "Stone Quarrying" skills).
+- **Core skill categories**:
+  - _Primary extraction_: Mining, Woodcutting, Farming, Fishing, Foraging.
+  - _Production & crafting_: Cooking, Alchemy, Smithing, Carpentry, Machine Operation.
+  - _Logistics & handling_: Hauling, Critter Care, Building/Construction.
+  - _Athletics & competition_: Racing, Athletics/Acrobatics, Weapon Mastery, Blocking.
+
+---
+
+## Checks and simulation
+
+Gameplay actions resolve through an extensible check model incorporating capability,
+learned skill, tools, physiology, and environmental circumstances:
+
+$$\text{Check Score} = \text{Skill} + f(\text{Relevant Stats}) + \text{Tool Quality} + \text{Body/Aptitude Modifiers} + \text{Circumstances vs. Difficulty}$$
+
+### Felt outcomes over raw dice
+
+Ordinary play expresses check results through tangible world feedback rather than raw
+number popups:
+
+- task completion speed and animation tempo,
+- stamina cost incurred,
+- harvest yield quantity and material grade/quality,
+- wasted raw materials or fuel,
+- wear and tear on equipped tools,
+- accidental setbacks,
+- creation of new problems requiring attention.
+
+A roll popup may be appropriate for discrete, high-stakes events (such as Colosseum
+judging). Players can inspect detailed simulation mechanics via an optional diagnostic
+log (analogous to detailed combat math in simulation chronicles).
+
+### Degrees of failure and cascading disruption
+
+Failure is not a simple binary "nothing happened." Failure has degrees and consequences:
+
+- slower progress or wasted clock time,
+- reduced harvest yield or lower-quality goods,
+- wasted ingredients or destroyed intermediate items,
+- tool dulling, chipping, or breakage,
+- physical strain, sprains, or minor injury,
+- accidental fire or structural damage at workstations,
+- logistical disruption (e.g., dropped cargo blocking a path).
+
+Cascading systemic failures are an intentional design element: a broken tool stops a
+production line, starving a delivery route, which in turn halts an appliance until the
+player or an autonomous helper diagnoses and resolves the bottleneck.
+
+---
+
+## Organic progression
+
+Characters and critters grow stronger by living and doing, not solely through dedicated
+training interfaces:
+
+- Regular mining improves the _Mining_ skill noticeably, while slowly conditioning
+  _STR_ and _END_.
+- Operating complicated machinery or mixing alchemical reagents improves _INT_ and
+  _Technical/Alchemy_ skills.
+- Heavy manual tools emphasize _STR_ gains; precision or powered tools emphasize _INT_
+  and technical proficiency.
+- Hauling supplies across the stead builds _END_ and carrying capability.
+
+---
+
+## Training system
+
+The timing hoops practice in the early prototype is merely one initial training minigame.
+Critterstead features a family of interactive training minigames inspired in spirit by
+_Monster Rancher_, where the visual and mechanical metaphor fits the capability trained:
+
+- **Lifting / Pressing**: rapid rhythmic input or force-gauge balance against visible
+  weights (_STR_).
+- **Distance Running / Pacing**: sustained movement and stamina-pacing challenges (_END_).
+- **Reflex Drills / SIMON-style sequences**: quick reaction and pattern matching (_SPD_ / _INT_).
+- **Command & Logic Sequences**: multi-step instructions and spatial routing (_INT_).
+- **Hauling & Sled Pulling**: drag-weight resistance courses (_STR_ + _END_).
+- **Obstacle Courses**: jumping, ducking, and balance courses (_SPD_ + _END_).
+- **Woodchopping**: rhythmic force and accuracy at the chopping block (_STR_ + _Woodcutting_).
+- **Fishing**: aim, tension control, timing, and rod technique (_SPD_ + _Fishing_).
+- **Sparring / Arena Drills**: simulated combat reactions and positioning (_STR_ / _SPD_ / _Combat_).
+
+### Demonstration and mentoring
+
+A player or an experienced critter can demonstrate a training exercise before a novice
+attempts it. Grandpa and Pip can mentor young critters around the homestead, providing
+learning bonuses.
+
+### Diminishing returns
+
+Repeatedly grinding the exact same training discipline on the same day yields sharply
+diminishing returns, encouraging balanced daily scheduling. Ordinary productive work
+continues to provide modest organic gains even when intensive training has reached daily
+exhaustion. Later consumables, tonics, and medicinal baths may alleviate fatigue and
+restore training readiness.
+
+---
+
+## Morphology, body simulation, and encumbrance
+
+Critters are not interchangeable stat blocks; their physical bodies define what they can
+and cannot do:
+
+### Morphological traits
+
+- **Body shape and size**: tiny foragers, nimble bipeds, massive quadrupeds, serpentine forms.
+- **Mass & weight**: phenotype properties that interact with physics, pushing leverage,
+  and inertia (not core stats).
+- **Locomotion**: walking, running, slithering, hopping, flying/gliding, swimming.
+- **Manipulators**: hands capable of fine tool use, paws, hooves, claws, or prehensile tails.
+- **Appendages**: wings capable of flight or draft fanning, horns for leverage, shell armor.
+- **Diet**: herbivore, carnivore, omnivore, or mineral/magical diets.
+- **Equipment compatibility**: hats, packs, satchels, harnesses, boots, or custom-fitted tools.
+
+Some tasks require appropriate morphology or specially adapted tools: a hoofed bovine
+cannot hold a standard jeweler's needle, but excels at pushing heavy rollers or pulling
+stone-boats.
+
+### Graduated encumbrance model
+
+Inspired in design spirit by _Dragon's Dogma_, carrying weight affects characters physically:
+
+- Light loads permit normal movement speed and standard stamina consumption.
+- Moderate loads noticeably reduce sprint speed and increase stamina drain.
+- Heavy loads slow movement to a walk and heavily penalize exertion.
+- Severe overload halts movement entirely.
+- Physical carrying capability varies by form: a small creature may carry one bundle in
+  its paws; an equipped companion can wear saddlebags; a large bovine can pull a loaded
+  wagon or roll a quarry block.
+
+---
+
+## Genetics, lineages, breeding, and chimeras
+
+### The nine foundational families
+
+1. **Bird / Avian** (aerial grace, keen vision, swift movement, light carrying)
+2. **Reptile** (dense scales, environmental resilience, deliberate power, patient focus)
+3. **Dog / Canine** (loyal, high stamina, pack coordination, excellent tracking/hearing)
+4. **Cat / Feline** (nimble, high reflex/speed, balance, sharp senses, independent)
+5. **Cow / Ox / Bovine** (massive strength, unmatched pushing/pulling, steady temperament, heavy hauling)
+6. **Bear / Ursine** (broad physical power, foraging aptitude, tough constitution)
+7. **Horse / Equine** (ground speed, distance endurance, riding/draft capability)
+8. **Slime** (amorphous flexibility, elemental absorption, unique liquid logistics)
+9. **Insect** (exoskeleton defense, proportional strength, specialized manipulators, rapid life cycles)
+
+_Brindlekin_ represents an established, stabilized woodland lineage rather than a separate
+root family.
+
+### Breeding and artificial growth technology
+
+- Natural breeding between closely related lineages follows biological compatibility.
+- Advanced in-world gene-combination and growth-chamber technology allows **any two critters**
+  to produce viable offspring.
+- This technology is culturally normal, ancient, and established in the setting, though
+  costly for a rural homestead. Artificial gestation avoids requiring graphic birth gameplay.
+- Offspring inherit morphology, stat potentials, growth curves, and aptitudes along authored
+  spectra between parent families.
+- **"Bad genetics" is never a death sentence**: dedicated care, patient training, and
+  experience allow even an underdog critter to achieve surprising success.
+
+---
+
+## Learned behavior, jobs, and delegation
+
+### The learning cycle
+
+The proven berry learning arc generalizes across all homestead activities:
+$$\text{Observe} \longrightarrow \text{Learn} \longrightarrow \text{Perform on Cue} \longrightarrow \text{Recognize Opportunity} \longrightarrow \text{Perform Autonomously}$$
+
+### Multi-step compositional jobs
+
+Complex work is not a single hardcoded toggle; it is composed of constituent learned
+competencies. For example, **Garden Duty** decomposes into:
+
+1. Observing watering $\rightarrow$ watering dry soil on cue $\rightarrow$ independently recognizing dry plots.
+2. Observing sowing $\rightarrow$ retrieving seed from storage $\rightarrow$ sowing empty prepared tilled soil.
+3. Recognizing weed/pest infestation $\rightarrow$ pulling weeds or applying organic treatment.
+4. Recognizing crop ripeness $\rightarrow$ harvesting mature produce $\rightarrow$ hauling harvested goods to designated crates or bins.
+
+A critter learns these behaviors step by step. Once all constituent skills are mastered,
+the companion can be assigned comprehensive "Garden Duty."
+
+### Work management and delegation
+
+As the homestead grows, critters can be assigned to formal roles:
+
+- Gardeners and field hands,
+- Haulers and warehouse organizers,
+- Woodcutters and quarry workers,
+- Kitchen assistants and millers,
+- Workshop smiths and carpenters,
+- Livestock and nursery caregivers.
+
+Management offers _RimWorld_-like depth—job priorities, permitted work types, schedules,
+and localized storage rules—but is accessed through a warm, character-centered, diegetic
+interface (chalkboards, chore bells, companion dialog) rather than cold spreadsheets.
+
+### Critter self-management
+
+Competent critters take care of their own basic needs:
+
+- When hungry, they seek food from accessible troughs, pantries, or berry stores.
+- When exhausted, they return to their nook or barn stall to rest.
+- Once recovered, high-INT critters remember their assigned priority and resume work.
+
+---
+
+## Automation philosophy
+
+Critterstead is designed to become **highly automatable** in the late game. Delegating
+routine chores to capable critters is a celebrated milestone of mastery, not a lack of
+content.
+
+As the stead becomes self-sustaining, the player's role shifts toward:
+
+- estate expansion and architectural layout,
+- resolving logistical bottlenecks and supply failures,
+- training elite champions for Colosseum festivals,
+- cross-breeding ambitious new lineages,
+- venturing into dangerous wilderness and dungeons,
+- deep town relationships, festivals, and personal commissions.
+
+Crucially, **automation is physical and simulated**, not an abstract menu upgrade.
+Materials must physically move, tools must remain sharp, and critters must remain healthy
+and fed for the machines of the stead to run.
+
+---
+
+## Physical logistics and storage
+
+### No magical global inventory
+
+Critterstead rejects magical global homestead inventories. **Items physically exist where
+they are placed**:
+
+- A wooden chest holds items physically placed inside that specific chest.
+- A kitchen refrigerator stores perishable food located in the kitchen.
+- A water bucket sits by the homestead well.
+- A grain mill requires harvested wheat physically dumped into its hopper.
+- Ground flour accumulates in the mill's output tray until hauled away.
+- A blacksmith's forge requires charcoal and ore hauled to its input staging bay.
+
+### Concrete failure chains
+
+Physical logistics creates natural, emerging gameplay:
+
+> **The Broken Hammer Chain**: A blacksmith critter stops working because its forge
+> hammer shattered. A replacement hammer must be crafted at the carpentry/smithing bench.
+> The lumber and metal ingots for the new tool are stored in the shed, but no hauling
+> critter is currently assigned to deliver them. The production chain stalls until the
+> player notices the stoppage, investigates the forge, and either carries the materials
+> personally or assigns a hauler to clear the bottleneck.
+
+### Locality and layout design
+
+Spatial arrangement directly dictates efficiency:
+
+- Placing the root cellar or refrigerator adjacent to the kitchen prep stove cuts meal
+  preparation time dramatically.
+- Placing feed storage near the critter barn prevents workers from wasting hours walking
+  across the estate for breakfast.
+- Workstations feature dedicated input and output slots; if an output hopper fills, the
+  machine halts.
+
+---
+
+## Production chains and tools
+
+Raw resources are refined through multi-tiered production networks:
+
+- **Forestry**: Fallen branches $\rightarrow$ Chopped logs $\rightarrow$ Sawmill lumber $\rightarrow$ Finished handles & furniture.
+- **Masonry**: Quarry boulders $\rightarrow$ Split stone slabs $\rightarrow$ Dressed building blocks & millstones.
+- **Metallurgy**: Ore veins $\rightarrow$ Crushed ore $\rightarrow$ Smelted ingots $\rightarrow$ Tool heads & hardware.
+- **Agriculture**: Grains $\rightarrow$ Windmill / watermill flour $\rightarrow$ Dough $\rightarrow$ Baked breads & celebration cakes.
+- **Dairying**: Fresh milk $\rightarrow$ Cheese press $\rightarrow$ Aged wheels of cheese.
+- **Orchardry**: Sunberries & orchard fruits $\rightarrow$ Preserving kettle $\rightarrow$ Jams & medicinal tonics.
+
+### Tools and durability
+
+Tools are physical equipment with real requirements and maintenance:
+
+- Tools possess minimum stat and manipulator requirements (e.g., a two-handed iron axe
+  demands 35 STR and functional hands).
+- Tools wear down with use, losing sharpness/efficiency before breaking.
+- Worn tools can be sharpened at a grindstone; broken tools must be repaired or reforged.
+
+---
+
+## Construction and spatial layout
+
+### Authored macro-spaces, player micro-spaces
+
+Critterstead balances bespoke authored geography with player spatial creativity:
+
+- **Macro-spaces are authored**: the homestead footprint, cottage shell, barn foundations,
+  forest perimeter, town square, quarry basin, and dungeon ruins are hand-crafted,
+  scenic diorama spaces.
+- **Micro-spaces are player-designed**: within buildable property zones, the player
+  freely arranges storage chests, tool racks, processing machines, furniture, fences,
+  troughs, garden beds, and stone pathways.
+- Limited buildable footprints turn base layout into a satisfying spatial and logistical puzzle.
+
+---
+
+## Farming depth
+
+Farming expands far beyond a single feed plot into a rich, full-featured agricultural simulation:
+
+- **Seasonal crops**: seasonal growth profiles; out-of-season crops wither unless protected
+  in greenhouses or hotbeds.
+- **Soil quality & moisture**: soil requires tilling, daily watering, and weed control.
+- **Fertilizers & compost**: organic matter, crushed bone, and compost enhance growth speed,
+  water retention, and yield quality.
+- **Crop quality tiers**: standard, quality, pristine, and rare giant varieties.
+- **Pests & weather**: aphids, foraging birds, sudden freezes, heat waves, and storms create
+  agricultural challenges requiring critter guardians or protective measures.
+
+---
+
+## Calendar, time, and seasons
+
+### Calendar structure
+
+- **Four seasons**: Spring, Summer, Autumn, Winter.
+- **30 days per season** $\times$ 4 seasons = **120 days per game year**.
+- An inspectable wall calendar in the player's cottage tracks birthdays, scheduled
+  Colosseum events, weekly market days, seasonal festivals, and delivery deadlines.
+
+### Pacing
+
+- One complete 24-hour game day corresponds to roughly 30 minutes of real time, with
+  focused activities advancing clock minutes.
+- Sleeping overnight restores fatigue, recalculates crop growth, increments age, and
+  advances world simulation.
+- The **Rest together** action allows daytime recovery at the companion nook at the
+  cost of 90–120 game minutes without skipping the day.
+
+---
+
+## Home and stead progression
+
+The homestead begins in a neglected, overgrown state: brambles choke the paths, the shed
+roof leaks, and the cottage interior is sparse.
+
+- Stead restoration proceeds through visible, multi-tier construction upgrades.
+- Upgrades demand funds, gathered logs/stone, processed materials, construction time,
+  and physical material delivery to the worksite.
+- Expanding the house unlocks interior rooms, an inspectable calendar, and functional
+  appliances (stove, oven, icebox).
+- Expanding the barn increases critter housing capacity and provides dedicated indoor stalls.
+
+---
+
+## Town, economy, and commerce
+
+The starting honesty stall is temporary prototype scaffolding. The nearby town of
+**Oakhaven** is a vibrant, inhabited rural center:
+
+- **Scheduled town residents**: shopkeepers, artisans, elders, rivals, and wandering merchants
+  with daily routines, favorite hangouts, and relationship arcs.
+- **Functional shops**:
+  - _Carpenter & Stonemason_: building upgrades, lumber, masonry, and architectural structures.
+  - _Blacksmith_: tools, equipment upgrades, repair supplies, and metal hardware.
+  - _General Store & Seed Merchant_: seasonal seeds, basic supplies, and household dry goods.
+  - _Furniture & Appliance Showroom_: kitchen stoves (unlocking cooking/baking), iceboxes,
+    storage armoires, workbenches, and decor.
+  - _Apothecary & Veterinarian_: critter tonics, remedies for illness, grooming brushes,
+    and nutritional feed additives.
+
+### Commerce and contracts
+
+- **Shipping bin**: offers convenient daily liquidation of goods, but pays baseline bulk prices.
+- **Direct commerce**: selling directly to town shops, merchant stalls, or specialized
+  buyers yields significantly better profit.
+- **Contracts & commissions**: town residents post personal requests, restaurant supply
+  orders, and seasonal guild commissions on the town bulletin board, offering bonus coin,
+  rare recipes, or goodwill.
+
+---
+
+## Exploration, adventuring, and party structure
+
+### Traveling party
+
+The player travels outside the homestead with an active party of **three visible critters**.
+Group members walk with the player, navigate obstacles, assist with gathering, and stand
+together in encounters.
+
+### Dangerous adventuring vs. Colosseum competition
+
+Critterstead deliberately separates wild exploration combat from town Colosseum contests:
+
+| Dimension        | Wilderness & Dungeon Adventuring                                 | Town Colosseum Competitions                                                |
+| :--------------- | :--------------------------------------------------------------- | :------------------------------------------------------------------------- |
+| **System**       | **Real-time** exploration and action checks                      | **Turn-based**, theatrical, tactical presentation                          |
+| **Stakes**       | Dangerous; wild beasts, hazards, potential defeat                | Nonlethal; staged spectator event, sport, prestige                         |
+| **Goals**        | Resource gathering, discovery, dungeon delving                   | Stat showcase, trophies, prize money, title standing                       |
+| **Consequences** | Defeat collapses the expedition (reload save / revive at clinic) | Loss yields experience, constructive critique, and small consolation purse |
+
+Wild exploration includes forests, rocky canyons, abandoned quarries, subterranean mines,
+and ancient ruins.
+
+---
+
+## The Colosseum
+
+The town Colosseum is a grand community amphitheater and festival fairground, not merely
+a combat pit:
+
+- **Theatrical turn-based combat**: critter abilities, personality traits, and elemental
+  aptitudes are showcased under stadium lights with audience fanfare.
+- **Speed-based initiative**: SPD governs turn order and reaction windows.
+- **Varied attack origins**: physical strikes draw from STR, lunges from SPD, technical
+  tactics from INT, and endurance reserves from END.
+- **Diverse athletic events**: obstacle hurdle courses, sprint relays, heavy stone pulls,
+  harvest time trials, and beauty/physique exhibitions.
+
+---
+
+## Critter care, health, aging, and mortality
+
+### Comprehensive wellbeing
+
+Long-term critter raising includes:
+
+- **Nutritional balance**: high-energy feeds, fresh garden greens, and favorite treats.
+- **Hygiene & grooming**: regular brushing, mud cleaning, and hoof/feather care improve
+  morale and bond.
+- **Illness & injury**: overworking in foul weather or severe strain can induce illness
+  or physical injury requiring rest, poultices, and veterinarian care.
+- **Affection & bond**: daily petting, shared meals, and working alongside the player build
+  devotion and responsiveness.
+
+### Aging and respectful mortality
+
+Critters grow from energetic youths into peak adults and eventually wise elders:
+
+- Eldership brings slower movement and lower maximum stamina, balanced by seasoned skill
+  mastery and exceptional mentoring capability.
+- Critters enjoy long, fulfilling lifespans.
+- When an elder critter reaches the natural end of its life, the event is treated with
+  warmth, dignity, and gentle respect (retirement to pasture, memorial groves, passing
+  down keepsakes to offspring).
+- The game approaches loss honestly without cruel or arbitrary punishment.
+
+---
+
+## Visual direction and world diorama
+
+### Aesthetic identity
+
+- **Deliberately low-poly**: clean, readable faceted surfaces with soft beveled edges.
+- **Warm, cute, toy-like**: characters and critters evoke the tactile charm of handcrafted
+  wooden and ceramic figurine sets.
+- **Rich, harmonious palette**: natural earth tones, sunny ochres, leafy greens, and soft
+  sky blues avoiding garish primaries.
+- **Original artistic expression**: completely original geometry, proportions, and silhouettes;
+  no trademarked toy branding or derivative commercial styles.
+
+### World architecture
+
+- Discrete **orthographic 2.5D diorama areas** connected by scenic path transitions:
+  1. _Bramblewick Yard_ (homestead, cottage, barn, garden, workshops).
+  2. _Cottage Interior_ (kitchen, bedroom, hearth, calendar, storage).
+  3. _Oakhaven Town_ (town square, shops, tavern, clinic, artisan yards).
+  4. _The Grand Colosseum_ (arena floor, stables, grandstands).
+  5. _Whispering Woods_ (timber reserve, wild foraging, ancient hollows).
+  6. _Old Quarry & Mine_ (boulder fields, iron veins, deep tunnels).
+  7. _Sunken Brook_ (fishing piers, reeds, watermill).
+  8. _Ruin Hollows_ (dungeon exploration, ancient machinery).
+- Path clearing: blocked routes (fallen timber, rockslides) require player and critter
+  labor to permanently open.
+
+### Viewport and interaction stability
+
+The 3D world diorama is the heart of the experience. Opening, closing, or cycling nearby
+interaction cards or bottom docks must **never** resize the Three.js viewport canvas or
+alter its aspect ratio. Overlay controls remain strictly independent of the 3D scene
+renderer.
+
+---
+
+## Narrative canon and household history
+
+### Grandpa, Pip, and the player
+
+- **Grandpa's legacy**: Grandpa was once the grand champion of the Colosseum and an
+  esteemed member of the regional agricultural guild. The player grows up knowing him
+  simply as loving Grandpa, unaware of his legendary reputation.
+- **Pip's origin**: Pip belongs to Grandpa, not the player. Pip is extraordinarily old—the
+  pinnacle of Grandpa's lifetime of breeding, training, and care, upon which Grandpa
+  spent his life's accumulated fortune.
+- **Pip's role**: Pip is not a novice starter. Pip demonstrates mature autonomous harvesting
+  in the opening, guides the player, outlives Grandpa, and becomes an honored homestead
+  mentor to the player's new generation of critters.
+- **The passing of the torch**: Grandpa's eventual peaceful passing marks the end of the
+  guided childhood era and the beginning of independent homestead management. Townspeople
+  frequently remark that the player carries Grandpa's spirit.
+- **The friendly cousin**: A cousin of similar age receives a starter critter around the
+  same time, serving as a friendly rival, sparring partner, and ally during Colosseum festivals.
