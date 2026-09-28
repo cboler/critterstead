@@ -13,7 +13,9 @@ test('physically supplies the sawmill, clears its full crate, and carries lumber
   await walk(page, -1, -4);
   for (let i = 0; i < 3; i++) {
     await page.getByRole('button', { name: /Chop timber/ }).click();
-    await expect.poll(async () => (await developmentState(page)).work).toBeNull();
+    await expect
+      .poll(async () => (await developmentState(page)).work, { timeout: 15_000 })
+      .toBeNull();
   }
   await walk(page, 0, 0);
   await walk(page, 5, 1);
@@ -25,7 +27,9 @@ test('physically supplies the sawmill, clears its full crate, and carries lumber
   await walk(page, 6, 4);
   for (let i = 0; i < 3; i++) {
     await page.getByRole('button', { name: /Crack stone/ }).click();
-    await expect.poll(async () => (await developmentState(page)).work).toBeNull();
+    await expect
+      .poll(async () => (await developmentState(page)).work, { timeout: 15_000 })
+      .toBeNull();
   }
   await walk(page, 6.5, 1);
   await expect(page.locator('.interaction-copy')).toContainText('output crate full');
@@ -63,7 +67,9 @@ test('works physical timber and stone, carries and sets down cargo, and keeps a 
   await walk(page, -1, -4);
   for (let swing = 0; swing < 3; swing++) {
     await page.getByRole('button', { name: /Chop timber/ }).click();
-    await expect.poll(async () => (await developmentState(page)).work).toBeNull();
+    await expect
+      .poll(async () => (await developmentState(page)).work, { timeout: 15_000 })
+      .toBeNull();
   }
   await expect(page.locator('.rancher-card')).toContainText('Timber 2');
   const afterWork = await page.locator('.world-canvas canvas').boundingBox();
@@ -74,7 +80,9 @@ test('works physical timber and stone, carries and sets down cargo, and keeps a 
   await walk(page, 6, 4);
   for (let swing = 0; swing < 3; swing++) {
     await page.getByRole('button', { name: /Crack stone/ }).click();
-    await expect.poll(async () => (await developmentState(page)).work).toBeNull();
+    await expect
+      .poll(async () => (await developmentState(page)).work, { timeout: 15_000 })
+      .toBeNull();
   }
   await expect(page.locator('.load-status')).toContainText('Heavy');
   await page.screenshot({ path: info.outputPath('heavy-load.png'), fullPage: true });

@@ -460,6 +460,7 @@ test('walks home exhausted, recovers without supplies, and feeds through ordinar
   expect(activeCritter(await developmentState(page)).stamina).toBe(29);
   expect(backpack(await developmentState(page)).items).toEqual(backpack(stopped).items);
   await walk(page, -5, -5);
+  await page.getByRole('button', { name: /^Take 1 berry/ }).click();
   await page.getByRole('button', { name: /Berry treat/ }).click();
   await walk(page, -8, 0);
   await page.getByRole('button', { name: /Return to Bramblewick/ }).click();
