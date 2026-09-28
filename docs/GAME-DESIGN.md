@@ -480,14 +480,30 @@ Raw resources are refined through multi-tiered production networks:
 - **Dairying**: Fresh milk $\rightarrow$ Cheese press $\rightarrow$ Aged wheels of cheese.
 - **Orchardry**: Sunberries & orchard fruits $\rightarrow$ Preserving kettle $\rightarrow$ Jams & medicinal tonics.
 
-### Tools and durability
+### Tools, physical usability, and learned proficiency
 
-Tools are physical equipment with real requirements and maintenance:
+Tools and implements are physical equipment with real physical demands, skill scaling, and maintenance:
 
-- Tools possess minimum stat and manipulator requirements (e.g., a two-handed iron axe
-  demands 35 STR and functional hands).
-- Tools wear down with use, losing sharpness/efficiency before breaking.
-- Worn tools can be sharpened at a grindstone; broken tools must be repaired or reforged.
+- **Physical usability (stats & morphology)**: Physical attributes and body morphology determine
+  whether an actor can physically wield or handle a tool. For example, a heavy felling axe or
+  quarry sledge requires sufficient STR; critters require compatible manipulators (hands,
+  prehensile appendages, or an adapted draft harness) and suitable body size/form. When a physical
+  requirement is not met, the tool may be genuinely unusable or impose severe encumbrance and
+  fatigue penalties.
+- **Learned proficiency (skill realization)**: Skills determine how effectively the actor uses
+  the tool. A novice may be physically capable of swinging a high-quality or masterwork tool, but
+  gains little or none of its advanced benefit over a mundane implement. A skilled practitioner
+  can increasingly exploit the tool's intrinsic qualities—balance, precision, cutting edge or
+  striking efficiency, action speed, durability retention, and specialized features.
+- **Governing concept**: _Physical capability determines whether and how comfortably the tool can
+  be used; skill determines how much of the tool's potential the actor can realize._ A masterwork
+  item offers little greater utility to a layperson than a basic tool, while becoming truly
+  exceptional in expert hands.
+- **Durability & maintenance**: Tools wear down with use, losing edge and efficiency before breaking.
+  Worn tools can be honed at a grindstone; broken tools must be repaired or reforged at a
+  smithy/carpentry bench.
+- **Open balance questions**: Exact physical thresholds, item tiers, skill breakpoints, and
+  quality scaling formulas remain open balance questions to be tuned through play.
 
 ---
 
@@ -578,7 +594,7 @@ The starting honesty stall is temporary prototype scaffolding. The nearby town o
 - **Direct commerce**: selling directly to town shops, merchant stalls, or specialized
   buyers yields significantly better profit.
 - **Contracts & commissions**: town residents post personal requests, restaurant supply
-  orders, and seasonal guild commissions on the town bulletin board, offering bonus coin,
+  orders, and seasonal merchant commissions on the town bulletin board, offering bonus coin,
   rare recipes, or goodwill.
 
 ---
@@ -595,15 +611,37 @@ together in encounters.
 
 Critterstead deliberately separates wild exploration combat from town Colosseum contests:
 
-| Dimension        | Wilderness & Dungeon Adventuring                                 | Town Colosseum Competitions                                                |
-| :--------------- | :--------------------------------------------------------------- | :------------------------------------------------------------------------- |
-| **System**       | **Real-time** exploration and action checks                      | **Turn-based**, theatrical, tactical presentation                          |
-| **Stakes**       | Dangerous; wild beasts, hazards, potential defeat                | Nonlethal; staged spectator event, sport, prestige                         |
-| **Goals**        | Resource gathering, discovery, dungeon delving                   | Stat showcase, trophies, prize money, title standing                       |
-| **Consequences** | Defeat collapses the expedition (reload save / revive at clinic) | Loss yields experience, constructive critique, and small consolation purse |
+| Dimension        | Wilderness & Dungeon Adventuring                                                            | Town Colosseum Competitions                                                                         |
+| :--------------- | :------------------------------------------------------------------------------------------ | :-------------------------------------------------------------------------------------------------- |
+| **System**       | **Real-time** exploration and action checks                                                 | **Turn-based**, theatrical, tactical presentation                                                   |
+| **Stakes**       | Dangerous; wild beasts, hazards, potential defeat                                           | Nonlethal; staged spectator event, sport, prestige                                                  |
+| **Goals**        | Resource gathering, discovery, dungeon delving                                              | Stat showcase, trophies, prize money, title standing                                                |
+| **Consequences** | Defeat collapses the expedition (clinic revival / reload; see defeat and revival direction) | Loss yields experience, constructive critique, or modest recognition depending on tier (rules open) |
 
 Wild exploration includes forests, rocky canyons, abandoned quarries, subterranean mines,
 and ancient ruins.
+
+### Wilderness defeat, clinic revival, and personal reconstitution
+
+Exploration combat in wild terrain and deep ruins is genuinely dangerous, setting it apart from
+the theatrical safety of the town Colosseum:
+
+- **Expedition collapse**: An overwhelmed party is defeated and their expedition ends immediately.
+- **Clinic revival & reconstitution (standard mode)**: In ordinary (non-Ironman) play, defeat
+  results in the party being rescued or reconstituted at an Oakhaven clinic with meaningful
+  economic or resource consequences (such as medical treatment fees, loss of unbanked expedition
+  proceeds, or temporary recovery penalties).
+- **Personal reconstitution facility (late progression)**: In later progression, leveraging the
+  setting's established advanced biological and genetic technology, the player may be able to obtain
+  or build a personal revival / reconstitution / clone-pod-like facility on the stead, reducing
+  reliance on town medical services.
+- **Resource depletion & insolvency handling**: Running out of money is **not** currently canonized
+  as automatic permanent death in normal mode. Possible future handling includes emergency medical
+  debt, loss of expedition resources, temporary recovery penalties, or allowing the player to reload.
+- **Optional Ironman mode (future)**: A future optional Ironman difficulty mode may disable or
+  severely restrict revival, making combat defeat permanent.
+- **Open design parameters**: Exact lore terminology, revival formulas, monetary costs, unlock
+  timing, and specific penalty structures remain open design questions rather than settled canon.
 
 ---
 
@@ -689,16 +727,16 @@ renderer.
 
 ### Grandpa, Pip, and the player
 
-- **Grandpa's legacy**: Grandpa was once the grand champion of the Colosseum and an
-  esteemed member of the regional agricultural guild. The player grows up knowing him
-  simply as loving Grandpa, unaware of his legendary reputation.
+- **Grandpa's legacy**: Grandpa was once the grand champion of the Colosseum.
+  The player grows up knowing him simply as loving Grandpa, unaware of his legendary
+  reputation.
 - **Pip's origin**: Pip belongs to Grandpa, not the player. Pip is extraordinarily old—the
   pinnacle of Grandpa's lifetime of breeding, training, and care, upon which Grandpa
   spent his life's accumulated fortune.
 - **Pip's role**: Pip is not a novice starter. Pip demonstrates mature autonomous harvesting
   in the opening, guides the player, outlives Grandpa, and becomes an honored homestead
   mentor to the player's new generation of critters.
-- **The passing of the torch**: Grandpa's eventual peaceful passing marks the end of the
+- **The passing of the torch**: Grandpa's eventual passing marks the end of the
   guided childhood era and the beginning of independent homestead management. Townspeople
   frequently remark that the player carries Grandpa's spirit.
 - **The friendly cousin**: A cousin of similar age receives a starter critter around the

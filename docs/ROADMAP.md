@@ -89,8 +89,10 @@ staged progression (M1 through M9) that systematically builds the foundational v
 - **Delivered**: Daytime **Rest together** action at the companion's nook (120 game minutes,
   restoring up to 30 player / 35 critter stamina), retuned activity energy costs, and a
   compact bottom interaction dock replacing the obscuring card.
-- **Evidence**: Commit `c15cb30` / `d9ba9d7` merged via PR #1 into `main`. Fresh human routine
-  comparison script ready.
+- **Evidence**: Commit `c15cb30` / `d9ba9d7` merged via PR #1 into `main`. Human playtest
+  evaluation on 2026-09-27 confirmed that while Rest together functions smoothly, it did not
+  create a materially different or choice-driven loop by itself; this finding validates
+  moving forward into the broader M4–M9 multi-system runway rather than reopening M3.
 
 #### M4 — Rancher stats, generalized checks, and physical encumbrance (Next Milestone)
 

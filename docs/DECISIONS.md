@@ -88,11 +88,10 @@ milestones. [Milestone Rule](exec-plans/active/001-deepen-one-critter-daily-loop
 
 ### D19 — Canonical narrative background for Grandpa and Pip (accepted 2026-09-26)
 
-Grandpa was the former Colosseum grand champion and an esteemed agricultural guild
-member. He spent his life's accumulated fortune on the creation of Pip. The player
-grows up knowing him simply as Grandpa and discovers his renown organically later.
-Pip belongs to Grandpa, is extraordinarily old and experienced, and mentors the
-player's companions after Grandpa passes away. [Household](GAME-DESIGN.md#narrative-canon-and-household-history).
+Grandpa was the former Colosseum grand champion. He spent his life's accumulated fortune
+on the creation of Pip. The player grows up knowing him simply as Grandpa and discovers
+his renown organically later. Pip belongs to Grandpa, is extraordinarily old and experienced,
+and mentors the player's companions after Grandpa passes away. [Household](GAME-DESIGN.md#narrative-canon-and-household-history).
 
 ### D20 — Distinction between ownership, party, and active companion (accepted 2026-09-26)
 
@@ -162,12 +161,18 @@ tempo, stamina cost, yield quantity/quality, and tool wear. Failures have degree
 interconnected systems. Mechanics are inspectable via an optional diagnostic log.
 [Checks](GAME-DESIGN.md#checks-and-simulation).
 
-### D28 — Distinct dual combat models (adventure vs. Colosseum) (accepted 2026-09-27)
+### D28 — Distinct dual combat models and clinic revival direction (accepted 2026-09-27)
 
-Exploration combat in wild areas and dungeons is real-time, tense, and dangerous, with
-consequences for defeat (expedition wipe, clinic revival). Town Colosseum competition
-is turn-based, theatrical, and strictly nonlethal, focused on showcasing critter stats,
-initiative, and training before a stadium crowd. The two systems are deliberately separate.
+Exploration combat in wild areas and dungeons is real-time, tense, and genuinely dangerous.
+Defeat collapses the expedition. In ordinary play, defeat results in revival or reconstitution
+at an Oakhaven clinic with meaningful economic or resource consequences (medical fees, loss of
+unbanked proceeds, recovery penalties). Running out of money is not automatic permanent death
+in normal mode (potential handling includes medical debt, resource forfeiture, or reloading).
+In late progression, the player may build a personal revival / reconstitution / clone-pod-like
+facility on the stead utilizing the setting's advanced biological and genetic technology. An
+optional future Ironman mode may disable or severely restrict revival and enforce permanent death.
+Town Colosseum competition is turn-based, theatrical, and strictly nonlethal, showcasing critter
+stats, initiative, and training before a stadium crowd.
 [Combat](GAME-DESIGN.md#exploration-adventuring-and-party-structure).
 
 ### D29 — Authored macro-spaces, player micro-spaces (accepted 2026-09-27)
@@ -213,17 +218,19 @@ expanded farming/calendar, diverse training minigames, and a comprehensive playt
 The following areas are intentionally open for iterative design and human playtesting.
 Agents must not invent hardcoded canon or premature balance constants for these areas:
 
-| Question                                         | Current boundary / When it matters                                                          |
-| :----------------------------------------------- | :------------------------------------------------------------------------------------------ |
-| **Exact skill progression formulas & XP curves** | Skills range 1–99; concrete formulas will be calibrated during playtesting.                 |
-| **Stat check weighting coefficients**            | Formula direction is accepted; exact math weights will be tuned during M4.                  |
-| **Training diminishing-return curves & tonics**  | Diminishing returns are settled; exact fatigue numbers will be calibrated in M8.            |
-| **Breeding inheritance math & chimera genetics** | 9 families and artificial growth tech are settled; genetics algorithm belongs to Stage 4.   |
-| **Work priority & assignment UI presentation**   | RimWorld-like depth with friendly diegetic UI is settled; exact visual interface is open.   |
-| **Complete crop catalog & growth constants**     | Multi-crop seasonal farming is settled; specific species tables belong to M7.               |
-| **Appliance & workstation recipe catalog**       | Physical input/output logistics settled; specific crafting recipes expand with progression. |
-| **Town resident schedules & relationship arcs**  | Town of Oakhaven settled; individual NPC dialog and heart events belong to Stage 2.         |
-| **Turn-based Colosseum movesets & damage math**  | Nonlethal, theatrical, SPD-turn-order settled; specific combat skills belong to Stage 3.    |
-| **Automation throughput caps & scaling limits**  | Physical logistics settled; maximum autonomous efficiency will be playtested.               |
-| **Personality traits & preference influence**    | Evolving preferences settled; specific happiness formulas remain tunable.                   |
-| **Critter longevity & end-of-life timing**       | Natural aging and respectful mortality settled; 1200-day placeholder is not fixed canon.    |
+| Question                                               | Current boundary / When it matters                                                                                                                                                 |
+| :----------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Exact skill progression formulas & XP curves**       | Skills range 1–99; concrete formulas will be calibrated during playtesting.                                                                                                        |
+| **Stat check weighting coefficients**                  | Formula direction is accepted; exact math weights will be tuned during M4.                                                                                                         |
+| **Tool physical requirements & skill mastery scaling** | Physical usability (stats/morphology) gates handling; learned proficiency unlocks tool potential. Exact physical thresholds, item levels, skill breakpoints, and quality formulas. |
+| **Expedition defeat penalties & clinic revival fees**  | Clinic revival and late-game personal reconstitution pod are accepted design direction; exact fee structures, debt rules, and lore terms remain open.                              |
+| **Training diminishing-return curves & tonics**        | Diminishing returns are settled; exact fatigue numbers will be calibrated in M8.                                                                                                   |
+| **Breeding inheritance math & chimera genetics**       | 9 families and artificial growth tech are settled; genetics algorithm belongs to Stage 4.                                                                                          |
+| **Work priority & assignment UI presentation**         | RimWorld-like depth with friendly diegetic UI is settled; exact visual interface is open.                                                                                          |
+| **Complete crop catalog & growth constants**           | Multi-crop seasonal farming is settled; specific species tables belong to M7.                                                                                                      |
+| **Appliance & workstation recipe catalog**             | Physical input/output logistics settled; specific crafting recipes expand with progression.                                                                                        |
+| **Town resident schedules & relationship arcs**        | Town of Oakhaven settled; individual NPC dialog and heart events belong to Stage 2.                                                                                                |
+| **Turn-based Colosseum movesets & damage math**        | Nonlethal, theatrical, SPD-turn-order settled; specific combat skills belong to Stage 3.                                                                                           |
+| **Automation throughput caps & scaling limits**        | Physical logistics settled; maximum autonomous efficiency will be playtested.                                                                                                      |
+| **Personality traits & preference influence**          | Evolving preferences settled; specific happiness formulas remain tunable.                                                                                                          |
+| **Critter longevity & end-of-life timing**             | Natural aging and respectful mortality settled; 1200-day placeholder is not fixed canon.                                                                                           |

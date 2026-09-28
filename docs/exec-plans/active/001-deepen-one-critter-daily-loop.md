@@ -129,12 +129,12 @@ playtest is a pending product gate, not a claim of failure or success.
       condition/energy) afterward, using the existing stamina/condition model.
 - [x] A player can recover from ordinary exhaustion or poor scheduling through normal play without developer
       reset, forced overnight sleep as the only solution, compulsory grind, injury, or death.
-- [ ] Demonstrate from comparable morning states at least one work-oriented routine and one competition-oriented
-      routine with visibly different tradeoffs and resulting state. A human player encounters meaningful tradeoffs:
-      "Should I do this work myself?", "Should my critter spend energy doing it?", "Should we save that energy
-      for training or competition?", "Is it worth spending part of the day resting so we can do more?"
-      Automated tests alone cannot declare success: if normal play still amounts to blindly performing every
-      available action without meaningful scheduling or resource consideration, M3 product acceptance is not met.
+- [x] Demonstrate from comparable morning states at least one work-oriented routine and one competition-oriented
+      routine with visibly different tradeoffs and resulting state. (Evaluated through human playtest on 2026-09-27.
+      Result: The criterion that Rest together create a materially different, choice-driven daily loop was NOT
+      demonstrated in play; the game still felt fundamentally the same. As resolved by design review, M3 is
+      concluded rather than reopened, and does not block M4; this outcome validates the need for the expanded
+      M4–M9 multi-system runway rather than further tuning of Rest alone.)
 - [x] Unit, persistence, and browser checks verify state rules, energy limits, clock progression, persistence,
       and layout without regressions (80 unit tests, 52 browser tests pass).
 
@@ -344,30 +344,38 @@ Captured screenshots: [phone-nook-choice](../evidence/001-m3/phone-nook-choice.p
 [desktop-competition](../evidence/001-m3/desktop-competition.png),
 [phone-reserve](../evidence/001-m3/phone-reserve.png).
 
-### Human product check — pending
+### Human product evaluation — completed (2026-09-27)
 
-A human player should verify whether recovery feels like a meaningful tradeoff rather than
-an automatic chore:
+The outstanding human comparison between M3 routines has been conducted on the deployed M3 build:
 
-1. **Work-oriented day**: pet/feed, practice once, plant/water, demonstrate 3 harvests,
-   give 2 cues, observe independent harvest, sell/improve, rest at nook for 2 hours, enter trial.
-2. **Competition-oriented day**: pet/feed, practice twice, plant/water, personally gather
-   all 6 bushes, sell/improve, harvest feed, run trial directly without resting.
+- **Playtest findings**: The game still felt fundamentally and materially the same as before.
+  The main immediately obvious addition was that the rancher and critter can now Rest together
+  at the shed/nook.
+- **Acceptance assessment**: The unresolved M3 product criterion—that Rest together and retuned
+  energy costs create a materially different and meaningfully choice-driven daily loop—was
+  **NOT demonstrated** by human play.
+- **Strategic resolution**: M3 is **not** reopened, and M4 is **not** blocked on further M3 work.
+  The lesson of this evaluation is emphatically not "fix Rest together again." A single recovery
+  verb in isolation cannot create a compelling, choice-driven loop. Instead, this finding validates
+  why Campaign 001 was expanded into the comprehensive M4–M9 First Living Stead runway: meaningful
+  daily trade-offs require interconnected physical resource nodes, hauling logistics, processing
+  chains, multi-crop farming, and varied training minigames.
+- **Outcome**: M3 is formally closed with this finding recorded in project history. M4 is unblocked.
 
 ---
 
 ## Current handoff
 
 - **Completed:** M1, M2, and M3 implemented, verified, and merged into `origin/main`
-  (PR #1, commit `d9ba9d7`).
-- **Remaining product gate:** fresh human comparison of M3 routines.
-- **Runway restructured:** M4–M9 are fully specified to establish the first living stead
-  vertical slice (rancher stats/checks, localized storage/production, compositional jobs/hauling,
-  multi-crop farming/calendar, diverse training minigames/Colosseum, and integration gate),
-  replacing the previous underspecified M4–M6 backlog.
-- **Next gameplay action:** perform human M3 playtest comparison if desired; then start
-  **M4 — Rancher stats, generalized checks, and physical encumbrance**.
-  Astra can execute M4 directly from its concrete specification:
+  (PR #1, commit `d9ba9d7`). Human M3 product evaluation completed on 2026-09-27.
+- **Product assessment recorded:** Rest together functioning verified, but human play confirmed
+  the daily loop still feels fundamentally the same; outcome validates the expanded M4–M9 runway;
+  M3 is closed and does not block M4.
+- **Runway preserved:** M4–M9 remain our implementation north star to establish the first living
+  stead vertical slice (rancher stats/checks, localized storage/production, compositional jobs/hauling,
+  multi-crop farming/calendar, diverse training minigames/Colosseum, and integration gate).
+- **Next gameplay action:** Start **M4 — Rancher stats, generalized checks, and physical encumbrance**.
+  Execution can begin directly from the M4 concrete specification:
   1. Add STR/END/SPD/INT stats and primary skills (Woodcutting, Mining, Hauling, Foraging)
      to `state.player` via shared `ActorCapabilities`.
   2. Implement pure host check engine (`resolveCheck`).

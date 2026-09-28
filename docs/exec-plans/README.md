@@ -5,10 +5,10 @@ Read the relevant active plan, not every historical handoff.
 
 ## Index
 
-| Plan                                                                              | Status                                                         | Next action                                                                                 |
-| :-------------------------------------------------------------------------------- | :------------------------------------------------------------- | :------------------------------------------------------------------------------------------ |
-| [001 — The First Living Stead](active/001-deepen-one-critter-daily-loop.md)       | M1, M2, and M3 complete (merged via PR #1); M4–M9 restructured | Human comparison of M3 routines recommended; start M4 (rancher stats, checks, encumbrance). |
-| [000 — Repository memory bootstrap](completed/000-repository-memory-bootstrap.md) | Completed documentation conversion                             | Historical audit and verification evidence; no further bootstrap work planned.              |
+| Plan                                                                              | Status                                                          | Next action                                                                    |
+| :-------------------------------------------------------------------------------- | :-------------------------------------------------------------- | :----------------------------------------------------------------------------- |
+| [001 — The First Living Stead](active/001-deepen-one-critter-daily-loop.md)       | M1–M3 complete (human evaluation recorded); M4–M9 runway active | Start M4 (rancher stats, generalized checks, physical encumbrance).            |
+| [000 — Repository memory bootstrap](completed/000-repository-memory-bootstrap.md) | Completed documentation conversion                              | Historical audit and verification evidence; no further bootstrap work planned. |
 
 ## Working contract
 
