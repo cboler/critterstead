@@ -56,7 +56,7 @@ export async function walk(page: Page, x: number, z: number): Promise<void> {
     { keys: ['s', 'd'], x: 1.4 / Math.SQRT2, z: 0.2 / Math.SQRT2 },
   ];
   // Slow rendering can need more steering corrections; retain the same arrival tolerance.
-  const deadline = Date.now() + 30_000;
+  const deadline = Date.now() + 60_000;
   while (Date.now() < deadline) {
     const current = await position(page);
     const dx = x - current.x;

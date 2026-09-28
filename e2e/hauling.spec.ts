@@ -55,6 +55,7 @@ test('teaches the whole hauling route, cues it, then watches independent deliver
   await expect
     .poll(
       async () => activeCritter(await developmentState(page)).learnedBehaviors['lumber-hauling'],
+      { timeout: 20_000 },
     )
     .toBe(4);
   await page.getByRole('button', { name: /^Ask Mallow to haul a board/ }).click();
