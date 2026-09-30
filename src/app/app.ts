@@ -154,6 +154,7 @@ export class App implements AfterViewInit, OnDestroy {
   protected readonly qualityChoice = signal<QualityChoice>(storedQualityChoice());
   protected readonly quality = signal<Quality>('balanced');
   protected readonly rendererName = signal('');
+  protected readonly night = signal(false);
   protected readonly qualityOptions: { id: QualityChoice; label: string }[] = [
     { id: 'auto', label: 'Auto' },
     { id: 'cinematic', label: 'Cinematic' },
@@ -309,6 +310,10 @@ export class App implements AfterViewInit, OnDestroy {
       this.measureInsets();
     }
     this.world?.render(this.host.state, dt);
+    if (this.world && this.world.night !== this.night()) {
+      const night = this.world.night;
+      this.zone.run(() => this.night.set(night));
+    }
     this.refreshElapsed += dt;
     if (this.refreshElapsed >= (this.host.state.training ? 1 / 60 : 0.1)) {
       this.refreshElapsed = 0;

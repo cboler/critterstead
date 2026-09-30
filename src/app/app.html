@@ -3,6 +3,7 @@
   class="game-shell"
   [class.rail-open]="railOpen()"
   [class.quality-light]="quality() === 'light'"
+  [class.is-night]="night()"
   [attr.inert]="panel() ? '' : null"
 >
   <header class="masthead">
@@ -40,7 +41,9 @@
   </header>
   <div class="day-bar">
     <div class="season">
-      <span class="sun-icon" aria-hidden="true">{{ weatherIcons[weather()] }}</span>
+      <span class="sun-icon" aria-hidden="true">{{
+        night() && weather() === 'sunny' ? '☾' : weatherIcons[weather()]
+      }}</span>
       <div>
         <strong>Day {{ state().day }}</strong
         ><span

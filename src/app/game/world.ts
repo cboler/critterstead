@@ -6,6 +6,7 @@ import { plotReady } from './garden';
 import { calendarDate, weatherFor } from './calendar';
 import { buildSurroundings, type Surroundings } from './render/terrain';
 import { PALETTES, type SeasonPalette } from './render/palette';
+import { Atmosphere } from './render/atmosphere';
 import { activeCritter, type AreaId, type CropId, type GameState, type Point } from './model';
 import {
   detectQuality,
@@ -78,6 +79,7 @@ export class GameWorld {
   // Scenery depends on the area, the season's palette, and the detail tier.
   private builtKey = '';
   private palette: SeasonPalette = PALETTES.spring;
+  private readonly atmosphere: Atmosphere;
   private readonly gpuName: string;
   private readonly sunRight = new THREE.Vector3();
   private readonly sunUp = new THREE.Vector3();
@@ -204,6 +206,7 @@ export class GameWorld {
     this.companionLoad.add(this.mesh(this.box, '#866546', [0.37, 0.6, 0], [0.27, 0.35, 0.4]));
     this.critterBody.add(this.companionLoad);
     this.buildFeedback();
+    this.atmosphere = new Atmosphere(this.scene, this.sun, this.hemisphere, this.renderer);
     this.permanentGeometryCount = this.geometries.length;
     this.renderer.domElement.addEventListener('pointerdown', this.walk);
     this.renderer.domElement.addEventListener('pointermove', this.pinch);
@@ -213,6 +216,11 @@ export class GameWorld {
     this.observer = new ResizeObserver(() => this.resize());
     this.observer.observe(container);
     this.setQuality(qualityChoice);
+  }
+
+  /** Whether the outdoor scene is dark enough that HUD text should switch to its night style. */
+  get night(): boolean {
+    return this.area !== 'cottage' && this.atmosphere.night > 0.55;
   }
 
   get quality(): Quality {
@@ -228,6 +236,7 @@ export class GameWorld {
     this.qualityTier = choice === 'auto' ? detectQuality(this.gpuName) : choice;
     const settings = QUALITY_SETTINGS[this.qualityTier];
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, settings.pixelRatio));
+    this.atmosphere.configure(settings.detail, this.qualityTier !== 'light');
     if (this.sun.shadow.mapSize.x !== settings.shadowMapSize) {
       this.sun.shadow.mapSize.set(settings.shadowMapSize, settings.shadowMapSize);
       this.sun.shadow.map?.dispose();
@@ -309,7 +318,7 @@ export class GameWorld {
     }
     // Frame before any label is projected so labels never trail the camera.
     this.frame(state, visualCritterPosition, dt);
-    this.surroundings?.update(this.clock, 1);
+    this.surroundings?.update(this.clock, this.atmosphere.light, this.atmosphere.haze);
     const critterMoving = this.animateActor(
       this.critter,
       visualCritterPosition,
@@ -459,13 +468,17 @@ export class GameWorld {
       });
     }
     const indoors = state.areaId === 'cottage';
-    const overcast = !indoors && ['rain', 'cloudy', 'snow'].includes(weatherFor(state.day));
-    const daylight = indoors
-      ? 0.45
-      : Math.max(0, Math.sin(((state.minute - 360) / 840) * Math.PI)) * (overcast ? 0.6 : 1);
-    this.sun.intensity = 1.3 + daylight * 2;
-    this.hemisphere.intensity = 1.8 + daylight * 0.8;
-    this.sun.color.set(indoors || daylight < 0.25 ? '#f7bd87' : '#fff0ce');
+    this.atmosphere.update(
+      {
+        minute: state.minute,
+        weather: weatherFor(state.day),
+        indoors,
+        outdoorsNight: state.areaId === 'homestead' || state.areaId === 'glade',
+      },
+      this.clock,
+      this.focus,
+      this.palette.sky,
+    );
     const closestLabel = this.labels
       .filter((label) => !label.always)
       .sort(
@@ -648,7 +661,7 @@ export class GameWorld {
       shadow.updateProjectionMatrix();
     }
     const texel = (this.shadowExtent * 2) / this.sun.shadow.mapSize.x;
-    const direction = this.sunDirection;
+    const direction = this.atmosphere.sunDirection;
     const right = this.sunRight.set(0, 1, 0).cross(direction).normalize();
     const up = this.sunUp.copy(direction).cross(right);
     const along = this.focus.dot(direction);
@@ -696,6 +709,7 @@ export class GameWorld {
   private buildArea(state: GameState): void {
     this.surroundings?.dispose();
     this.surroundings = undefined;
+    this.atmosphere.resetLamps();
     this.scenery.traverse((object) => {
       if (object instanceof THREE.InstancedMesh) object.dispose();
     });
@@ -758,6 +772,8 @@ export class GameWorld {
       );
     }
     this.scenery.add(this.groundLoads);
+    // Window glass glows at night in every area that has windows.
+    this.atmosphere.glow(this.material('#719494'), 'glass');
     if (state.areaId === 'homestead') {
       for (const container of state.containers) {
         if (!('position' in container.location)) continue;
@@ -904,6 +920,14 @@ export class GameWorld {
     this.fence([8, 1.4], [8, 7], 4);
     this.fence([-4.9, 7.6], [-0.1, 7.6], 3);
     this.gate(8, 0, false);
+    for (const [x, z] of [
+      [-3.55, -1.75],
+      [-1.95, 1.1],
+      [2.45, -2.25],
+      [7.2, -1.35],
+      [-2.9, 4.9],
+    ] as [number, number][])
+      this.lantern(x, z);
     const labelHeights: Partial<Record<string, number>> = {
       house: 3.8,
       shed: 3.1,
@@ -1395,6 +1419,8 @@ export class GameWorld {
     booth.add(this.mesh(this.box, '#c8866a', [0, 1.85, -0.25], [1.4, 0.12, 0.8]));
     this.scenery.add(booth);
     this.gate(-8, 4, true);
+    this.lantern(-4.4, 1.6);
+    this.lantern(-6.6, 5.1);
     const heights: Partial<Record<string, number>> = { gate: 2.4, exhibition: 2.3 };
     for (const object of AREAS.colosseum.objects)
       this.label(
@@ -1404,6 +1430,22 @@ export class GameWorld {
         object.position.z,
         object.kind === 'gate',
       );
+  }
+
+  /** A path lantern: a post, a glass lamp that glows at night, and its light. */
+  private lantern(x: number, z: number): void {
+    const post = new THREE.Group();
+    post.position.set(x, 0, z);
+    post.add(this.mesh(this.box, '#7d6448', [0, 0.85, 0], [0.09, 1.7, 0.09]));
+    post.add(this.mesh(this.box, '#7d6448', [0.18, 1.62, 0], [0.4, 0.06, 0.06]));
+    post.add(this.mesh(this.box, '#5d5146', [0.34, 1.54, 0], [0.18, 0.04, 0.18]));
+    const glass = this.material('#ffe7a8');
+    this.atmosphere.glow(glass, 'flame');
+    post.add(this.mesh(this.box, '#ffe7a8', [0.34, 1.42, 0], [0.14, 0.18, 0.14]));
+    post.add(this.mesh(this.cone, '#5d5146', [0.34, 1.6, 0], [0.13, 0.12, 0.13]));
+    post.add(this.mesh(this.box, '#6f6152', [0, 0.04, 0], [0.26, 0.08, 0.26]));
+    this.scenery.add(post);
+    this.atmosphere.lamp(new THREE.Vector3(x + 0.34, 1.42, z), 1.6);
   }
 
   private cottageInterior(): void {
@@ -1448,6 +1490,8 @@ export class GameWorld {
           [0.16, 0.45 - Math.abs(flame - 1) * 0.12, 0.16],
         ),
       );
+    this.atmosphere.glow(this.material('#f6c25d'), 'flame');
+    this.atmosphere.glow(this.material('#ee8a45'), 'flame');
     const glow = new THREE.PointLight('#ffb36b', 6, 7, 1.6);
     glow.position.set(0, 0.8, 0.4);
     hearth.add(glow);

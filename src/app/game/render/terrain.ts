@@ -6,7 +6,7 @@ import { fbm, PALETTES, scatter, smoothstep, type SeasonPalette } from './palett
 /** Scenery outside the playable square: presentation only, never walkable. */
 export interface Surroundings {
   group: THREE.Group;
-  update(time: number, light: number): void;
+  update(time: number, light: number, sky: THREE.Color): void;
   dispose(): void;
 }
 
@@ -497,6 +497,7 @@ export function buildSurroundings(area: AreaId, season: Season, detail: number):
           uDeep: { value: new THREE.Color(palette.snow ? '#7f9fae' : '#4f8e95') },
           uShallow: { value: new THREE.Color(palette.snow ? '#b9d0d8' : '#86bfb8') },
           uFoam: { value: new THREE.Color('#f4fbf6') },
+          uSky: { value: new THREE.Color('#dfeae2') },
         },
         vertexShader: /* glsl */ `
           varying vec2 vUv;
@@ -513,6 +514,7 @@ export function buildSurroundings(area: AreaId, season: Season, detail: number):
           uniform vec3 uDeep;
           uniform vec3 uShallow;
           uniform vec3 uFoam;
+          uniform vec3 uSky;
           varying vec2 vUv;
           varying vec3 vWorld;
           void main() {
@@ -525,7 +527,9 @@ export function buildSurroundings(area: AreaId, season: Season, detail: number):
             float foam = smoothstep(0.8, 0.98, across + sin(flow * 7.0 + vWorld.z * 1.3) * 0.06);
             color = mix(color, uFoam, foam * 0.8);
             color += glint * 0.22;
-            gl_FragColor = vec4(color * uLight, 0.9);
+            // The surface borrows the sky's hue, more so as light fades.
+            color = mix(color * uLight, uSky, 0.16 + (1.0 - uLight) * 0.34);
+            gl_FragColor = vec4(color, 0.9);
             #include <tonemapping_fragment>
             #include <colorspace_fragment>
           }`,
@@ -575,10 +579,11 @@ export function buildSurroundings(area: AreaId, season: Season, detail: number):
 
   return {
     group,
-    update(time: number, light: number) {
+    update(time: number, light: number, sky: THREE.Color) {
       if (water) {
         water.uniforms['uTime'].value = time;
         water.uniforms['uLight'].value = light;
+        water.uniforms['uSky'].value.copy(sky);
       }
     },
     dispose() {

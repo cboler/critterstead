@@ -1,6 +1,6 @@
 # 002 — Living diorama presentation
 
-**Status:** in progress (V3). V1 (`2c7b6dc`) and V2 committed locally. Requested 2026-09-30 by the product owner: the game reads as
+**Status:** in progress (V4). V1–V3 committed locally. Requested 2026-09-30 by the product owner: the game reads as
 "compact"; make the visuals impressive. Independent of Campaign 001 M9 and save schema.
 
 ## Outcome and scope
@@ -52,6 +52,10 @@ inspection at 1440×900, 1280×800, 390×844 and 844×390; 44 px targets and red
   paths past the gates, seasonal palettes. Tall scenery is never planted where it would hide
   playable ground from the fixed camera angle.
 
+- V3: `render/atmosphere.ts` grades light through the day (sun arc and moon, fog, exposure),
+  tints by weather, animates rain/snow/fireflies on the GPU, lights lanterns and windows at
+  night, and keeps the cottage warm at every hour. HUD text switches to a night style.
+
 ## Next action
 
-Implement V3 (sun path, time-of-day grading, night glow, rain and snow).
+Implement V4 (wind, expressive characters, dust, contact shadows, interaction highlight).
