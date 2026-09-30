@@ -141,7 +141,7 @@ const WEATHER_LIGHT: Record<
 };
 
 /** A small canvas-drawn radial glow for halos and fireflies. */
-function glowTexture(): THREE.CanvasTexture {
+export function glowTexture(): THREE.CanvasTexture {
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = 64;
   const context = canvas.getContext('2d')!;

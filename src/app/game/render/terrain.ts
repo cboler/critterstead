@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { AreaId, Season } from '../model';
 import { fbm, PALETTES, scatter, smoothstep, type SeasonPalette } from './palette';
+import { addWind } from './wind';
 
 /** Scenery outside the playable square: presentation only, never walkable. */
 export interface Surroundings {
@@ -296,6 +297,8 @@ export function buildSurroundings(area: AreaId, season: Season, detail: number):
   const foliage = keep(
     new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.9 }),
   );
+  // Canopies sway; bushes are too short to bend.
+  addWind(foliage, 'tree');
   const random = scatter(layout.seed * 31 + season.length);
   const instanced = (geometry: THREE.BufferGeometry, count: number): THREE.InstancedMesh => {
     const mesh = new THREE.InstancedMesh(keep(geometry), foliage, Math.max(1, count));
@@ -390,9 +393,11 @@ export function buildSurroundings(area: AreaId, season: Season, detail: number):
   }
 
   // Meadow grass and flowers between the hedge and the trees.
+  const bladeMaterial = keep(new THREE.MeshStandardMaterial({ color: palette.blade, roughness: 1 }));
+  addWind(bladeMaterial, 'blade');
   const blades = new THREE.InstancedMesh(
     keep(new THREE.ConeGeometry(0.35, 1, 4)),
-    keep(new THREE.MeshStandardMaterial({ color: palette.blade, roughness: 1 })),
+    bladeMaterial,
     Math.round(1100 * detail),
   );
   const petals = new THREE.InstancedMesh(
@@ -569,7 +574,10 @@ export function buildSurroundings(area: AreaId, season: Season, detail: number):
         part(new THREE.BoxGeometry(span - 0.3, 0.09, 0.1), wood[0], [0, 0.78, side * 0.84]),
       );
     }
-    const bridge = new THREE.Mesh(keep(mergeGeometries(parts)!), foliage);
+    const timber = keep(
+      new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.85 }),
+    );
+    const bridge = new THREE.Mesh(keep(mergeGeometries(parts)!), timber);
     bridge.position.set(layout.crossing.x, 0, layout.crossing.z);
     bridge.rotation.y = layout.crossing.angle;
     bridge.castShadow = true;

@@ -328,6 +328,7 @@ export class App implements AfterViewInit, OnDestroy {
     this.state.set(structuredClone(this.host.state));
     const interaction = this.host.interaction();
     this.nearby.set(interaction);
+    this.world?.setTarget(this.host.state.training ? null : (interaction?.id ?? null));
     if (
       !interaction?.actions.some((action) => action.id === this.gamepadAction() && !action.disabled)
     )

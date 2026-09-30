@@ -1,6 +1,6 @@
 # 002 — Living diorama presentation
 
-**Status:** in progress (V4). V1–V3 committed locally. Requested 2026-09-30 by the product owner: the game reads as
+**Status:** in progress (V5). V1–V4 committed locally. Requested 2026-09-30 by the product owner: the game reads as
 "compact"; make the visuals impressive. Independent of Campaign 001 M9 and save schema.
 
 ## Outcome and scope
@@ -56,6 +56,10 @@ inspection at 1440×900, 1280×800, 390×844 and 844×390; 44 px targets and red
   tints by weather, animates rain/snow/fireflies on the GPU, lights lanterns and windows at
   night, and keeps the cottage warm at every hour. HUD text switches to a night style.
 
+- V4: world-space wind (`render/wind.ts`) on grass and forest canopies, group sway for yard
+  trees and crops, blinking/glancing/squashing Mallow, swinging rancher arms, footstep dust,
+  contact shadows, a gold ring under the dock's target, and fair-weather butterflies.
+
 ## Next action
 
-Implement V4 (wind, expressive characters, dust, contact shadows, interaction highlight).
+Implement V5 (post-processing tiers, reflections, area fade, morning title card, docs).

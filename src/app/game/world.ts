@@ -6,7 +6,8 @@ import { plotReady } from './garden';
 import { calendarDate, weatherFor } from './calendar';
 import { buildSurroundings, type Surroundings } from './render/terrain';
 import { PALETTES, type SeasonPalette } from './render/palette';
-import { Atmosphere } from './render/atmosphere';
+import { Atmosphere, glowTexture } from './render/atmosphere';
+import { addWind, wind } from './render/wind';
 import { activeCritter, type AreaId, type CropId, type GameState, type Point } from './model';
 import {
   detectQuality,
@@ -57,6 +58,10 @@ const INDOOR_ZOOM = 4.6;
 // Narrow phone screens still show a useful width of the world around the rancher.
 const MIN_HALF_WIDTH = 5.4;
 const RELEASE_EVENTS = ['pointerup', 'pointercancel', 'pointerleave'] as const;
+// Wind by weather: blustery rain, still snow.
+const WIND_BY_WEATHER = { sunny: 1, cloudy: 1.25, rain: 1.8, snow: 0.6 } as const;
+const BUTTERFLY_COLORS = ['#f4e3a1', '#fbf6e8', '#bcd3e6', '#f2c1a8'];
+const PUFF_LIFE = 0.7;
 
 /** A view of the simulation. Geometry and animation never change game state. */
 export class GameWorld {
@@ -80,6 +85,21 @@ export class GameWorld {
   private builtKey = '';
   private palette: SeasonPalette = PALETTES.spring;
   private readonly atmosphere: Atmosphere;
+  // Ambient life: sway, expressions, footstep dust, contact shadows, and the target ring.
+  private readonly soft = glowTexture();
+  private readonly areaMaterials: THREE.Material[] = [];
+  private readonly swaying: { object: THREE.Object3D; phase: number; amount: number }[] = [];
+  private readonly critterEyes: THREE.Mesh[] = [];
+  private readonly farmerEyes: THREE.Mesh[] = [];
+  private readonly critterEars: THREE.Mesh[] = [];
+  private readonly farmerArms: THREE.Group[] = [];
+  private blink = { critter: 1.6, farmer: 2.8, twitch: 3.5 };
+  private readonly puffs: { sprite: THREE.Sprite; life: number }[] = [];
+  private puffTimer = 0;
+  private readonly contactShadows: THREE.Mesh[] = [];
+  private readonly targetRing: THREE.Mesh;
+  private targetId: string | null = null;
+  private readonly butterflies = new THREE.Group();
   private readonly gpuName: string;
   private readonly sunRight = new THREE.Vector3();
   private readonly sunUp = new THREE.Vector3();
@@ -207,6 +227,56 @@ export class GameWorld {
     this.critterBody.add(this.companionLoad);
     this.buildFeedback();
     this.atmosphere = new Atmosphere(this.scene, this.sun, this.hemisphere, this.renderer);
+    for (let index = 0; index < 28; index++) {
+      const sprite = new THREE.Sprite(
+        new THREE.SpriteMaterial({ map: this.soft, transparent: true, depthWrite: false }),
+      );
+      sprite.visible = false;
+      this.puffs.push({ sprite, life: 0 });
+      this.scene.add(sprite);
+    }
+    const shadowGeometry = this.keep(new THREE.PlaneGeometry(1, 1));
+    for (const size of [1.05, 1.3]) {
+      const shadow = new THREE.Mesh(
+        shadowGeometry,
+        new THREE.MeshBasicMaterial({
+          map: this.soft,
+          color: '#1b261f',
+          transparent: true,
+          opacity: 0.34,
+          depthWrite: false,
+        }),
+      );
+      shadow.rotation.x = -Math.PI / 2;
+      shadow.scale.setScalar(size);
+      shadow.renderOrder = 1;
+      this.contactShadows.push(shadow);
+      this.scene.add(shadow);
+    }
+    this.targetRing = new THREE.Mesh(
+      this.keep(new THREE.RingGeometry(0.78, 0.95, 56)),
+      new THREE.MeshBasicMaterial({ color: '#f0bf45', transparent: true, depthWrite: false }),
+    );
+    this.targetRing.rotation.x = -Math.PI / 2;
+    this.targetRing.renderOrder = 2;
+    this.targetRing.visible = false;
+    this.scene.add(this.targetRing);
+    const wingGeometry = this.keep(new THREE.PlaneGeometry(0.26, 0.2).translate(0.13, 0, 0));
+    for (let index = 0; index < 7; index++) {
+      const butterfly = new THREE.Group();
+      const material = new THREE.MeshStandardMaterial({
+        color: BUTTERFLY_COLORS[index % BUTTERFLY_COLORS.length],
+        side: THREE.DoubleSide,
+        roughness: 0.6,
+      });
+      for (const side of [-1, 1]) {
+        const wing = new THREE.Mesh(wingGeometry, material);
+        wing.scale.x = side;
+        butterfly.add(wing);
+      }
+      this.butterflies.add(butterfly);
+    }
+    this.scene.add(this.butterflies);
     this.permanentGeometryCount = this.geometries.length;
     this.renderer.domElement.addEventListener('pointerdown', this.walk);
     this.renderer.domElement.addEventListener('pointermove', this.pinch);
@@ -363,8 +433,7 @@ export class GameWorld {
         leg.rotation.x = Math.sin(this.clock * 17 + index * Math.PI) * 0.6;
       });
     }
-    this.tail.rotation.z = Math.sin(this.clock * 3.2) * 0.12;
-    this.tail.rotation.x = Math.sin(this.clock * 2.1) * 0.07;
+    this.animateLife(state, dt, visualCritterPosition, playerMoving, critterMoving, jumpHeight);
     // A companion working in the yard is not drawn inside the cottage.
     this.critter.visible = state.areaId !== 'cottage' || state.companionIndoors;
     this.critterLabel.style.display = this.critter.visible ? '' : 'none';
@@ -518,6 +587,11 @@ export class GameWorld {
     };
   }
 
+  /** Marks the thing the interaction dock acts on with a soft ring (null hides it). */
+  setTarget(id: string | null): void {
+    this.targetId = id;
+  }
+
   /** Multiplies the visible world span; values above 1 zoom out. */
   zoomBy(factor: number): void {
     const indoors = this.area === 'cottage';
@@ -540,6 +614,9 @@ export class GameWorld {
     });
     this.geometries.forEach((geometry) => geometry.dispose());
     this.materials.forEach((material) => material.dispose());
+    this.areaMaterials.forEach((material) => material.dispose());
+    this.atmosphere.dispose();
+    this.soft.dispose();
     this.renderer.dispose();
     this.renderer.domElement.remove();
     this.labelLayer.remove();
@@ -710,6 +787,8 @@ export class GameWorld {
     this.surroundings?.dispose();
     this.surroundings = undefined;
     this.atmosphere.resetLamps();
+    this.swaying.length = 0;
+    this.areaMaterials.splice(0).forEach((material) => material.dispose());
     this.scenery.traverse((object) => {
       if (object instanceof THREE.InstancedMesh) object.dispose();
     });
@@ -1095,6 +1174,7 @@ export class GameWorld {
       }
     }
     this.scenery.add(tree);
+    this.swaying.push({ object: tree, phase: variant * 1.7, amount: 0.022 });
   }
 
   private cottage(x: number, z: number): void {
@@ -1298,6 +1378,7 @@ export class GameWorld {
         }
       bed.add(plants);
       this.beds.set(plot.id, { soil, weeds, plants, leaves, fruit });
+      this.swaying.push({ object: plants, phase: index * 2.3, amount: 0.07 });
       this.scenery.add(bed);
     });
     this.label('Garden beds', -4.3, 1.1, 2.7);
@@ -1714,7 +1795,10 @@ export class GameWorld {
       randomSeed = (randomSeed * 1664525 + 1013904223) >>> 0;
       return randomSeed / 4294967296;
     };
-    const grass = new THREE.InstancedMesh(this.cone, this.material(this.palette.blade), 360);
+    const blade = new THREE.MeshStandardMaterial({ color: this.palette.blade, roughness: 0.91 });
+    addWind(blade, 'blade');
+    this.areaMaterials.push(blade);
+    const grass = new THREE.InstancedMesh(this.cone, blade, 360);
     const flowers = new THREE.InstancedMesh(this.sphere, this.material(this.palette.flower), 94);
     const lavender = new THREE.InstancedMesh(this.sphere, this.material('#b5a5b4'), 50);
     const transform = new THREE.Object3D();
@@ -1768,13 +1852,30 @@ export class GameWorld {
     body.add(this.mesh(this.sphere, '#e6cc8c', [0, 1.6, 0], [0.27, 0.2, 0.25]));
     body.add(this.mesh(this.cylinder, '#a57a54', [0, 1.56, 0], [0.275, 0.07, 0.26]));
     for (const side of [-1, 1]) {
-      body.add(
-        this.mesh(this.sphere, '#493f32', [side * 0.078, 1.31, 0.276], [0.019, 0.025, 0.018]),
+      const eye = this.mesh(
+        this.sphere,
+        '#493f32',
+        [side * 0.078, 1.31, 0.276],
+        [0.019, 0.025, 0.018],
       );
-      const arm = this.mesh(this.cylinder, '#e6d9ad', [side * 0.32, 0.89, 0], [0.092, 0.41, 0.092]);
+      body.add(eye);
+      this.farmerEyes.push(eye);
+      // Arms hang from a shoulder pivot so they can swing while walking.
+      const shoulder = new THREE.Group();
+      shoulder.position.set(side * 0.3, 1.08, 0);
+      const arm = this.mesh(
+        this.cylinder,
+        '#e6d9ad',
+        [side * 0.02, -0.19, 0],
+        [0.092, 0.41, 0.092],
+      );
       arm.rotation.z = side * 0.22;
-      body.add(arm);
-      body.add(this.mesh(this.sphere, '#dfad85', [side * 0.365, 0.67, 0.015], [0.085, 0.1, 0.085]));
+      shoulder.add(arm);
+      shoulder.add(
+        this.mesh(this.sphere, '#dfad85', [side * 0.065, -0.41, 0.015], [0.085, 0.1, 0.085]),
+      );
+      body.add(shoulder);
+      this.farmerArms.push(shoulder);
       const leg = this.mesh(this.cylinder, '#4f7770', [side * 0.13, 0.34, 0], [0.1, 0.47, 0.1]);
       leg.add(this.mesh(this.box, '#6d604b', [0, -0.42, 0.35], [1.12, 0.3, 1.8]));
       this.farmerLegs.push(leg);
@@ -1799,6 +1900,7 @@ export class GameWorld {
       );
       ear.rotation.z = -side * 0.28;
       body.add(ear);
+      this.critterEars.push(ear);
       const inner = this.mesh(
         this.sphere,
         '#ba7b67',
@@ -1807,13 +1909,16 @@ export class GameWorld {
       );
       inner.rotation.z = -side * 0.28;
       body.add(inner);
-      body.add(this.mesh(this.sphere, '#f9e3bc', [side * 0.17, 1.045, 0.562], [0.13, 0.14, 0.038]));
-      body.add(
+      this.critterEars.push(inner);
+      for (const eye of [
+        this.mesh(this.sphere, '#f9e3bc', [side * 0.17, 1.045, 0.562], [0.13, 0.14, 0.038]),
         this.mesh(this.sphere, '#384c40', [side * 0.17, 1.055, 0.599], [0.059, 0.071, 0.025]),
-      );
-      body.add(
         this.mesh(this.sphere, '#fff6da', [side * 0.155, 1.08, 0.622], [0.015, 0.019, 0.008]),
-      );
+      ]) {
+        eye.userData['open'] = eye.scale.y;
+        body.add(eye);
+        this.critterEyes.push(eye);
+      }
       body.add(
         this.mesh(this.sphere, '#d58f77', [side * 0.28, 0.939, 0.507], [0.073, 0.038, 0.025]),
       );
@@ -1852,6 +1957,183 @@ export class GameWorld {
     }
     body.add(this.tail);
     this.critter.rotation.y = 0.6;
+  }
+
+  /** Breath, blinks, glances, sway, dust, grounding shadows, the target ring, butterflies. */
+  private animateLife(
+    state: GameState,
+    dt: number,
+    companionView: Point,
+    playerMoving: boolean,
+    critterMoving: boolean,
+    jumpHeight: number,
+  ): void {
+    const companion = activeCritter(state);
+    const still = this.reducedMotion;
+    const weather = weatherFor(state.day);
+    const indoors = state.areaId === 'cottage';
+    wind.time.value = this.clock;
+    wind.strength.value = still || indoors ? 0 : WIND_BY_WEATHER[weather];
+    for (const { object, phase, amount } of this.swaying) {
+      object.rotation.z = still
+        ? 0
+        : Math.sin(this.clock * 1.1 + phase) * amount * wind.strength.value;
+      object.rotation.x = still
+        ? 0
+        : Math.cos(this.clock * 0.8 + phase) * amount * 0.6 * wind.strength.value;
+    }
+
+    // Mallow wags harder when happy, breathes when resting and squashes into each hop.
+    const cheer = companion.happiness / 100;
+    this.tail.rotation.z = Math.sin(this.clock * (2.4 + cheer * 4)) * (0.08 + cheer * 0.12);
+    this.tail.rotation.x = Math.sin(this.clock * 2.1) * 0.07;
+    const squash = still
+      ? 0
+      : critterMoving || state.training
+        ? Math.sin(this.clock * 24) * 0.05
+        : Math.sin(this.clock * 2.4) * 0.014;
+    this.critterBody.scale.set(1 - squash * 0.5, 1 + squash, 1 - squash * 0.5);
+    const player = state.player.position;
+    const gap = Math.hypot(player.x - companionView.x, player.z - companionView.z);
+    if (!critterMoving && !state.training && gap < 3.6 && gap > 0.2) {
+      const target = Math.atan2(player.x - companionView.x, player.z - companionView.z);
+      const turn = Math.atan2(
+        Math.sin(target - this.critter.rotation.y),
+        Math.cos(target - this.critter.rotation.y),
+      );
+      this.critter.rotation.y += turn * Math.min(1, dt * 2.5);
+    }
+    this.blink.critter -= dt;
+    this.blink.farmer -= dt;
+    this.blink.twitch -= dt;
+    const shut = (timer: number) => timer < 0 && timer > -0.13;
+    for (const eye of this.critterEyes)
+      eye.scale.y = (eye.userData['open'] as number) * (shut(this.blink.critter) ? 0.12 : 1);
+    for (const eye of this.farmerEyes) eye.scale.y = shut(this.blink.farmer) ? 0.004 : 0.025;
+    if (this.blink.critter < -0.13) this.blink.critter = 2 + Math.random() * 3.2;
+    if (this.blink.farmer < -0.13) this.blink.farmer = 2.6 + Math.random() * 3.5;
+    const twitch = this.blink.twitch < 0 && this.blink.twitch > -0.3 && !still;
+    this.critterEars.forEach((ear, index) => {
+      const side = index < 2 ? -1 : 1;
+      ear.rotation.z = -side * 0.28 + (twitch ? Math.sin(this.clock * 38) * 0.18 : 0);
+    });
+    if (this.blink.twitch < -0.3) this.blink.twitch = 3 + Math.random() * 5;
+    this.farmerArms.forEach((arm, index) => {
+      const swing = playerMoving && !still ? Math.sin(this.clock * 11 + index * Math.PI) * 0.55 : 0;
+      arm.rotation.x += (swing - arm.rotation.x) * Math.min(1, dt * 12);
+    });
+
+    // Footstep dust (or splashes, or powder) while moving.
+    this.puffTimer -= dt;
+    const detail = QUALITY_SETTINGS[this.qualityTier].detail;
+    if (!still && this.puffTimer <= 0 && (playerMoving || critterMoving)) {
+      this.puffTimer = 0.2 / Math.max(0.4, detail);
+      const tint = this.palette.snow
+        ? '#ffffff'
+        : weather === 'rain'
+          ? '#d7e6ef'
+          : indoors
+            ? '#d8c3a2'
+            : '#eadfc4';
+      for (const [moving, position] of [
+        [playerMoving, player],
+        [critterMoving && this.critter.visible, companionView],
+      ] as [boolean, Point][]) {
+        if (!moving) continue;
+        const puff = this.puffs.reduce((oldest, item) => (item.life < oldest.life ? item : oldest));
+        puff.life = PUFF_LIFE;
+        puff.sprite.visible = true;
+        puff.sprite.position.set(
+          position.x + (Math.random() - 0.5) * 0.3,
+          0.1,
+          position.z + (Math.random() - 0.5) * 0.3,
+        );
+        (puff.sprite.material as THREE.SpriteMaterial).color.set(tint);
+      }
+    }
+    for (const puff of this.puffs) {
+      if (puff.life <= 0) continue;
+      puff.life -= dt;
+      const age = 1 - Math.max(0, puff.life) / PUFF_LIFE;
+      puff.sprite.visible = puff.life > 0;
+      puff.sprite.scale.setScalar(0.22 + age * 0.5);
+      puff.sprite.position.y += dt * 0.35;
+      (puff.sprite.material as THREE.SpriteMaterial).opacity = (1 - age) * 0.5;
+    }
+
+    // Soft contact shadows keep figures grounded, even at night or under cloud.
+    const [under, underCritter] = this.contactShadows;
+    under.position.set(player.x, 0.045, player.z);
+    underCritter.visible = this.critter.visible;
+    underCritter.position.set(companionView.x, 0.045, companionView.z);
+    underCritter.scale.setScalar(1.3 * (1 - jumpHeight * 0.45));
+
+    // A pulsing ring marks what the dock's primary action will affect.
+    const target =
+      this.targetId && !state.training && !state.work
+        ? this.targetPoint(state, this.targetId, companionView)
+        : null;
+    this.targetRing.visible = !!target;
+    if (target) {
+      this.targetRing.position.set(target.x, 0.1, target.z);
+      const pulse = still ? 1 : 1 + Math.sin(this.clock * 4) * 0.04;
+      this.targetRing.scale.setScalar(target.radius * pulse);
+      (this.targetRing.material as THREE.MeshBasicMaterial).opacity =
+        0.75 + (still ? 0.15 : Math.sin(this.clock * 4) * 0.2);
+    }
+
+    // Butterflies visit on fair spring and summer days.
+    const season = calendarDate(state.day).season;
+    const fair =
+      (weather === 'sunny' || weather === 'cloudy') && (season === 'spring' || season === 'summer');
+    this.butterflies.visible =
+      fair && !indoors && state.areaId !== 'colosseum' && this.atmosphere.night < 0.25;
+    if (this.butterflies.visible)
+      this.butterflies.children.forEach((butterfly, index) => {
+        const t = this.clock + index * 13.7;
+        const anchorX = THREE.MathUtils.clamp(this.focus.x + Math.cos(index * 2.1) * 5, -8.5, 8.5);
+        const anchorZ = THREE.MathUtils.clamp(
+          this.focus.z + Math.sin(index * 1.7) * 4.5,
+          -8.5,
+          8.5,
+        );
+        const x = anchorX + Math.sin(t * 0.37) * 2.2;
+        const z = anchorZ + Math.cos(t * 0.29) * 2.2;
+        butterfly.position.set(x, 0.75 + Math.sin(t * 1.3) * 0.32, z);
+        butterfly.rotation.y = Math.atan2(Math.cos(t * 0.37) * 0.8, -Math.sin(t * 0.29) * 0.64);
+        const flap = still ? 0.5 : 0.35 + Math.sin(t * 17) * 0.75;
+        butterfly.children[0].rotation.z = flap;
+        butterfly.children[1].rotation.z = -flap;
+      });
+  }
+
+  /** Where the target ring sits for an interaction target, with a fitting radius. */
+  private targetPoint(
+    state: GameState,
+    id: string,
+    companionView: Point,
+  ): { x: number; z: number; radius: number } | null {
+    if (id === activeCritter(state).id) return { ...companionView, radius: 0.72 };
+    const object = AREAS[state.areaId].objects.find((item) => item.id === id);
+    if (object) {
+      // Buildings are marked at their door rather than around their whole footprint.
+      if (object.kind === 'house')
+        return { x: object.position.x + 0.55, z: object.position.z + 2.05, radius: 0.72 };
+      if (object.kind === 'shed')
+        return { x: object.position.x + 0.25, z: object.position.z + 1.85, radius: 0.8 };
+      // The ring reaches just past the object's footprint so it stays visible around it.
+      return { ...object.position, radius: Math.min(1.9, object.radius + 0.45) };
+    }
+    const container = state.containers.find((item) => item.id === id);
+    if (container && 'position' in container.location)
+      return { ...container.location.position, radius: 0.95 };
+    const plot = state.plots.find((item) => item.id === id);
+    if (plot) return { ...plot.position, radius: 0.8 };
+    const node = [...state.materialNodes, ...state.resources, ...state.groundCargo].find(
+      (item) => item.id === id,
+    );
+    if (node) return { ...node.position, radius: 'kind' in node ? 1.2 : 0.9 };
+    return null;
   }
 
   private buildFeedback(): void {
