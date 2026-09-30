@@ -87,8 +87,9 @@ machine: walks stalled, the gauge drill could not be held, and 30 s tests timed 
   instead of a fixed 400 ms; at 4 fps the heaviest desktop journeys (training, hauling,
   sawmill, household) passed. Normal local suite: 63 passed, 25 project-scoped skips, 0
   failed; unit 121/121, lint, formatting, `/critterstead/` build and `check:pwa` pass.
+- Pages workflow for `abbd5f8` passed on the first attempt: 63 passed, 25 skips, no retries
+  (browser suite 25.2 min, job 26.6 min); the live site serves the diorama.
 
 ## Next action
 
-Confirm the Pages workflow passes for the follow-up commit and the live site shows the
-diorama. Campaign 001 then continues with M9.
+None in this plan. Campaign 001 continues with M9.
