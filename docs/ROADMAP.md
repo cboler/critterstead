@@ -63,11 +63,11 @@ staged progression (M1 through M9) that systematically builds the foundational v
   |
 [M5: Localized Storage & Production] (Complete - save v5)
   |
-[M6: Compositional Jobs & Hauling] (Next implementation checkpoint)
+[M6: Compositional Jobs & Hauling] (Complete - save v6)
   |
-[M7: Multi-Crop Farming & Calendar] (Specified)
+[M7: Multi-Crop Farming & Calendar] (Complete - save v7)
   |
-[M8: Diverse Training & Colosseum] (Specified)
+[M8: Diverse Training & Colosseum] (Next)
   |
 [M9: Vertical Slice Gate] (Specified)
 ```
@@ -132,7 +132,10 @@ staged progression (M1 through M9) that systematically builds the foundational v
      when exhausted, it rests at the nook before resuming work.
   4. A tangible reduction in player daily chores through successful delegation.
 
-#### M7 — Multi-crop farming, cottage interior, and household calendar
+#### M7 — Multi-crop farming, cottage interior, and household calendar (Complete)
+
+- **Delivered**: save v7; see campaign evidence for the implemented scope (weeds are
+  limited to untilled beds; festivals and market days are not yet authored).
 
 - **Player-visible change**:
   1. Expand the single feed crop into a 4-plot tilled garden grid supporting seasonal crops

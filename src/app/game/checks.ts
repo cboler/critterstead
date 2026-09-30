@@ -52,6 +52,11 @@ export const ITEM_MASS: Record<InventoryItem['itemId'], number> = {
   timber: 8,
   stone: 12,
   lumber: 4,
+  turnip: 0.4,
+  wheat: 0.3,
+  'turnip-seed': 0.05,
+  'wheat-seed': 0.05,
+  'sunberry-seed': 0.05,
 };
 
 export function encumbrance(actor: ActorCapabilities, items: InventoryItem[]) {

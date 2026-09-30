@@ -1,5 +1,5 @@
 import { createInitialState, LocalGameHost } from './host';
-import { addItem, quantity } from './logistics';
+import { addItem, ITEM_IDS, quantity } from './logistics';
 import { backpack, satchel } from './model';
 import { readSave, validateSave } from './storage';
 import { legacyV5 } from './fixtures/legacy-v5';
@@ -172,7 +172,16 @@ describe('compositional learned hauling', () => {
   it('migrates frozen v5 without moving goods or rerolling the seed and rejects invalid tasks', () => {
     const before = structuredClone(legacyV5);
     const state = readSave(before);
-    expect(state.containers).toEqual(before.containers);
+    // Contents and places are unchanged; general containers also accept v7 garden goods.
+    expect(state.containers.map((item) => ({ ...item, allowed: [] }))).toEqual(
+      before.containers.map((item) => ({ ...item, allowed: [] })),
+    );
+    for (const container of state.containers)
+      expect(container.allowed).toEqual(
+        ['mill-input', 'mill-output', 'trough'].includes(container.kind)
+          ? before.containers.find((item) => item.id === container.id)!.allowed
+          : ITEM_IDS,
+      );
     expect(state.production).toEqual(before.production);
     expect(state.seed).toBe(before.seed);
     expect(readSave(state)).toEqual(state);

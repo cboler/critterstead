@@ -3,8 +3,11 @@ import {
   AreaId,
   BehaviorDefinition,
   BehaviorId,
+  CropDefinition,
+  CropId,
   MaterialNode,
   Point,
+  SoilPlot,
 } from './model';
 
 // Provisional loop-testing starter, separate from Grandpa’s narrative Pip.
@@ -15,7 +18,6 @@ export const GAME_CONFIG = {
   interactionDistance: 2.35,
   movementSpeed: 4,
   berryRespawnMinutes: 180,
-  cropGrowthMinutes: 180,
   shedCost: 12,
   // M3 balance experiment: a same-day break and a reserve for self-directed work.
   restMinutes: 120,
@@ -125,7 +127,6 @@ export const AREAS: Record<AreaId, AreaDefinition> = {
     objects: [
       { id: 'house', kind: 'house', name: 'Your cottage', position: { x: -5, z: -4 }, radius: 1.9 },
       { id: 'shed', kind: 'shed', name: 'Companion nook', position: { x: 4, z: -4 }, radius: 1.5 },
-      { id: 'crop', kind: 'crop', name: 'Feed garden', position: { x: -5, z: 2 }, radius: 1.25 },
       {
         id: 'training',
         kind: 'training',
@@ -147,6 +148,44 @@ export const AREAS: Record<AreaId, AreaDefinition> = {
         name: 'Clover Cup time trial',
         position: { x: 2, z: 6 },
         radius: 1.2,
+      },
+    ],
+  },
+  cottage: {
+    id: 'cottage',
+    name: 'Inside your cottage',
+    subtitle: 'Warm boards and a crackling hearth',
+    halfSize: 5,
+    spawn: { x: 1.6, z: 3.3 },
+    objects: [
+      {
+        id: 'door',
+        kind: 'door',
+        name: 'Out to the yard',
+        position: { x: 1.6, z: 4.4 },
+        radius: 0.8,
+      },
+      { id: 'bed', kind: 'bed', name: 'Quilted bed', position: { x: -3, z: -2.6 }, radius: 1.1 },
+      {
+        id: 'calendar',
+        kind: 'calendar',
+        name: 'Wall calendar',
+        position: { x: 0.2, z: -3.9 },
+        radius: 0.6,
+      },
+      {
+        id: 'hearth',
+        kind: 'hearth',
+        name: 'Stone hearth',
+        position: { x: 3, z: -3.7 },
+        radius: 1,
+      },
+      {
+        id: 'counter',
+        kind: 'counter',
+        name: 'Kitchen counter',
+        position: { x: -3.9, z: 1.6 },
+        radius: 0.9,
       },
     ],
   },
@@ -207,4 +246,65 @@ export function initialMaterialNodes(): MaterialNode[] {
       respawnAt: 0,
     },
   ];
+}
+
+// Campaign 001 provisional crop table. Growth accrues only while a bed is moist.
+export const CROPS: Record<CropId, CropDefinition> = {
+  feed: {
+    name: 'Feed greens',
+    seedItem: 'seed',
+    seedLabel: 'feed seed',
+    seedPrice: 1,
+    seasons: ['spring', 'summer', 'autumn'],
+    growthMinutes: 180,
+    harvest: [
+      { itemId: 'feed', quantity: 3 },
+      { itemId: 'seed', quantity: 1 },
+    ],
+  },
+  turnip: {
+    name: 'Crisp turnips',
+    seedItem: 'turnip-seed',
+    seedLabel: 'turnip seed',
+    seedPrice: 2,
+    seasons: ['spring', 'autumn'],
+    growthMinutes: 1200,
+    harvest: [{ itemId: 'turnip', quantity: 3 }],
+  },
+  wheat: {
+    name: 'Grain wheat',
+    seedItem: 'wheat-seed',
+    seedLabel: 'wheat seed',
+    seedPrice: 2,
+    seasons: ['spring', 'summer'],
+    growthMinutes: 2400,
+    harvest: [{ itemId: 'wheat', quantity: 4 }],
+  },
+  sunberry: {
+    name: 'Garden sunberries',
+    seedItem: 'sunberry-seed',
+    seedLabel: 'sunberry seed',
+    seedPrice: 3,
+    seasons: ['summer', 'autumn'],
+    growthMinutes: 1800,
+    harvest: [{ itemId: 'berry', quantity: 5 }],
+  },
+};
+export const CROP_IDS = Object.keys(CROPS) as CropId[];
+export const PRODUCE_PRICES: Partial<Record<string, number>> = { turnip: 2, wheat: 2 };
+
+// Four fixed beds; the first keeps the former feed garden's prepared soil and position.
+export function initialPlots(): SoilPlot[] {
+  return [
+    { x: -5, z: 2 },
+    { x: -3.6, z: 2 },
+    { x: -5, z: 3.4 },
+    { x: -3.6, z: 3.4 },
+  ].map((position, index) => ({
+    id: `plot-${index + 1}`,
+    position,
+    tilled: index === 0,
+    moistUntil: 0,
+    crop: null,
+  }));
 }

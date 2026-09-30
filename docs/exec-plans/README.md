@@ -7,7 +7,7 @@ Read the relevant active plan, not every historical handoff.
 
 | Plan                                                                              | Status                             | Next action                                                                    |
 | :-------------------------------------------------------------------------------- | :--------------------------------- | :----------------------------------------------------------------------------- |
-| [001 — The First Living Stead](active/001-deepen-one-critter-daily-loop.md)       | M1–M6 complete; M7–M9 authorized   | Implement M7 garden, cottage, and calendar.                                    |
+| [001 — The First Living Stead](active/001-deepen-one-critter-daily-loop.md)       | M1–M7 complete; M8–M9 authorized   | Implement M8 training minigames and Colosseum exhibition.                      |
 | [000 — Repository memory bootstrap](completed/000-repository-memory-bootstrap.md) | Completed documentation conversion | Historical audit and verification evidence; no further bootstrap work planned. |
 
 ## Working contract

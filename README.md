@@ -11,12 +11,15 @@ Three.js world made from original procedural geometry.
 
 ## What you can play today
 
-Care for one Brindlekin companion, practice timed cues, plant and water feed,
-explore Clover Glade, teach berry gathering through observation and cues, watch
-independent foraging, sell produce, improve the shed, run a small daily time trial,
-and sleep into another day. Rest together at the nook for two game hours to restore
+Care for one Brindlekin companion, practice timed cues, till and water four
+garden beds of seasonal crops, explore Clover Glade, teach berry gathering through
+observation and cues, watch independent foraging, sell produce, improve the shed,
+run a small daily time trial, step into the cottage to read the 120-day wall
+calendar and forecast, and sleep into another day. Rest together at the nook for two game hours to restore
 up to 30 of your energy and 35 for your companion. Independent foraging keeps 20 energy in reserve; an
-explicit cue can spend it. There are two areas, one crop, and six berry bushes.
+explicit cue can spend it. Chop timber and stone, run the sawmill, and teach the
+companion to haul lumber. There are three areas (yard, glade, cottage), four crops,
+and six berry bushes.
 
 Fresh games in this revision begin with **Mallow**, a provisional player-owned
 Brindlekin for testing the daily loop. Version-1 saves retain their original
@@ -25,8 +28,8 @@ now distinguishes identity, ownership, and the selected companion; play still
 uses just one companion.
 
 In the intended story, Pip is Grandpa's ancient, experienced critter. Broader
-systems—including rancher stats, physical logistics, multi-crop farming, the town
-of Oakhaven, breeding, and the Colosseum—are **planned** in the canonical design.
+systems—including the town of Oakhaven, breeding, and the Colosseum—are **planned**
+in the canonical design.
 The active campaign builds toward the first living stead vertical slice. See the
 [active plan](docs/exec-plans/active/001-deepen-one-critter-daily-loop.md) for local
 verification and publication status; the public site may be an earlier revision.

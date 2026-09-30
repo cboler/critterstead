@@ -13,15 +13,31 @@ import {
   AREAS,
   BEHAVIORS,
   BERRY_NODES,
+  CROP_IDS,
+  CROPS,
   GAME_CONFIG,
+  PRODUCE_PRICES,
   STARTER,
   initialMaterialNodes,
+  initialPlots,
 } from './content';
 import { applyExperience, encumbrance, resolveCheck } from './checks';
+import {
+  calendarDate,
+  capitalize,
+  DAYS_PER_SEASON,
+  formatDate,
+  nextDawn,
+  SEASONS,
+  upcomingEvents,
+  weatherFor,
+} from './calendar';
+import { advanceGarden, plotReady } from './garden';
 import {
   activeCritter,
   BehaviorDefinition,
   BehaviorStage,
+  CropId,
   Critter,
   Container,
   GameCommand,
@@ -31,9 +47,15 @@ import {
   InventoryItem,
   Point,
   ResourceNode,
+  SoilPlot,
 } from './model';
 
 const clamp = (value: number, min = 0, max = 100) => Math.max(min, Math.min(max, value));
+const COTTAGE_COMPANION_SPOT: Point = { x: 0.5, z: 3.4 };
+const ITEM_LABELS: Partial<Record<InventoryItem['itemId'], string>> = {
+  turnip: 'turnips',
+  berry: 'sunberries',
+};
 const distance = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.z - b.z);
 
 export function learnedStage(critter: Critter, behavior: BehaviorDefinition): BehaviorStage {
@@ -48,7 +70,7 @@ const hauling = BEHAVIORS['lumber-hauling'];
 
 export function createInitialState(): GameState {
   return {
-    version: 6,
+    version: 7,
     seed: 240921,
     day: 1,
     minute: 480,
@@ -61,7 +83,7 @@ export function createInitialState(): GameState {
       stamina: 100,
       coins: 6,
       stats: { strength: 5, endurance: 5, speed: 4, intelligence: 5 },
-      skills: { woodcutting: 1, mining: 1, hauling: 1, foraging: 1 },
+      skills: { woodcutting: 1, mining: 1, hauling: 1, foraging: 1, farming: 1 },
     },
     materialNodes: initialMaterialNodes(),
     groundCargo: [],
@@ -107,7 +129,8 @@ export function createInitialState(): GameState {
       available: true,
       respawnAt: 0,
     })),
-    crop: { id: 'crop-feed', plantedAt: null, watered: false, readyAt: null },
+    plots: initialPlots(),
+    companionIndoors: false,
     shedLevel: 0,
     flags: [],
     journal: [
@@ -177,34 +200,36 @@ export class LocalGameHost {
     const output = this.state.containers.find((item) => item.kind === 'mill-output')!;
     const chest = this.state.containers.find((item) => item.kind === 'chest')!;
     const status =
-      this.state.areaId !== 'homestead'
+      this.state.areaId === 'glade'
         ? 'Hauling waits while you explore together.'
-        : this.state.training
-          ? 'Work pauses for your activity together.'
-          : job.phase === 'eat'
-            ? containerQuantity(
-                this.state.containers.find((item) => item.kind === 'trough')!,
-                'feed',
-              )
-              ? 'Heading to the trough for a meal.'
-              : 'The trough is empty. Bring feed so work can resume.'
-            : job.phase === 'rest'
-              ? 'Taking a break at the nook; work resumes at 50 energy.'
-              : job.phase === 'deliver'
-                ? room(chest, 'lumber')
-                  ? 'Carrying a board to the yard chest.'
-                  : 'The chest is full. Make room; the board stays in the satchel.'
-                : job.phase === 'collect'
-                  ? 'Walking to the mill output crate.'
-                  : job.enabled
-                    ? room(chest, 'lumber') < 1
-                      ? 'The yard chest is full.'
-                      : containerQuantity(output, 'lumber')
-                        ? 'Looking for the next board.'
-                        : 'Waiting for lumber. Supply the mill with timber.'
-                    : stage.id === 'autonomous'
-                      ? 'Following you. Enable hauling at the mill or chest.'
-                      : stage.hint.replaceAll('{name}', critter.name);
+        : this.state.areaId === 'cottage' && this.state.companionIndoors
+          ? `${critter.name} keeps you company indoors.`
+          : this.state.training
+            ? 'Work pauses for your activity together.'
+            : job.phase === 'eat'
+              ? containerQuantity(
+                  this.state.containers.find((item) => item.kind === 'trough')!,
+                  'feed',
+                )
+                ? 'Heading to the trough for a meal.'
+                : 'The trough is empty. Bring feed so work can resume.'
+              : job.phase === 'rest'
+                ? 'Taking a break at the nook; work resumes at 50 energy.'
+                : job.phase === 'deliver'
+                  ? room(chest, 'lumber')
+                    ? 'Carrying a board to the yard chest.'
+                    : 'The chest is full. Make room; the board stays in the satchel.'
+                  : job.phase === 'collect'
+                    ? 'Walking to the mill output crate.'
+                    : job.enabled
+                      ? room(chest, 'lumber') < 1
+                        ? 'The yard chest is full.'
+                        : containerQuantity(output, 'lumber')
+                          ? 'Looking for the next board.'
+                          : 'Waiting for lumber. Supply the mill with timber.'
+                      : stage.id === 'autonomous'
+                        ? 'Following you. Enable hauling at the mill or chest.'
+                        : stage.hint.replaceAll('{name}', critter.name);
     return {
       label: stage.label,
       progress: critter.learnedBehaviors[hauling.id] ?? 0,
@@ -247,6 +272,9 @@ export class LocalGameHost {
               id: 'toggle-hauling',
               label:
                 job.enabled || job.cued ? 'Follow me · pause hauling' : 'Haul lumber independently',
+              ...(this.state.areaId !== 'homestead' && !job.enabled && !job.cued
+                ? { disabled: true, reason: 'Return to the yard to start hauling.' }
+                : {}),
             },
           ]
         : []),
@@ -377,6 +405,7 @@ export class LocalGameHost {
       })),
       ...state.resources.filter((node) => node.areaId === state.areaId),
       ...state.materialNodes.filter((node) => node.areaId === state.areaId),
+      ...(state.areaId === 'homestead' ? state.plots : []),
       ...state.groundCargo.filter((pile) => pile.areaId === state.areaId && pile.items.length),
       ...state.containers
         .filter(
@@ -413,8 +442,15 @@ export class LocalGameHost {
     }
     if (id === activeCritter(state).id)
       return (
+        this.companionHere() &&
         distance(activeCritter(state).position, state.player.position) <=
-        GAME_CONFIG.interactionDistance
+          GAME_CONFIG.interactionDistance
+      );
+    const plot = state.plots.find((item) => item.id === id);
+    if (plot)
+      return (
+        state.areaId === 'homestead' &&
+        distance(plot.position, state.player.position) <= GAME_CONFIG.interactionDistance
       );
     const node = [...state.resources, ...state.materialNodes, ...state.groundCargo].find(
       (item) => item.id === id && item.areaId === state.areaId,
@@ -550,16 +586,55 @@ export class LocalGameHost {
           ),
         ],
       };
+    const plot = state.plots.find((item) => item.id === id);
+    if (plot) return state.areaId === 'homestead' ? this.describePlot(plot) : null;
     const object = AREAS[state.areaId].objects.find((item) => item.id === id);
     if (!object) return null;
+    const sleep = action('sleep', 'Turn in for the night · tomorrow 8:00');
+    const sleepCopy =
+      'Sleep restores both energies to 100 at 8:00 tomorrow; hunger carries over. For daytime recovery, rest together at the nook.';
     switch (object.kind) {
       case 'house':
         return {
           id,
           title: 'Your little cottage',
+          description: `Step inside for the hearth and the wall calendar. ${sleepCopy}`,
+          actions: [action('enter', 'Step inside · 1 min'), sleep],
+        };
+      case 'door':
+        return {
+          id,
+          title: 'Cottage door',
+          description: this.companionHere()
+            ? `${critter.name} will follow you back out.`
+            : `${critter.name} is still working out in the yard.`,
+          actions: [action('leave', 'Back out to the yard · 1 min')],
+        };
+      case 'bed':
+        return { id, title: 'Your quilted bed', description: sleepCopy, actions: [sleep] };
+      case 'calendar': {
+        const next = upcomingEvents(state)[0];
+        return {
+          id,
+          title: 'Wall calendar',
+          description: `Today is ${formatDate(state.day)} · ${weatherFor(state.day)}. ${next ? `Next: ${next.label} (${formatDate(next.day)}).` : 'A quiet stretch of days ahead.'}`,
+          actions: [action('read-calendar', 'Read the calendar')],
+        };
+      }
+      case 'hearth':
+        return {
+          id,
+          title: 'Stone hearth',
           description:
-            'Sleep restores both energies to 100 at 8:00 tomorrow; hunger carries over. For daytime recovery, rest together at the nook.',
-          actions: [action('sleep', 'Turn in for the night · tomorrow 8:00')],
+            'A small fire keeps the cottage warm. Cooking and appliances arrive as the house grows.',
+          actions: [],
+        };
+      case 'counter':
+        return {
+          id,
+          title: 'Kitchen counter',
+          description: 'A kettle, a bread board, and seed packets waiting for the right season.',
+          actions: [],
         };
       case 'shed':
         return {
@@ -588,45 +663,6 @@ export class LocalGameHost {
             ),
           ],
         };
-      case 'crop': {
-        const crop = state.crop;
-        if (crop.plantedAt === null)
-          return {
-            id,
-            title: 'A small feed garden',
-            description:
-              'Grow a little food for a very good companion. Every harvest yields three feed and a seed.',
-            actions: [
-              action(
-                'plant',
-                'Plant feed seeds · 1 seed · 5 energy · 15 min',
-                this.quantity('seed') < 1 ? 'Buy a seed at the stall.' : energy(5),
-              ),
-            ],
-          };
-        if (!crop.watered)
-          return {
-            id,
-            title: 'Thirsty little seedlings',
-            description: 'A drink of water will get these growing.',
-            actions: [action('water', 'Water the garden · 3 energy · 10 min', energy(3))],
-          };
-        const ready = crop.readyAt !== null && crop.readyAt <= state.totalMinutes;
-        return {
-          id,
-          title: ready ? 'Dinner is growing!' : 'The garden is growing',
-          description: ready
-            ? `A pocketful of fresh feed for ${critter.name}.`
-            : `Ready in ${Math.max(1, Math.ceil((crop.readyAt ?? state.totalMinutes) - state.totalMinutes))} game minutes. Take ${critter.name} for a walk while it grows.`,
-          actions: [
-            action(
-              'harvest',
-              'Harvest · 3 feed + 1 seed · 4 energy · 15 min',
-              !ready ? 'Let it grow a little longer.' : energy(4),
-            ),
-          ],
-        };
-      }
       case 'training':
         return {
           id,
@@ -646,7 +682,7 @@ export class LocalGameHost {
         return {
           id,
           title: 'The honesty stall',
-          description: `${this.quantity('berry')} berries in your basket. Better harvests earn better prices. Leave produce; take what you need.`,
+          description: `${this.quantity('berry')} berries, ${this.quantity('turnip')} turnips, ${this.quantity('wheat')} wheat in your basket. Better harvests earn better prices. Seeds only grow in their seasons.`,
           actions: [
             action(
               'sell',
@@ -656,15 +692,30 @@ export class LocalGameHost {
                 : undefined,
             ),
             action(
+              'sell-produce',
+              `Sell garden produce · ${this.produceValue()} coins · 5 min`,
+              !this.produceValue() ? 'Harvest turnips or wheat from the garden first.' : undefined,
+            ),
+            action(
               'buy-feed',
               'Buy feed · 2 coins',
               state.player.coins < 2 ? 'You need 2 coins.' : undefined,
             ),
             action(
               'buy-seed',
-              'Buy seeds · 1 coin',
+              'Buy feed seeds · 1 coin',
               state.player.coins < 1 ? 'You need 1 coin.' : undefined,
             ),
+            ...(['turnip', 'wheat', 'sunberry'] as CropId[]).map((cropId) => {
+              const crop = CROPS[cropId];
+              return action(
+                `buy-crop:${cropId}`,
+                `Buy ${crop.seedLabel}s · ${crop.seedPrice} coins · ${crop.seasons.join(' & ')}`,
+                state.player.coins < crop.seedPrice
+                  ? `You need ${crop.seedPrice} coins.`
+                  : undefined,
+              );
+            }),
           ],
         };
       case 'gate':
@@ -747,7 +798,55 @@ export class LocalGameHost {
       this.flag('moved-cargo');
       return true;
     }
+    const plot = state.plots.find((item) => item.id === id);
+    if (plot) return this.tend(plot, action);
+    if (action.startsWith('buy-crop:')) {
+      const crop = CROPS[action.slice('buy-crop:'.length) as CropId];
+      state.player.coins -= crop.seedPrice;
+      this.add(crop.seedItem, 1);
+      this.note(`One packet of ${crop.seedLabel}s. They grow in ${crop.seasons.join(' and ')}.`);
+      return true;
+    }
     switch (action) {
+      case 'enter': {
+        const working = critter.hauling.enabled || critter.hauling.cued;
+        state.areaId = 'cottage';
+        state.areaInstanceId = 'local-cottage';
+        state.player.position = { ...AREAS.cottage.spawn };
+        state.companionIndoors = !working;
+        if (!working) critter.position = { ...COTTAGE_COMPANION_SPOT };
+        this.advanceMinutes(1);
+        this.flag('visited-cottage');
+        this.note(
+          working
+            ? `You step inside. ${critter.name} keeps hauling out in the yard.`
+            : `${critter.name} pads in after you and sniffs toward the hearth.`,
+        );
+        return true;
+      }
+      case 'leave':
+        state.areaId = 'homestead';
+        state.areaInstanceId = 'local-homestead';
+        state.player.position = { x: -4.45, z: -1.5 };
+        if (state.companionIndoors) critter.position = { x: -3.6, z: -1.2 };
+        state.companionIndoors = false;
+        this.advanceMinutes(1);
+        return true;
+      case 'read-calendar':
+        this.flag('checked-calendar');
+        return true;
+      case 'sell-produce': {
+        const amount = this.produceValue();
+        const keep = (item: InventoryItem) => !PRODUCE_PRICES[item.itemId];
+        state.player.coins += amount;
+        backpack(state).items = backpack(state).items.filter(keep);
+        if (distance(critter.position, state.player.position) <= GAME_CONFIG.interactionDistance)
+          satchel(state).items = satchel(state).items.filter(keep);
+        this.flag('sold');
+        this.advanceMinutes(5);
+        this.note(`Garden produce sold for ${amount} coins.`);
+        return true;
+      }
       case 'cue-haul':
         state.player.stamina -= 2;
         critter.hauling = { enabled: false, phase: hauling.steps![0], cued: true };
@@ -833,34 +932,6 @@ export class LocalGameHost {
           `A warm roof, fresh wood, and soft bedding. ${critter.name}’s nook is finally a home.`,
         );
         return true;
-      case 'plant':
-        this.take('seed', 1);
-        state.player.stamina -= 5;
-        state.crop.plantedAt = state.totalMinutes;
-        state.crop.watered = false;
-        state.crop.readyAt = null;
-        this.advanceMinutes(15);
-        this.note('Feed seeds tucked into the soil. Give them a little water.');
-        return true;
-      case 'water':
-        state.player.stamina -= 3;
-        state.crop.watered = true;
-        state.crop.readyAt = state.totalMinutes + GAME_CONFIG.cropGrowthMinutes;
-        this.advanceMinutes(10);
-        this.flag('gardened');
-        this.note('The feed garden is watered. It will be ready in about three game hours.');
-        return true;
-      case 'harvest':
-        state.player.stamina -= 4;
-        this.add('feed', 3);
-        this.add('seed', 1);
-        state.crop.plantedAt = null;
-        state.crop.watered = false;
-        state.crop.readyAt = null;
-        this.advanceMinutes(15);
-        this.flag('grew-feed');
-        this.note('Three bundles of fresh feed, and a seed for the next planting.');
-        return true;
       case 'train':
       case 'race':
         state.player.stamina -= 5;
@@ -899,7 +970,7 @@ export class LocalGameHost {
       case 'buy-seed':
         state.player.coins -= 1;
         this.add('seed', 1);
-        this.note('One packet of feed seeds, ready for the garden.');
+        this.note('One packet of feed seeds. They grow in spring, summer, and autumn.');
         return true;
       case 'travel':
         state.areaId = state.areaId === 'homestead' ? 'glade' : 'homestead';
@@ -942,8 +1013,8 @@ export class LocalGameHost {
       x: clamp(position.x + (x / length) * step, -edge, edge),
       z: clamp(position.z + (z / length) * step, -edge, edge),
     };
-    const solid = AREAS[this.state.areaId].objects.filter(
-      (item) => item.kind === 'house' || item.kind === 'shed',
+    const solid = AREAS[this.state.areaId].objects.filter((item) =>
+      ['house', 'shed', 'bed', 'hearth', 'counter'].includes(item.kind),
     );
     const clear = (point: Point) =>
       solid.every((item) => distance(point, item.position) >= item.radius + 0.3);
@@ -1105,7 +1176,8 @@ export class LocalGameHost {
     const state = this.state;
     const critter = this.critter;
     const job = critter.hauling;
-    if (state.areaId !== 'homestead' || (!job.enabled && !job.cued)) return false;
+    // The cottage is part of the stead: a working helper keeps working in the yard.
+    if (!this.inYard() || state.companionIndoors || (!job.enabled && !job.cued)) return false;
     const bag = satchel(state);
     const output = state.containers.find((item) => item.kind === 'mill-output')!;
     const chest = state.containers.find((item) => item.kind === 'chest')!;
@@ -1190,6 +1262,13 @@ export class LocalGameHost {
     const critter = activeCritter(state);
     if (state.training) return;
     if (this.haul(seconds)) return;
+    if (!this.companionHere()) {
+      // A finished errand ends indoors beside the rancher, not at yard coordinates.
+      state.companionIndoors = true;
+      critter.position = { ...COTTAGE_COMPANION_SPOT };
+      this.note(`${critter.name} finishes up outside and joins you indoors.`);
+      return;
+    }
     let target: Point = state.player.position;
     const harvest = this.berryOpportunity();
     if (harvest) target = harvest.position;
@@ -1212,14 +1291,17 @@ export class LocalGameHost {
     const state = this.state;
     this.produce(minutes);
     const previousDay = state.day;
+    const previousMinutes = state.totalMinutes;
     state.totalMinutes += minutes;
     state.day = Math.floor(state.totalMinutes / 1440) + 1;
     state.minute = state.totalMinutes % 1440;
+    for (const note of advanceGarden(state.plots, previousMinutes, state.totalMinutes))
+      this.note(note);
     activeCritter(state).hunger = clamp(activeCritter(state).hunger + minutes * 0.025);
     const worker = this.critter;
     if (
       !state.training &&
-      state.areaId === 'homestead' &&
+      this.inYard() &&
       worker.hauling.phase === 'rest' &&
       distance(worker.position, { x: 4, z: -2 }) <= 1
     ) {
@@ -1255,9 +1337,18 @@ export class LocalGameHost {
     );
     state.training = null;
     state.work = null;
+    state.companionIndoors = false;
     this.flag('slept');
+    const ready = state.plots.filter(plotReady).length;
+    const dry = state.plots.filter(
+      (plot) =>
+        plot.crop &&
+        !plot.crop.withered &&
+        !plotReady(plot) &&
+        plot.moistUntil <= state.totalMinutes,
+    ).length;
     this.note(
-      `Day ${state.day}. A soft morning at Bramblewick. Everyone is rested${state.crop.readyAt !== null && state.crop.readyAt <= state.totalMinutes ? ', and your feed garden is ready' : ''}.`,
+      `Day ${state.day} · ${formatDate(state.day)}. A ${weatherFor(state.day) === 'rain' ? 'rainy' : 'soft'} morning at Bramblewick. Everyone is rested${ready ? `, and ${ready} garden bed${ready > 1 ? 's are' : ' is'} ready` : ''}${dry ? `; ${dry} bed${dry > 1 ? 's need' : ' needs'} water` : ''}.`,
     );
   }
 
@@ -1329,9 +1420,208 @@ export class LocalGameHost {
       : this.critter.position;
   }
   private containerLocal(container: Container): boolean {
-    return 'actorId' in container.location
-      ? [this.state.player.id, this.state.activeCritterId].includes(container.location.actorId)
-      : container.location.areaId === this.state.areaId;
+    if (!('actorId' in container.location)) return container.location.areaId === this.state.areaId;
+    return (
+      container.location.actorId === this.state.player.id ||
+      (container.location.actorId === this.state.activeCritterId && this.companionHere())
+    );
+  }
+  private inYard(): boolean {
+    return this.state.areaId === 'homestead' || this.state.areaId === 'cottage';
+  }
+  /** False only while the rancher is indoors and the companion is working outside. */
+  private companionHere(): boolean {
+    return this.state.areaId !== 'cottage' || this.state.companionIndoors;
+  }
+  private tillCheck() {
+    return resolveCheck(
+      this.state.player,
+      'farming',
+      { strength: 0.5, endurance: 0.3, intelligence: 0.2 },
+      1,
+      6,
+    );
+  }
+  private describePlot(plot: SoilPlot): Interaction {
+    const state = this.state;
+    const bed = state.plots.indexOf(plot) + 1;
+    const date = calendarDate(state.day);
+    const moist = plot.moistUntil > state.totalMinutes;
+    const energy = (cost: number) =>
+      state.player.stamina < cost ? 'You need some rest. Rest together at the nook.' : undefined;
+    const action = (id: string, label: string, reason?: string): InteractionAction => ({
+      id,
+      label,
+      disabled: !!reason,
+      reason,
+    });
+    const base = { id: plot.id };
+    if (!plot.tilled) {
+      const check = this.tillCheck();
+      return {
+        ...base,
+        title: `Garden bed ${bed} · overgrown`,
+        description:
+          'Till the soil before planting. Farming skill, strength and endurance make the work lighter.',
+        actions: [
+          action(
+            'till',
+            `Till the soil · ${check.staminaCost} energy · ${check.timeMinutes} min`,
+            energy(check.staminaCost),
+          ),
+        ],
+      };
+    }
+    const crop = plot.crop;
+    if (!crop)
+      return {
+        ...base,
+        title: `Garden bed ${bed} · tilled, ${moist ? 'moist' : 'dry'}`,
+        description: `${capitalize(date.season)} ${date.dayOfSeason}. Each crop grows only in its seasons, and only while its bed is moist. Water lasts until dawn.`,
+        actions: CROP_IDS.map((cropId) => {
+          const species = CROPS[cropId];
+          return action(
+            `plant:${cropId}`,
+            cropId === 'feed'
+              ? 'Plant feed seeds · 1 seed · 5 energy · 15 min'
+              : `Plant ${species.name.toLowerCase()} · 1 ${species.seedLabel} · 5 energy · 15 min`,
+            !species.seasons.includes(date.season)
+              ? `${species.name} grow in ${species.seasons.join(' and ')}.`
+              : this.quantity(species.seedItem) < 1
+                ? `Buy ${species.seedLabel}s at the stall.`
+                : energy(5),
+          );
+        }),
+      };
+    const species = CROPS[crop.speciesId];
+    const name = species.name.toLowerCase();
+    if (crop.withered)
+      return {
+        ...base,
+        title: `Withered ${name}`,
+        description: 'Out-of-season crops cannot recover. Clear the bed to plant again.',
+        actions: [action('clear', 'Clear the bed · 2 energy · 10 min', energy(2))],
+      };
+    const harvest = action(
+      'harvest',
+      `Harvest · ${species.harvest.map((item) => `${item.quantity} ${ITEM_LABELS[item.itemId] ?? item.itemId}`).join(' + ')} · 4 energy · 15 min`,
+      plotReady(plot) ? energy(4) : 'Let it grow a little longer.',
+    );
+    if (plotReady(plot))
+      return {
+        ...base,
+        title: `${species.name} are ready!`,
+        description: `Bed ${bed} is ready to harvest. The soil stays tilled for the next planting.`,
+        actions: [harvest],
+      };
+    const left = Math.ceil(species.growthMinutes - crop.growthMinutes);
+    const nextSeason = SEASONS[(SEASONS.indexOf(date.season) + 1) % SEASONS.length];
+    const daysLeft = DAYS_PER_SEASON - date.dayOfSeason + 1;
+    const warning =
+      !species.seasons.includes(nextSeason) && daysLeft <= 3
+        ? ` ${capitalize(nextSeason)} begins in ${daysLeft} day${daysLeft > 1 ? 's' : ''}; unharvested ${name} will wither.`
+        : '';
+    if (moist)
+      return {
+        ...base,
+        title: `${species.name} are growing`,
+        description:
+          (state.totalMinutes + left <= plot.moistUntil
+            ? `Ready in about ${left} game minutes.`
+            : `Moist until dawn. About ${left} growing minutes left, so water again tomorrow.`) +
+          warning,
+        actions: [harvest],
+      };
+    return {
+      ...base,
+      title: `Thirsty ${name}`,
+      description: `Dry soil pauses growth. About ${left} growing minutes left; watering lasts until dawn.${warning}`,
+      actions: [action('water', 'Water the garden bed · 3 energy · 10 min', energy(3)), harvest],
+    };
+  }
+  private tend(plot: SoilPlot, action: string): boolean {
+    const state = this.state;
+    const bed = state.plots.indexOf(plot) + 1;
+    const farming = (amount: number) => {
+      state.player.skills['farming'] = Math.min(99, (state.player.skills['farming'] ?? 0) + amount);
+    };
+    if (action === 'till') {
+      const check = this.tillCheck();
+      state.player.stamina -= check.staminaCost;
+      applyExperience(state.player, 'farming', check);
+      plot.tilled = true;
+      this.advanceMinutes(check.timeMinutes);
+      this.flag('gardened');
+      this.note(
+        `Bed ${bed} is turned and ready for seed. ${check.degree > 0.25 ? 'Clean, even furrows.' : 'Hard, rooty work.'} Farming grows a little.`,
+      );
+      return true;
+    }
+    if (action.startsWith('plant:')) {
+      const cropId = action.slice('plant:'.length) as CropId;
+      const species = CROPS[cropId];
+      this.take(species.seedItem, 1);
+      state.player.stamina -= 5;
+      farming(0.1);
+      plot.crop = {
+        speciesId: cropId,
+        plantedAt: state.totalMinutes,
+        growthMinutes: 0,
+        withered: false,
+      };
+      this.advanceMinutes(15);
+      this.note(
+        `${species.name} sown in bed ${bed}. ${plot.moistUntil > state.totalMinutes ? 'The soil is already moist.' : 'Give them a little water.'}`,
+      );
+      return true;
+    }
+    if (action === 'water') {
+      state.player.stamina -= 3;
+      farming(0.1);
+      plot.moistUntil = nextDawn(state.totalMinutes);
+      this.advanceMinutes(10);
+      this.flag('gardened');
+      const crop = plot.crop!;
+      const left = CROPS[crop.speciesId].growthMinutes - crop.growthMinutes;
+      this.note(
+        `Bed ${bed} is watered and stays moist until dawn. ${state.totalMinutes + left <= plot.moistUntil ? `Ready in about ${Math.ceil(left)} game minutes.` : 'It will need water again tomorrow.'}`,
+      );
+      return true;
+    }
+    if (action === 'harvest') {
+      const species = CROPS[plot.crop!.speciesId];
+      state.player.stamina -= 4;
+      farming(0.2);
+      for (const item of species.harvest) this.add(item.itemId, item.quantity);
+      if (plot.crop!.speciesId === 'feed') this.flag('grew-feed');
+      this.flag('harvested-crop');
+      plot.crop = null;
+      this.advanceMinutes(15);
+      this.note(
+        `You harvest ${species.harvest.map((item) => `${item.quantity} ${ITEM_LABELS[item.itemId] ?? item.itemId}`).join(' and ')} from bed ${bed}.`,
+      );
+      return true;
+    }
+    if (action === 'clear') {
+      state.player.stamina -= 2;
+      plot.crop = null;
+      this.advanceMinutes(10);
+      this.note(`Bed ${bed} is cleared and still tilled.`);
+      return true;
+    }
+    return false;
+  }
+  private produceValue(): number {
+    return [
+      ...backpack(this.state).items,
+      ...(distance(this.critter.position, this.state.player.position) <=
+      GAME_CONFIG.interactionDistance
+        ? satchel(this.state).items
+        : []),
+    ].reduce(
+      (sum, item) => sum + item.quantity * item.quality * (PRODUCE_PRICES[item.itemId] ?? 0),
+      0,
+    );
   }
   private containerActions(container: Container): InteractionAction[] {
     const bag = backpack(this.state);

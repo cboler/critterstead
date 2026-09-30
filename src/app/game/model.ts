@@ -1,4 +1,7 @@
-export type AreaId = 'homestead' | 'glade';
+export type AreaId = 'homestead' | 'glade' | 'cottage';
+export type Season = 'spring' | 'summer' | 'autumn' | 'winter';
+export type Weather = 'sunny' | 'cloudy' | 'rain' | 'snow';
+export type CropId = 'feed' | 'turnip' | 'wheat' | 'sunberry';
 export interface Point {
   x: number;
   z: number;
@@ -89,7 +92,18 @@ export interface Critter extends ActorCapabilities {
 }
 export interface InventoryItem {
   id: string;
-  itemId: 'berry' | 'feed' | 'seed' | 'timber' | 'stone' | 'lumber';
+  itemId:
+    | 'berry'
+    | 'feed'
+    | 'seed'
+    | 'timber'
+    | 'stone'
+    | 'lumber'
+    | 'turnip'
+    | 'wheat'
+    | 'turnip-seed'
+    | 'wheat-seed'
+    | 'sunberry-seed';
   quantity: number;
   quality: number;
 }
@@ -109,11 +123,28 @@ export interface ResourceNode {
   available: boolean;
   respawnAt: number;
 }
-export interface Crop {
+export interface PlotCrop {
+  speciesId: CropId;
+  plantedAt: number;
+  growthMinutes: number;
+  withered: boolean;
+}
+export interface SoilPlot {
   id: string;
-  plantedAt: number | null;
-  watered: boolean;
-  readyAt: number | null;
+  position: Point;
+  tilled: boolean;
+  // Absolute game minute when the soil dries; growth accrues only before it.
+  moistUntil: number;
+  crop: PlotCrop | null;
+}
+export interface CropDefinition {
+  name: string;
+  seedItem: InventoryItem['itemId'];
+  seedLabel: string;
+  seedPrice: number;
+  seasons: readonly Season[];
+  growthMinutes: number;
+  harvest: { itemId: InventoryItem['itemId']; quantity: number }[];
 }
 export interface Training {
   critterId: string;
@@ -124,7 +155,7 @@ export interface Training {
   kind: 'training' | 'race';
 }
 export interface GameState {
-  version: 6;
+  version: 7;
   seed: number;
   day: number;
   minute: number;
@@ -141,7 +172,9 @@ export interface GameState {
   production: { progressMinutes: number };
   haulLesson: { critterId: string; lumber: number } | null;
   resources: ResourceNode[];
-  crop: Crop;
+  plots: SoilPlot[];
+  // In the cottage, a following companion comes inside; a working one stays in the yard.
+  companionIndoors: boolean;
   shedLevel: number;
   flags: string[];
   journal: string[];
@@ -167,7 +200,18 @@ export interface Interaction {
 }
 export interface WorldObject {
   id: string;
-  kind: 'house' | 'shed' | 'crop' | 'training' | 'market' | 'gate' | 'race';
+  kind:
+    | 'house'
+    | 'shed'
+    | 'training'
+    | 'market'
+    | 'gate'
+    | 'race'
+    | 'door'
+    | 'bed'
+    | 'calendar'
+    | 'hearth'
+    | 'counter';
   name: string;
   position: Point;
   radius: number;

@@ -11,11 +11,14 @@ import {
   computed,
 } from '@angular/core';
 import { AREAS } from './game/content';
+import { calendarDate, calendarView, capitalize, weatherFor } from './game/calendar';
 import { LocalGameHost } from './game/host';
 import { activeCritter, GameCommand, GameState, Interaction, Point } from './game/model';
 import { IndexedDbStorage } from './game/storage';
 import { encumbrance } from './game/checks';
 import { GameWorld } from './game/world';
+
+type Panel = 'journal' | 'help' | 'developer' | 'calendar';
 
 interface InstallPrompt extends Event {
   prompt(): Promise<void>;
@@ -51,7 +54,7 @@ export class App implements AfterViewInit, OnDestroy {
   protected readonly companion = computed(() => activeCritter(this.state()));
   protected readonly ready = signal(false);
   protected readonly paused = signal(false);
-  protected readonly panel = signal<'journal' | 'help' | 'developer' | null>(null);
+  protected readonly panel = signal<Panel | null>(null);
   protected readonly saveStatus = signal('Opening your homestead…');
   protected readonly error = signal('');
   protected readonly sound = signal(false);
@@ -68,7 +71,20 @@ export class App implements AfterViewInit, OnDestroy {
   protected readonly load = computed(() =>
     encumbrance(this.state().player, backpack(this.state()).items),
   );
-  protected readonly rancherSkills = ['woodcutting', 'mining', 'hauling', 'foraging'] as const;
+  protected readonly rancherSkills = [
+    'woodcutting',
+    'mining',
+    'hauling',
+    'foraging',
+    'farming',
+  ] as const;
+  protected readonly calendar = computed(() => calendarView(this.state()));
+  protected readonly date = computed(() => calendarDate(this.state().day));
+  protected readonly weatherIcons = { sunny: '☀', cloudy: '☁', rain: '☂', snow: '❄' } as const;
+  protected readonly capitalize = capitalize;
+  protected weather() {
+    return weatherFor(this.state().day);
+  }
   protected dropCargo(): void {
     this.command({ type: 'drop-cargo' });
   }
@@ -352,14 +368,18 @@ export class App implements AfterViewInit, OnDestroy {
     }
     const interaction = this.host.interaction();
     const selected = action ?? interaction?.actions.find((entry) => !entry.disabled)?.id;
-    if (interaction && selected)
-      this.command({ type: 'interact', targetId: interaction.id, action: selected });
+    if (interaction && selected) {
+      const done = this.command({ type: 'interact', targetId: interaction.id, action: selected });
+      if (done && selected === 'read-calendar') this.openPanel('calendar');
+    }
   }
-  private command(command: GameCommand): void {
+  private command(command: GameCommand): boolean {
     this.walkTo = null;
-    if (this.host.dispatch(command)) this.chime();
+    const done = this.host.dispatch(command);
+    if (done) this.chime();
     this.refresh();
     void this.save();
+    return done;
   }
   private readonly keyDown = (event: KeyboardEvent): void => {
     if (this.panel() && event.key === 'Tab') {
@@ -429,7 +449,7 @@ export class App implements AfterViewInit, OnDestroy {
     this.blur();
     void this.save();
   }
-  protected openPanel(panel: 'journal' | 'help' | 'developer' | null): void {
+  protected openPanel(panel: Panel | null): void {
     this.panel.set(panel);
     this.resetArmed.set(false);
     this.blur();

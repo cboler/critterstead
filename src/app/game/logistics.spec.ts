@@ -9,16 +9,13 @@ describe('localized storage and the first production chain', () => {
     const before = structuredClone(legacyV4);
     const state = readSave(before);
     expect(backpack(state).items).toEqual(before.inventory);
-    for (const key of [
-      'seed',
-      'player',
-      'work',
-      'groundCargo',
-      'materialNodes',
-      'crop',
-      'journal',
-    ] as const)
+    expect(state.player).toEqual({
+      ...before.player,
+      skills: { ...before.player.skills, farming: 1 },
+    });
+    for (const key of ['seed', 'work', 'groundCargo', 'materialNodes', 'journal'] as const)
       expect(state[key]).toEqual(before[key]);
+    expect(state.plots[0].crop).toMatchObject({ speciesId: 'feed', growthMinutes: 102 });
     expect(state.critters).toEqual(
       before.critters.map((critter) => ({
         ...critter,

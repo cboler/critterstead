@@ -210,9 +210,9 @@ test('plays a complete day and keeps the improved homestead after reload', async
   await page.getByRole('button', { name: /Practice hoops/ }).click();
   await activity(page, /Hop, Mallow!/);
   expect((await developmentState(page)).flags).toContain('trained');
-  await walk(page, -5, 2);
+  await walk(page, -5.6, 2);
   await page.getByRole('button', { name: /Plant feed seeds/ }).click();
-  await page.getByRole('button', { name: /Water the garden/ }).click();
+  await page.getByRole('button', { name: /Water the garden bed/ }).click();
   await walk(page, 8, 0);
   await page.getByRole('button', { name: /Explore Clover Glade/ }).click();
   await expect(page.locator('.location-tag')).toContainText('Clover Glade');
@@ -283,7 +283,7 @@ test('plays a complete day and keeps the improved homestead after reload', async
   expect(recovered.player.coins).toBe(beforeRest.player.coins);
   await page.screenshot({ path: testInfo.outputPath('recovered.png'), fullPage: true });
 
-  await walk(page, -5, 2);
+  await walk(page, -5.6, 2);
   await page.getByRole('button', { name: /^Harvest · 3 feed/ }).click();
   await walk(page, 2, 6);
   await page.getByRole('button', { name: /Run the trial/ }).click();
@@ -323,9 +323,9 @@ test('preserves critter energy for a competition-oriented day by doing the harve
   await expect(page.locator('.world-canvas canvas')).toBeVisible();
   await page.getByRole('button', { name: /Give a little scritch/ }).click();
   await page.getByRole('button', { name: /Offer feed/ }).click();
-  await walk(page, -5, 2);
+  await walk(page, -5.6, 2);
   await page.getByRole('button', { name: /Plant feed seeds/ }).click();
-  await page.getByRole('button', { name: /Water the garden/ }).click();
+  await page.getByRole('button', { name: /Water the garden bed/ }).click();
   await walk(page, 3, 2);
   await expect(page.locator('.interaction-copy')).toContainText('a full tummy');
   for (let practice = 0; practice < 2; practice++) {
@@ -354,7 +354,7 @@ test('preserves critter energy for a competition-oriented day by doing the harve
   await page.getByRole('button', { name: /^Sell berries/ }).click();
   await walk(page, 4, -2);
   await page.getByRole('button', { name: /Make it cozy/ }).click();
-  await walk(page, -5, 2);
+  await walk(page, -5.6, 2);
   await page.getByRole('button', { name: /^Harvest · 3 feed/ }).click();
   await walk(page, 2, 6);
   await page.getByRole('button', { name: /Run the trial.*35 Mallow/ }).click();

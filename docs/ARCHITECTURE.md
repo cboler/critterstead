@@ -94,6 +94,18 @@ pause work; disabled jobs follow the rancher. Cargo stays in the actual satchel 
 reload or pause. Dormant individuals remain dormant. Migration v5 -> v6 preserves
 all paid work, production and supplies; validators reject impossible job phases.
 
+## Current implementation additions — M7 (2026-09-29)
+
+Save v7 replaces `crop` with four fixed `plots` (`garden.ts`) and adds `companionIndoors`
+and the `cottage` area. `calendar.ts` derives the 4 × 30-day year from `day` and fixed
+per-day weather from an integer hash that never touches `state.seed`. The host advances
+beds in `advanceMinutes`: growth accrues only while `moistUntil` is in the future, and
+each 06:00 dawn applies rain and out-of-season withering. Crop species live in
+`content.ts`. Tilling uses `resolveCheck`. While the rancher is indoors, a working
+companion stays at its yard position and the host keeps running its hauling job;
+a following companion enters with the rancher. Migration v6 → v7 keeps the old crop's
+promised growth in bed 1. v5/v6 containers validate against the legacy item list.
+
 ## Architectural reality audit (reconciliation baseline before M4)
 
 The following audit records the reconciled pre-M4 baseline. The dated additions

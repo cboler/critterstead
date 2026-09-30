@@ -1,8 +1,31 @@
 import { backpack, satchel } from './model';
 import * as THREE from 'three';
 import { productionStatus, quantity } from './logistics';
-import { AREAS } from './content';
-import { activeCritter, type GameState, type Point } from './model';
+import { AREAS, CROPS } from './content';
+import { plotReady } from './garden';
+import { weatherFor } from './calendar';
+import { activeCritter, type AreaId, type CropId, type GameState, type Point } from './model';
+
+interface BedModel {
+  soil: THREE.Mesh;
+  weeds: THREE.Group;
+  plants: THREE.Group;
+  leaves: THREE.Mesh[];
+  fruit: THREE.Mesh[];
+}
+// Presentation colors per crop species: leaf, then produce.
+const LEAF_SHAPES: Record<CropId, [number, number, number]> = {
+  feed: [0.1, 0.26, 0.07],
+  turnip: [0.12, 0.22, 0.08],
+  wheat: [0.035, 0.44, 0.035],
+  sunberry: [0.13, 0.2, 0.12],
+};
+const CROP_COLORS: Record<CropId, [string, string]> = {
+  feed: ['#8daa52', '#e5b670'],
+  turnip: ['#6f9b58', '#e7dcef'],
+  wheat: ['#b7b45e', '#e2c46a'],
+  sunberry: ['#567a58', '#bd4b65'],
+};
 
 interface WorldLabel {
   element: HTMLDivElement;
@@ -50,7 +73,8 @@ export class GameWorld {
   private readonly millBlade = new THREE.Group();
   private readonly workTool = new THREE.Group();
   private cargoSignature = '';
-  private readonly crops = new THREE.Group();
+  private readonly beds = new Map<string, BedModel>();
+  private backdrop!: THREE.Mesh;
   private readonly smoke = new THREE.Group();
   private readonly shedRoof = new THREE.Group();
   private readonly affection = new THREE.Group();
@@ -110,9 +134,9 @@ export class GameWorld {
     this.sun.shadow.bias = -0.0001;
     this.sun.shadow.radius = 4;
     this.scene.add(this.sun, this.hemisphere, this.scenery, this.farmer, this.critter);
-    const backdrop = this.mesh(this.box, '#dce9e3', [0, -1.58, 0], [180, 0.1, 180]);
-    backdrop.receiveShadow = true;
-    this.scene.add(backdrop);
+    this.backdrop = this.mesh(this.box, '#dce9e3', [0, -1.58, 0], [180, 0.1, 180]);
+    this.backdrop.receiveShadow = true;
+    this.scene.add(this.backdrop);
     this.buildFarmer();
     this.carriedLoad.add(this.mesh(this.cylinder, '#986441', [0, 1, 0.42], [0.22, 1.25, 0.22]));
     this.carriedLoad.children[0].rotation.z = Math.PI / 2;
@@ -141,6 +165,7 @@ export class GameWorld {
     if (this.area !== state.areaId) {
       this.area = state.areaId;
       this.buildArea(state);
+      this.resize();
       this.lastPlayer.set(state.player.position.x, state.player.position.z);
       this.lastCritter.set(companion.position.x, companion.position.z);
       this.walkMarker.visible = false;
@@ -200,6 +225,9 @@ export class GameWorld {
     }
     this.tail.rotation.z = Math.sin(this.clock * 3.2) * 0.12;
     this.tail.rotation.x = Math.sin(this.clock * 2.1) * 0.07;
+    // A companion working in the yard is not drawn inside the cottage.
+    this.critter.visible = state.areaId !== 'cottage' || state.companionIndoors;
+    this.critterLabel.style.display = this.critter.visible ? '' : 'none';
     this.critterLabel.textContent = companion.name;
     this.positionLabel(
       this.critterLabel,
@@ -270,13 +298,25 @@ export class GameWorld {
       cluster.visible = state.resources.find((node) => node.id === id)?.available ?? false;
     }
     if (state.areaId === 'homestead') {
-      this.crops.visible = state.crop.plantedAt !== null;
-      const ready = state.crop.readyAt !== null && state.totalMinutes >= state.crop.readyAt;
-      const growth = ready ? 1 : state.crop.watered ? 0.63 : 0.35;
-      this.crops.scale.set(1, growth, 1);
-      for (const crop of this.crops.children) {
-        const fruit = crop.getObjectByName('fruit');
-        if (fruit) fruit.visible = ready;
+      for (const plot of state.plots) {
+        const bed = this.beds.get(plot.id);
+        if (!bed) continue;
+        const moist = plot.moistUntil > state.totalMinutes;
+        bed.soil.material = this.material(!plot.tilled ? '#7f8f55' : moist ? '#4a3120' : '#bf9763');
+        bed.weeds.visible = !plot.tilled;
+        bed.plants.visible = !!plot.crop;
+        if (!plot.crop) continue;
+        const [leaf, produce] = CROP_COLORS[plot.crop.speciesId];
+        const growth = plot.crop.growthMinutes / CROPS[plot.crop.speciesId].growthMinutes;
+        bed.plants.scale.set(1, 0.3 + growth * 0.7, 1);
+        for (const mesh of bed.leaves) {
+          mesh.material = this.material(plot.crop.withered ? '#9a8a5c' : leaf);
+          mesh.scale.set(...LEAF_SHAPES[plot.crop.speciesId]);
+        }
+        for (const mesh of bed.fruit) {
+          mesh.visible = plotReady(plot);
+          mesh.material = this.material(produce);
+        }
       }
       for (const roof of this.shedRoof.children) {
         (roof as THREE.Mesh).material = this.material(state.shedLevel > 0 ? '#426d65' : '#859078');
@@ -287,10 +327,14 @@ export class GameWorld {
         puff.scale.setScalar(0.13 + t * 0.23);
       });
     }
-    const daylight = Math.max(0, Math.sin(((state.minute - 360) / 840) * Math.PI));
+    const indoors = state.areaId === 'cottage';
+    const overcast = !indoors && ['rain', 'cloudy', 'snow'].includes(weatherFor(state.day));
+    const daylight = indoors
+      ? 0.45
+      : Math.max(0, Math.sin(((state.minute - 360) / 840) * Math.PI)) * (overcast ? 0.6 : 1);
     this.sun.intensity = 1.3 + daylight * 2;
     this.hemisphere.intensity = 1.8 + daylight * 0.8;
-    this.sun.color.set(daylight < 0.25 ? '#f7bd87' : '#fff0ce');
+    this.sun.color.set(indoors || daylight < 0.25 ? '#f7bd87' : '#fff0ce');
     const closestLabel = this.labels
       .filter((label) => !label.always)
       .sort(
@@ -338,9 +382,10 @@ export class GameWorld {
     );
     this.raycaster.setFromCamera(this.pointer, this.camera);
     if (this.raycaster.ray.intersectPlane(this.ground, this.intersection)) {
+      const edge = (AREAS[this.area as AreaId]?.halfSize ?? 10) - 1.2;
       const destination = {
-        x: THREE.MathUtils.clamp(this.intersection.x, -8.8, 8.8),
-        z: THREE.MathUtils.clamp(this.intersection.z, -8.8, 8.8),
+        x: THREE.MathUtils.clamp(this.intersection.x, -edge, edge),
+        z: THREE.MathUtils.clamp(this.intersection.z, -edge, edge),
       };
       this.walkMarker.position.set(destination.x, 0.075, destination.z);
       this.markerTime = 1.3;
@@ -358,6 +403,8 @@ export class GameWorld {
     this.camera.right = vertical * aspect;
     this.camera.top = vertical;
     this.camera.bottom = -vertical;
+    // The cottage room is smaller than an outdoor area; frame it closer.
+    this.camera.zoom = this.area === 'cottage' ? 1.7 : 1;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(this.width, this.height, false);
   }
@@ -402,14 +449,24 @@ export class GameWorld {
     this.millBlade.clear();
     this.groundLoads.clear();
     this.cargoSignature = '';
-    this.crops.clear();
+    this.beds.clear();
     this.smoke.clear();
     this.shedRoof.clear();
     this.labels.forEach((label) => label.element.remove());
     this.labels.length = 0;
-    this.island();
-    if (state.areaId === 'homestead') this.homestead();
-    else this.glade(state);
+    const indoors = state.areaId === 'cottage';
+    const sky = indoors ? '#e9dcc6' : '#dce9e3';
+    (this.scene.background as THREE.Color).set(sky);
+    this.scene.fog?.color.set(sky);
+    this.backdrop.material = this.material(sky);
+    if (indoors) this.cottageInterior();
+    else {
+      this.island();
+      if (state.areaId === 'homestead') {
+        this.homestead();
+        this.gardenBeds(state);
+      } else this.glade(state);
+    }
     for (const node of state.materialNodes.filter((node) => node.areaId === state.areaId)) {
       const group = new THREE.Group();
       group.position.set(node.position.x, 0, node.position.z);
@@ -486,7 +543,7 @@ export class GameWorld {
       frame.add(this.millBlade);
       this.scenery.add(frame);
     }
-    this.grass(state.areaId === 'homestead' ? 97 : 301);
+    if (!indoors) this.grass(state.areaId === 'homestead' ? 97 : 301);
   }
 
   private island(): void {
@@ -610,7 +667,6 @@ export class GameWorld {
     );
     this.cottage(-5, -4);
     this.shed(4, -4);
-    this.garden(-5, 2);
     this.training(3, 2);
     this.market(-6, 5);
     this.race(2, 6);
@@ -631,10 +687,9 @@ export class GameWorld {
     this.fence([8, 1.4], [8, 7], 4);
     this.fence([-4.9, 7.6], [-0.1, 7.6], 3);
     this.gate(8, 0, false);
-    const labelHeights = {
+    const labelHeights: Partial<Record<string, number>> = {
       house: 3.8,
       shed: 3.1,
-      crop: 0.8,
       training: 1.9,
       market: 2.5,
       gate: 2.4,
@@ -644,7 +699,7 @@ export class GameWorld {
       this.label(
         object.name,
         object.position.x,
-        labelHeights[object.kind],
+        labelHeights[object.kind] ?? 1.8,
         object.position.z,
         object.kind === 'gate',
       );
@@ -940,43 +995,145 @@ export class GameWorld {
     );
   }
 
-  private garden(x: number, z: number): void {
-    const garden = new THREE.Group();
-    garden.position.set(x, 0, z);
-    garden.add(this.mesh(this.box, '#8d6c49', [0, 0.08, 0], [2.7, 0.17, 2.65]));
-    for (const side of [-1, 1]) {
-      garden.add(this.mesh(this.box, '#b39c6c', [side * 1.38, 0.17, 0], [0.12, 0.3, 2.87]));
-      garden.add(this.mesh(this.box, '#b39c6c', [0, 0.17, side * 1.38], [2.87, 0.3, 0.12]));
-    }
-    for (let row = 0; row < 3; row++) {
-      garden.add(this.mesh(this.box, '#a27d4f', [0, 0.19, row * 0.78 - 0.78], [2.58, 0.11, 0.36]));
-      for (let column = 0; column < 4; column++) {
-        const crop = new THREE.Group();
-        crop.position.set(column * 0.61 - 0.91, 0, row * 0.78 - 0.78);
-        for (let leaf = 0; leaf < 3; leaf++) {
-          const angle = leaf * 2.1;
-          const sprout = this.mesh(
-            this.sphere,
-            leaf % 2 ? '#72924d' : '#8daa52',
-            [Math.sin(angle) * 0.12, 0.45, Math.cos(angle) * 0.12],
-            [0.13, 0.3, 0.08],
-          );
-          sprout.rotation.z = Math.sin(angle) * 0.6;
-          crop.add(sprout);
-        }
-        const fruit = this.mesh(this.sphere, '#e5b670', [0, 0.25, 0], [0.18, 0.2, 0.18]);
-        fruit.name = 'fruit';
-        crop.add(fruit);
-        this.crops.add(crop);
+  private gardenBeds(state: GameState): void {
+    state.plots.forEach((plot, index) => {
+      const bed = new THREE.Group();
+      bed.position.set(plot.position.x, 0, plot.position.z);
+      const soil = this.mesh(this.box, '#a27d4f', [0, 0.09, 0], [1.14, 0.15, 1.14]);
+      bed.add(soil);
+      for (const side of [-1, 1]) {
+        bed.add(this.mesh(this.box, '#b39c6c', [side * 0.6, 0.14, 0], [0.08, 0.24, 1.28]));
+        bed.add(this.mesh(this.box, '#b39c6c', [0, 0.14, side * 0.6], [1.28, 0.24, 0.08]));
       }
-    }
-    garden.add(this.crops);
-    this.scenery.add(garden);
-    const can = this.mesh(this.cylinder, '#709896', [x + 1.83, 0.23, z + 0.8], [0.25, 0.42, 0.25]);
+      const weeds = new THREE.Group();
+      for (let tuft = 0; tuft < 6; tuft++) {
+        const angle = tuft * 2.3 + index;
+        weeds.add(
+          this.mesh(
+            this.cone,
+            '#6f8f4c',
+            [Math.cos(angle) * 0.34, 0.3, Math.sin(angle) * 0.3],
+            [0.09, 0.26, 0.09],
+          ),
+        );
+      }
+      bed.add(weeds);
+      const plants = new THREE.Group();
+      const leaves: THREE.Mesh[] = [];
+      const fruit: THREE.Mesh[] = [];
+      for (let row = 0; row < 2; row++)
+        for (let column = 0; column < 2; column++) {
+          const x = column * 0.5 - 0.25;
+          const z = row * 0.5 - 0.25;
+          for (let leaf = 0; leaf < 3; leaf++) {
+            const angle = leaf * 2.1;
+            const sprout = this.mesh(
+              this.sphere,
+              '#8daa52',
+              [x + Math.sin(angle) * 0.09, 0.4, z + Math.cos(angle) * 0.09],
+              [0.1, 0.26, 0.07],
+            );
+            sprout.rotation.z = Math.sin(angle) * 0.6;
+            leaves.push(sprout);
+            plants.add(sprout);
+          }
+          const produce = this.mesh(this.sphere, '#e5b670', [x, 0.24, z], [0.14, 0.16, 0.14]);
+          fruit.push(produce);
+          plants.add(produce);
+        }
+      bed.add(plants);
+      this.beds.set(plot.id, { soil, weeds, plants, leaves, fruit });
+      this.scenery.add(bed);
+    });
+    this.label('Garden beds', -4.3, 1.1, 2.7);
+    const can = this.mesh(this.cylinder, '#709896', [-6.2, 0.23, 2.2], [0.25, 0.42, 0.25]);
     this.scenery.add(can);
-    const spout = this.mesh(this.cylinder, '#709896', [x + 1.55, 0.25, z + 0.8], [0.07, 0.5, 0.07]);
+    const spout = this.mesh(this.cylinder, '#709896', [-5.92, 0.25, 2.2], [0.07, 0.5, 0.07]);
     spout.rotation.z = -0.95;
     this.scenery.add(spout);
+  }
+
+  private cottageInterior(): void {
+    const floor = this.mesh(this.box, '#c89f6e', [0, -0.1, 0], [10.4, 0.2, 10.4]);
+    this.scenery.add(floor);
+    for (let board = 0; board < 12; board++)
+      this.scenery.add(
+        this.mesh(this.box, '#b58a5c', [-5 + board * 0.87, 0.005, 0], [0.03, 0.02, 10.3]),
+      );
+    // Only the two far walls stand, so the camera looks into the room like a dollhouse.
+    this.scenery.add(this.mesh(this.box, '#f1dfb5', [-5.2, 1.5, 0], [0.3, 3, 10.4]));
+    this.scenery.add(this.mesh(this.box, '#eddbaf', [0, 1.5, -5.2], [10.4, 3, 0.3]));
+    this.scenery.add(this.mesh(this.box, '#b9905f', [-5.02, 0.15, 0], [0.08, 0.3, 10.3]));
+    this.scenery.add(this.mesh(this.box, '#b9905f', [0, 0.15, -5.02], [10.3, 0.3, 0.08]));
+    const pane = new THREE.Group();
+    this.window(pane, -2.4, 1.8, -5.04, 0.9);
+    this.scenery.add(pane);
+    this.scenery.add(this.mesh(this.cylinder, '#b76e54', [0.2, 0.02, 0.4], [2.3, 0.02, 1.7]));
+    this.scenery.add(this.mesh(this.cylinder, '#d9a77f', [0.2, 0.03, 0.4], [1.8, 0.02, 1.3]));
+    // Bed with a quilted cover.
+    const bed = new THREE.Group();
+    bed.position.set(-3, 0, -2.6);
+    bed.add(this.mesh(this.box, '#8c603e', [0, 0.3, 0], [1.6, 0.4, 2.4]));
+    bed.add(this.mesh(this.box, '#f3e8c5', [0, 0.58, 0], [1.45, 0.18, 2.25]));
+    bed.add(this.mesh(this.box, '#537a74', [0, 0.7, 0.3], [1.5, 0.08, 1.6]));
+    bed.add(this.mesh(this.box, '#fbf3dc', [0, 0.74, -0.8], [0.9, 0.16, 0.4]));
+    bed.add(this.mesh(this.box, '#8c603e', [0, 0.75, -1.2], [1.6, 1.1, 0.12]));
+    this.scenery.add(bed);
+    // Stone hearth with a small fire and chimney breast.
+    const hearth = new THREE.Group();
+    hearth.position.set(3, 0, -3.7);
+    hearth.add(this.mesh(this.box, '#a39c8c', [0, 0.75, -0.8], [1.9, 1.5, 0.9]));
+    hearth.add(this.mesh(this.box, '#8f887a', [0, 2.25, -0.95], [1.1, 1.5, 0.6]));
+    hearth.add(this.mesh(this.box, '#3f3530', [0, 0.55, -0.35], [1, 0.8, 0.1]));
+    hearth.add(this.mesh(this.box, '#b8b0a0', [0, 0.08, -0.1], [2.1, 0.16, 0.7]));
+    for (let flame = 0; flame < 3; flame++)
+      hearth.add(
+        this.mesh(
+          this.cone,
+          flame === 1 ? '#f6c25d' : '#ee8a45',
+          [(flame - 1) * 0.2, 0.4, -0.3],
+          [0.16, 0.45 - Math.abs(flame - 1) * 0.12, 0.16],
+        ),
+      );
+    const glow = new THREE.PointLight('#ffb36b', 6, 7, 1.6);
+    glow.position.set(0, 0.8, 0.4);
+    hearth.add(glow);
+    this.scenery.add(hearth);
+    // Kitchen counter along the side wall with a kettle.
+    const counter = new THREE.Group();
+    counter.position.set(-3.9, 0, 1.6);
+    counter.add(this.mesh(this.box, '#9b714b', [-0.4, 0.5, 0], [1, 1, 2.2]));
+    counter.add(this.mesh(this.box, '#e0cfa6', [-0.4, 1.03, 0], [1.1, 0.08, 2.3]));
+    counter.add(this.mesh(this.sphere, '#537a74', [-0.35, 1.2, -0.5], [0.2, 0.17, 0.2]));
+    counter.add(this.mesh(this.box, '#d8b98a', [-0.35, 1.1, 0.5], [0.5, 0.05, 0.35]));
+    this.scenery.add(counter);
+    // Wall calendar: a paper sheet with a grid of season rows.
+    const calendar = new THREE.Group();
+    calendar.position.set(0.2, 1.75, -5.03);
+    calendar.add(this.mesh(this.box, '#8c603e', [0, 0, 0], [1.25, 1.05, 0.05]));
+    calendar.add(this.mesh(this.box, '#fbf3dc', [0, -0.03, 0.03], [1.1, 0.88, 0.02]));
+    const seasonColors = ['#8daa52', '#e2b35a', '#c7784e', '#8fb0c0'];
+    seasonColors.forEach((color, row) =>
+      calendar.add(this.mesh(this.box, color, [0, 0.3 - row * 0.2, 0.045], [0.95, 0.06, 0.01])),
+    );
+    calendar.add(this.mesh(this.box, '#b76e54', [0, 0.46, 0.04], [1.1, 0.1, 0.02]));
+    this.scenery.add(calendar);
+    this.scenery.add(this.mesh(this.box, '#b39c6c', [1.6, 0.02, 4.6], [1.3, 0.04, 0.6]));
+    const heights: Partial<Record<string, number>> = {
+      door: 1.2,
+      bed: 1.6,
+      calendar: 2.8,
+      hearth: 3,
+      counter: 1.8,
+    };
+    for (const object of AREAS.cottage.objects)
+      this.label(
+        object.name,
+        object.position.x,
+        heights[object.kind] ?? 1.5,
+        object.position.z,
+        object.kind === 'door',
+      );
   }
 
   private training(x: number, z: number): void {

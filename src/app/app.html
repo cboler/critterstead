@@ -26,10 +26,13 @@
   </header>
   <div class="day-bar">
     <div class="season">
-      <span class="sun-icon" aria-hidden="true">☀</span>
+      <span class="sun-icon" aria-hidden="true">{{ weatherIcons[weather()] }}</span>
       <div>
         <strong>Day {{ state().day }}</strong
-        ><span>Early spring · Year one</span>
+        ><span
+          >{{ capitalize(date().season) }} {{ date().dayOfSeason }} · Year {{ date().year }} ·
+          {{ weather() }}</span
+        >
       </div>
     </div>
     <div class="clock">
@@ -293,7 +296,7 @@
         <details>
           <summary>Rancher skills &amp; hauling</summary>
           @for (skill of rancherSkills; track skill) {
-            <p>{{ skill }} · {{ state().player.skills[skill].toFixed(2) }}</p>
+            <p>{{ skill }} · {{ (state().player.skills[skill] ?? 0).toFixed(2) }}</p>
           }
         </details>
       </section>
@@ -318,8 +321,26 @@
       <div [title]="'Feed keeps ' + companion().name + ' happy and restores energy'">
         <span class="item-icon feed">❧</span><span>Feed</span><strong>{{ count('feed') }}</strong>
       </div>
-      <div title="Plant seeds in the garden plot">
-        <span class="item-icon seeds">♧</span><span>Seeds</span><strong>{{ count('seed') }}</strong>
+      <div
+        [title]="
+          'Feed ' +
+          count('seed') +
+          ' · turnip ' +
+          count('turnip-seed') +
+          ' · wheat ' +
+          count('wheat-seed') +
+          ' · sunberry ' +
+          count('sunberry-seed')
+        "
+      >
+        <span class="item-icon seeds">♧</span><span>Seeds</span
+        ><strong>{{
+          count('seed') + count('turnip-seed') + count('wheat-seed') + count('sunberry-seed')
+        }}</strong>
+      </div>
+      <div [title]="'Turnips ' + count('turnip') + ' · wheat ' + count('wheat')">
+        <span class="item-icon produce">✾</span><span>Produce</span
+        ><strong>{{ count('turnip') + count('wheat') }}</strong>
       </div>
     </div>
     <div class="player-energy">
@@ -347,7 +368,9 @@
                 ? 'A life, little by little.'
                 : currentPanel === 'help'
                   ? 'Welcome to your little corner.'
-                  : 'Developer field kit'
+                  : currentPanel === 'calendar'
+                    ? 'The household calendar'
+                    : 'Developer field kit'
             }}
           </h2>
         </div>
@@ -385,11 +408,14 @@
           <article>
             <h3>04 · Come back with a story</h3>
             <p>
-              Sell berries at the honesty stall, mend the shed, or try the Clover Cup. Sleep at the
-              cottage to begin another day, or rest together at the nook: two game hours restores up
-              to 30 of your energy and 35 for {{ companion().name }}. Food eases hunger; rest does
-              not. Independent foraging keeps 20 energy in reserve, while your cues can spend it.
-              Your game saves automatically in this browser.
+              Sell berries at the honesty stall, mend the shed, or try the Clover Cup. Four garden
+              beds grow feed, turnips and wheat in their seasons, but only while watered; water
+              lasts until dawn and rain waters them for you. Step inside the cottage to read the
+              wall calendar. Sleep at the cottage to begin another day, or rest together at the
+              nook: two game hours restores up to 30 of your energy and 35 for
+              {{ companion().name }}. Food eases hunger; rest does not. Independent foraging keeps
+              20 energy in reserve, while your cues can spend it. Your game saves automatically in
+              this browser.
             </p>
           </article>
         </div>
@@ -403,6 +429,55 @@
         <button class="primary" (click)="openPanel(null)">
           Let’s meet {{ companion().name }} <span aria-hidden="true">→</span>
         </button>
+      } @else if (currentPanel === 'calendar') {
+        @let view = calendar();
+        <p class="calendar-today">
+          <strong
+            >{{ capitalize(view.today.season) }} {{ view.today.dayOfSeason }}, Year
+            {{ view.today.year }}</strong
+          >
+          · day {{ view.today.dayOfYear }} of 120 · {{ weatherIcons[view.today.weather] }}
+          {{ view.today.weather }}
+        </p>
+        <ul class="forecast" aria-label="Three-day forecast">
+          @for (entry of view.forecast; track entry.day) {
+            <li>
+              <span aria-hidden="true">{{ weatherIcons[entry.weather] }}</span
+              ><strong>{{ entry.label }}</strong
+              ><span>{{ entry.weather }}</span>
+            </li>
+          }
+        </ul>
+        <div class="calendar-year">
+          @for (season of view.seasons; track season.season) {
+            <section class="calendar-season" [class]="'calendar-season ' + season.season">
+              <h3>{{ capitalize(season.season) }}</h3>
+              <ol>
+                @for (cell of season.days; track cell.day) {
+                  <li
+                    [class.past]="cell.past"
+                    [class.today]="cell.today"
+                    [class.marked]="cell.marked"
+                    [attr.aria-current]="cell.today ? 'date' : null"
+                  >
+                    {{ cell.dayOfSeason }}
+                  </li>
+                }
+              </ol>
+            </section>
+          }
+        </div>
+        <h3>Coming up</h3>
+        <ul class="calendar-events">
+          @for (event of view.events; track $index) {
+            <li [class]="event.kind">
+              <strong>{{ event.date }}</strong> · {{ event.label }}
+            </li>
+          } @empty {
+            <li>A quiet season ahead.</li>
+          }
+        </ul>
+        <button class="primary" (click)="openPanel(null)">Back to the cottage</button>
       } @else if (currentPanel === 'journal') {
         <div class="journal-summary">
           <span>Day {{ state().day }}</span

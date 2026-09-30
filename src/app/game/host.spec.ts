@@ -63,7 +63,7 @@ describe('LocalGameHost authority and care', () => {
 
   it('prioritizes a nearby station over a following critter', () => {
     const host = at({ x: -5, z: 2 });
-    expect(host.interaction()?.id).toBe('crop');
+    expect(host.interaction()?.id).toBe('plot-1');
   });
 
   it('advances a full day in the configured thirty real minutes without negative needs', () => {
@@ -133,16 +133,17 @@ describe('progression, resources, and persistence', () => {
 
   it('grows useful feed only after planting, watering, and enough time', () => {
     const host = at({ x: -5, z: 2 });
-    expect(act(host, 'crop', 'harvest')).toBe(false);
-    expect(act(host, 'crop', 'plant')).toBe(true);
-    expect(act(host, 'crop', 'water')).toBe(true);
-    expect(act(host, 'crop', 'water')).toBe(false);
-    expect(act(host, 'crop', 'harvest')).toBe(false);
+    expect(act(host, 'plot-1', 'harvest')).toBe(false);
+    expect(act(host, 'plot-1', 'plant:feed')).toBe(true);
+    expect(act(host, 'plot-1', 'water')).toBe(true);
+    expect(act(host, 'plot-1', 'water')).toBe(false);
+    expect(act(host, 'plot-1', 'harvest')).toBe(false);
     for (let second = 0; second < 225; second++) host.update(1);
-    expect(act(host, 'crop', 'harvest')).toBe(true);
+    expect(act(host, 'plot-1', 'harvest')).toBe(true);
     expect(backpack(host.state).items.find((item) => item.itemId === 'feed')?.quantity).toBe(7);
     expect(backpack(host.state).items.find((item) => item.itemId === 'seed')?.quantity).toBe(3);
-    expect(act(host, 'crop', 'harvest')).toBe(false);
+    expect(act(host, 'plot-1', 'harvest')).toBe(false);
+    expect(host.state.plots[0]).toMatchObject({ tilled: true, crop: null });
   });
 
   it('prices quality, consumes sold berries, and makes the shed improvement permanent', () => {
@@ -571,7 +572,13 @@ describe('daily effort and recovery', () => {
       activeCritter(state).stamina = 0;
       backpack(state).items = [];
       state.player.coins = 0;
-      state.crop = { id: 'crop-feed', plantedAt: 300, watered: true, readyAt: 530 };
+      state.plots[0].crop = {
+        speciesId: 'feed',
+        plantedAt: 300,
+        growthMinutes: 130,
+        withered: false,
+      };
+      state.plots[0].moistUntil = 1800;
       state.resources[0].available = false;
       state.resources[0].respawnAt = 530;
       state.critters.unshift({
@@ -597,7 +604,7 @@ describe('daily effort and recovery', () => {
     expect(host.critter.hunger).toBe(38);
     expect(host.state.totalMinutes).toBe(600);
     expect(host.state.day).toBe(1);
-    expect(host.state.crop.readyAt).toBeLessThanOrEqual(host.state.totalMinutes);
+    expect(host.state.plots[0].crop?.growthMinutes).toBe(180);
     expect(host.state.resources[0].available).toBe(true);
     expect(backpack(host.state).items).toEqual([]);
     expect(host.state.player.coins).toBe(0);

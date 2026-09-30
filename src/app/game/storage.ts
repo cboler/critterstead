@@ -1,6 +1,7 @@
 import { Critter, GameState, Training } from './model';
-import { BEHAVIORS, initialMaterialNodes } from './content';
-import { initialContainers, MILL_MINUTES } from './logistics';
+import { BEHAVIORS, CROPS, initialMaterialNodes, initialPlots } from './content';
+import { nextDawn } from './calendar';
+import { initialContainers, ITEM_IDS, LEGACY_ITEM_IDS, MILL_MINUTES } from './logistics';
 
 export interface SaveStorage {
   load(): Promise<GameState | null>;
@@ -168,6 +169,7 @@ export function readSave(value: unknown): GameState {
         legacy.activeCritterId,
         inventory,
         legacy.critters.map((critter) => critter.id),
+        LEGACY_ITEM_IDS,
       ),
       production: { progressMinutes: 0 },
     };
@@ -178,7 +180,7 @@ export function readSave(value: unknown): GameState {
     if (root['haulLesson'] !== undefined) corrupt('ambiguous haulLesson');
     const legacy = structuredClone(value as LegacyGameStateV5);
     if (legacy.critters.some((critter) => 'hauling' in critter)) corrupt('ambiguous hauling');
-    const migrated: GameState = {
+    const migrated: LegacyGameStateV6 = {
       ...legacy,
       version: 6,
       haulLesson: null,
@@ -186,6 +188,43 @@ export function readSave(value: unknown): GameState {
         ...critter,
         hauling: { enabled: false, phase: 'idle', cued: false },
       })),
+    };
+    return readSave(migrated);
+  }
+  if (root['version'] === 6) {
+    validateState(value, 6);
+    if (root['plots'] !== undefined || root['companionIndoors'] !== undefined)
+      corrupt('ambiguous plots');
+    const { crop, ...legacy } = structuredClone(value as LegacyGameStateV6);
+    // The former feed garden becomes prepared bed 1; its promised growth is kept.
+    const plots = initialPlots();
+    plots[0].tilled = true;
+    if (crop.plantedAt !== null) {
+      const growth = CROPS.feed.growthMinutes;
+      plots[0].crop = {
+        speciesId: 'feed',
+        plantedAt: crop.plantedAt,
+        growthMinutes:
+          crop.watered && crop.readyAt !== null
+            ? Math.max(0, Math.min(growth, growth - (crop.readyAt - legacy.totalMinutes)))
+            : 0,
+        withered: false,
+      };
+      if (crop.watered)
+        plots[0].moistUntil = Math.max(nextDawn(legacy.totalMinutes), crop.readyAt ?? 0);
+    }
+    const migrated: GameState = {
+      ...legacy,
+      version: 7,
+      player: { ...legacy.player, skills: { farming: 1, ...legacy.player.skills } },
+      plots,
+      companionIndoors: false,
+      containers: legacy.containers.map((container) =>
+        container.allowed.length === LEGACY_ITEM_IDS.length &&
+        LEGACY_ITEM_IDS.every((item) => container.allowed.includes(item))
+          ? { ...container, allowed: [...ITEM_IDS] }
+          : container,
+      ),
     };
     validateSave(migrated);
     return migrated;
@@ -196,7 +235,17 @@ export function readSave(value: unknown): GameState {
 
 // Versioned differences; frozen legacy fixtures must not depend on new-game defaults.
 type LegacyCritter = Omit<Critter, 'learnedBehaviors' | 'hauling'> & { berryKnowledge: number };
-type LegacyGameStateV5 = Omit<GameState, 'version' | 'critters' | 'haulLesson'> & {
+interface LegacyCrop {
+  id: string;
+  plantedAt: number | null;
+  watered: boolean;
+  readyAt: number | null;
+}
+type LegacyGameStateV6 = Omit<GameState, 'version' | 'plots' | 'companionIndoors'> & {
+  version: 6;
+  crop: LegacyCrop;
+};
+type LegacyGameStateV5 = Omit<LegacyGameStateV6, 'version' | 'critters' | 'haulLesson'> & {
   version: 5;
   critters: Omit<Critter, 'hauling'>[];
 };
@@ -226,10 +275,11 @@ type LegacyGameStateV1 = Omit<
 
 /** Writes accept only the current schema. Older records must pass readSave first. */
 export function validateSave(value: unknown): asserts value is GameState {
-  validateState(value, 6);
+  validateState(value, 7);
 }
 
-function validateState(value: unknown, version: 1 | 2 | 3 | 4 | 5 | 6): void {
+type SaveVersion = 1 | 2 | 3 | 4 | 5 | 6 | 7;
+function validateState(value: unknown, version: SaveVersion): void {
   const root = record(value, 'save');
   if (root['version'] !== version) {
     throw new Error(
@@ -243,7 +293,7 @@ function validateState(value: unknown, version: 1 | 2 | 3 | 4 | 5 | 6): void {
   number(root['totalMinutes'], 'totalMinutes');
   if ((root['minute'] as number) >= 1440) corrupt('minute');
   if (root['day'] !== Math.floor((root['totalMinutes'] as number) / 1440) + 1) corrupt('calendar');
-  area(root['areaId']);
+  area(root['areaId'], version);
   string(root['areaInstanceId'], 'areaInstanceId');
 
   const player = record(root['player'], 'player');
@@ -303,6 +353,7 @@ function validateState(value: unknown, version: 1 | 2 | 3 | 4 | 5 | 6): void {
       root['activeCritterId'] as string,
       [],
       individuals.map((item) => record(item, 'critter')['id'] as string),
+      version >= 7 ? ITEM_IDS : LEGACY_ITEM_IDS,
     );
     if (containers.length !== expected.length) corrupt('container count');
     for (const value of containers) {
@@ -393,7 +444,7 @@ function validateState(value: unknown, version: 1 | 2 | 3 | 4 | 5 | 6): void {
     for (const value of nodes) {
       const node = record(value, 'materialNode');
       entityId(node['id'], ids);
-      area(node['areaId']);
+      area(node['areaId'], version);
       point(node['position']);
       choice(node['kind'], ['timber', 'stone'], 'materialNode.kind');
       number(node['remaining'], 'materialNode.remaining', 0, 6, true);
@@ -402,7 +453,7 @@ function validateState(value: unknown, version: 1 | 2 | 3 | 4 | 5 | 6): void {
     for (const value of array(root['groundCargo'], 'groundCargo')) {
       const pile = record(value, 'groundCargo');
       entityId(pile['id'], ids);
-      area(pile['areaId']);
+      area(pile['areaId'], version);
       point(pile['position']);
       for (const entry of array(pile['items'], 'groundCargo.items')) {
         const item = record(entry, 'groundCargo.item');
@@ -441,16 +492,21 @@ function validateState(value: unknown, version: 1 | 2 | 3 | 4 | 5 | 6): void {
   for (const value of array(root['resources'], 'resources')) {
     const node = record(value, 'resource');
     entityId(node['id'], ids);
-    area(node['areaId']);
+    area(node['areaId'], version);
     point(node['position']);
     boolean(node['available'], 'resource.available');
     number(node['respawnAt'], 'resource.respawnAt');
   }
-  const crop = record(root['crop'], 'crop');
-  entityId(crop['id'], ids);
-  for (const key of ['plantedAt', 'readyAt'])
-    if (crop[key] !== null) number(crop[key], `crop.${key}`);
-  boolean(crop['watered'], 'crop.watered');
+  if (version < 7) {
+    const crop = record(root['crop'], 'crop');
+    entityId(crop['id'], ids);
+    for (const key of ['plantedAt', 'readyAt'])
+      if (crop[key] !== null) number(crop[key], `crop.${key}`);
+    boolean(crop['watered'], 'crop.watered');
+  } else {
+    if (root['crop'] !== undefined) corrupt('obsolete crop');
+    validatePlots(root, ids);
+  }
   number(root['shedLevel'], 'shedLevel', 0, Number.MAX_SAFE_INTEGER, true);
   strings(root['flags'], 'flags');
   strings(root['journal'], 'journal');
@@ -473,7 +529,37 @@ function validateState(value: unknown, version: 1 | 2 | 3 | 4 | 5 | 6): void {
   }
 }
 
-function validateCritter(critter: Record<string, unknown>, version: 1 | 2 | 3 | 4 | 5 | 6): void {
+function validatePlots(root: Record<string, unknown>, ids: Set<string>): void {
+  boolean(root['companionIndoors'], 'companionIndoors');
+  if (root['companionIndoors'] && root['areaId'] !== 'cottage') corrupt('companionIndoors');
+  const plots = array(root['plots'], 'plots');
+  const authored = initialPlots();
+  if (plots.length !== authored.length) corrupt('plot count');
+  for (const value of plots) {
+    const plot = record(value, 'plot');
+    entityId(plot['id'], ids);
+    const layout = authored.find((item) => item.id === plot['id']);
+    const at = record(plot['position'], 'plot.position');
+    if (!layout || at['x'] !== layout.position.x || at['z'] !== layout.position.z)
+      corrupt('plot position');
+    boolean(plot['tilled'], 'plot.tilled');
+    number(plot['moistUntil'], 'plot.moistUntil');
+    if (plot['crop'] === null) continue;
+    if (!plot['tilled']) corrupt('plot crop');
+    const crop = record(plot['crop'], 'plot.crop');
+    choice(crop['speciesId'], Object.keys(CROPS), 'plot.crop.speciesId');
+    number(crop['plantedAt'], 'plot.crop.plantedAt', 0, root['totalMinutes'] as number);
+    number(
+      crop['growthMinutes'],
+      'plot.crop.growthMinutes',
+      0,
+      CROPS[crop['speciesId'] as keyof typeof CROPS].growthMinutes,
+    );
+    boolean(crop['withered'], 'plot.crop.withered');
+  }
+}
+
+function validateCritter(critter: Record<string, unknown>, version: SaveVersion): void {
   for (const key of ['id', 'name', 'speciesId', 'personality'])
     string(critter[key], `critter.${key}`);
   choice(critter['sex'], ['female', 'male'], 'critter.sex');
@@ -569,8 +655,12 @@ function strings(value: unknown, path: string): void {
 function choice(value: unknown, choices: string[], path: string): void {
   if (typeof value !== 'string' || !choices.includes(value)) corrupt(path);
 }
-function area(value: unknown): void {
-  choice(value, ['homestead', 'glade'], 'areaId');
+function area(value: unknown, version: SaveVersion): void {
+  choice(
+    value,
+    version >= 7 ? ['homestead', 'glade', 'cottage'] : ['homestead', 'glade'],
+    'areaId',
+  );
 }
 function point(value: unknown): void {
   const position = record(value, 'position');

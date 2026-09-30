@@ -4,6 +4,7 @@
 M3 implementation and local verification complete and merged into `main` via PR #1
 (`d9ba9d7`) on 2026-09-27; human evaluation concluded (see recorded findings below).
 M4–M9 restructured to systematically build the first living stead vertical slice.
+M4–M6 merged to `main` via PR #2. M7 complete and locally verified on 2026-09-29 (save v7).
 Source baseline: `3a346fc` (documentation bootstrap on gameplay `06aa91e`),
 identical in content to the published bootstrap `7e14cac`.
 
@@ -200,21 +201,21 @@ playtest is a pending product gate, not a claim of failure or success.
 
 ### M7 — Multi-crop farming, cottage interior, and household calendar
 
-**Status:** not started; builds on base stead progression.
+**Status:** complete and locally verified (2026-09-29); save v7. Evidence below.
 **Player-visible expectation:** Farming expands into a 4-plot garden grid supporting multiple seasonal crops with soil moisture; the player can enter the cottage interior diorama and inspect the 120-day wall calendar.
 
-- [ ] Replace the single `state.crop` with a 4-plot garden grid.
-- [ ] Add seasonal crop species (sunberries, crisp turnips, grain wheat) with distinct seed
+- [x] Replace the single `state.crop` with a 4-plot garden grid.
+- [x] Add seasonal crop species (sunberries, crisp turnips, grain wheat) with distinct seed
       requirements, growth stages, and water needs.
-- [ ] Soil plots track moisture: tilling and watering are required for daily growth; dry
+- [x] Soil plots track moisture: tilling and watering are required for daily growth; dry
       plots pause growth.
-- [ ] Unlock the cottage interior door: walking to the cottage door transitions into the
+- [x] Unlock the cottage interior door: walking to the cottage door transitions into the
       authored cottage interior diorama (hearth, bed, kitchen counter, calendar).
-- [ ] Add an inspectable **wall calendar** inside the cottage displaying the 120-day year
+- [x] Add an inspectable **wall calendar** inside the cottage displaying the 120-day year
       (4 seasons $\times$ 30 days), current date, weather forecast, and upcoming event fixtures.
-- [ ] Transitioning between cottage interior and yard preserves state, companion position,
+- [x] Transitioning between cottage interior and yard preserves state, companion position,
       and simulation clock.
-- [ ] Unit, persistence, and browser tests verifying garden grid, multi-crop growth, diorama
+- [x] Unit, persistence, and browser tests verifying garden grid, multi-crop growth, diorama
       transitions, and calendar display.
 
 ### M8 — Diverse training disciplines and Colosseum exhibition
@@ -392,9 +393,9 @@ The outstanding human comparison between M3 routines has been conducted on the d
 
 ## Current handoff
 
-M1–M6 complete. M4 is pushed as `5290082`; M5 as `5cb3a37`. M6 is the next
-durable checkpoint. M7–M9 remain authorized. Next: implement the four-plot seasonal
-garden, cottage interior, and inspectable household calendar.
+M1–M7 complete. M4–M6 are on `main` (PR #2); M7 is committed on branch
+`claude/m7-garden-calendar` (save v7; not yet pushed or merged). M8–M9 remain authorized. Next: implement M8 — boulder lifting and distance
+pacing minigames with same-day diminishing returns, then the Colosseum exhibition.
 
 M4 desktop persistence suite: 9 passed, including v1/v2 migration, paid activity,
 malformed/future/ambiguous save protection, and single-writer ownership.
@@ -471,3 +472,46 @@ merge or Pages deployment is implied by the campaign branch push.
   meal threshold 70 hunger, autonomous rest reserve 20/resume 50. No offscreen worker
   simulation, general scheduling planner, or new dependency. Stylesheet warning
   remains below its unchanged 20kB error budget.
+
+## M7 evidence — 2026-09-29
+
+- **Garden:** four fixed beds replace `state.crop`; bed 1 keeps the old feed garden's
+  place and prepared soil. Growth accrues in game minutes only while a bed is moist.
+  Watering lasts until the next 06:00 dawn, so multi-day crops need water each day.
+  Morning rain waters every tilled bed. At dawn, crops outside their seasons wither and
+  must be cleared. New beds are tilled through the M4 check engine (farming skill, STR,
+  END, INT), which earns farming experience.
+- **Crops (provisional):** feed greens (spring–autumn, 180 min, unchanged yield),
+  crisp turnips (spring/autumn, 1200), grain wheat (spring/summer, 2400), garden
+  sunberries (summer/autumn, 1800). The stall sells seeds that show their seasons and
+  buys turnips/wheat at 2 coins each. Weeds exist only as overgrown untilled beds;
+  there is no weed regrowth.
+- **Calendar:** `calendar.ts` derives season, day, and year from `day`. Weather is a
+  fixed integer hash per day (day 1 always sunny). It never consumes the save seed, so
+  every save shares the same weather. The wall calendar shows today, a 3-day forecast,
+  the full year grid, and upcoming facts: season changes, the companion's birthday,
+  forecast rain, and harvests the current moisture can actually deliver. Festivals and
+  market days are not authored; there is no canon for them yet.
+- **Cottage:** a new `cottage` area (door, bed, calendar, hearth, counter); the bed,
+  hearth, and counter are solid. Entering or leaving costs 1 game minute. A following
+  companion comes inside and exits beside you. A working hauler stays in the yard and
+  keeps working; if a cued errand ends while you are inside, it joins you. Exterior
+  sleep is kept alongside the bed.
+- **Save v7:** migration moves the old crop into bed 1 and keeps the growth already
+  promised; watered soil stays moist at least until its old ready time. It adds
+  `companionIndoors` and a default farming skill, and widens general containers
+  to the new item IDs. v5/v6 validation keeps the legacy item list. A frozen v6
+  fixture protects the migration. Plot layout, species, growth bounds, soil-less crops,
+  and indoor flags are validated fail-closed.
+- **Verification (local, Windows):** 111 unit tests (97 before; new calendar, growth,
+  rain, withering, tilling, stall, cottage, hauler-outdoors and v7 migration/corruption
+  cases); lint; Prettier; production build at `/` and `/critterstead/` with
+  `check:pwa` passing at both. Browser: full suite 57 passed, 23 intentional skips; the 4 failures were the v1-migration assertion expecting exactly 102 growth minutes while the clock ran briefly (102.45). After loosening it, `persistence.spec.ts` passes 36/36 on all viewports. New `household.spec.ts` passes on
+  phone and desktop through normal input: buy seed, till, plant, water, enter, read
+  the calendar, reload inside, leave, and verify the saved bed.
+- **Inspected in the in-app browser:** bed states (overgrown, moist, growing, ready),
+  cottage interior at desktop and 375 px, calendar modal at desktop and 375 px (no
+  horizontal overflow). Moist/dry soil contrast and per-crop leaf shapes were improved
+  after inspection.
+- **Known:** the component stylesheet warning rose from 16.48 to 17.29 kB (unchanged
+  20 kB error budget). No human fun/balance acceptance is claimed.

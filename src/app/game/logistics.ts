@@ -1,12 +1,21 @@
 import { Container, InventoryItem } from './model';
 
-export const ITEM_IDS: InventoryItem['itemId'][] = [
+// Save v5/v6 general containers accepted exactly these items; v7 adds garden goods.
+export const LEGACY_ITEM_IDS: InventoryItem['itemId'][] = [
   'berry',
   'feed',
   'seed',
   'timber',
   'stone',
   'lumber',
+];
+export const ITEM_IDS: InventoryItem['itemId'][] = [
+  ...LEGACY_ITEM_IDS,
+  'turnip',
+  'wheat',
+  'turnip-seed',
+  'wheat-seed',
+  'sunberry-seed',
 ];
 export const MILL_MINUTES = 12;
 
@@ -15,6 +24,7 @@ export function initialContainers(
   critterId: string,
   items: InventoryItem[],
   critterIds = [critterId],
+  itemIds = ITEM_IDS,
 ): Container[] {
   return [
     {
@@ -22,7 +32,7 @@ export function initialContainers(
       kind: 'backpack',
       location: { actorId: playerId },
       capacity: null,
-      allowed: [...ITEM_IDS],
+      allowed: [...itemIds],
       items,
     },
     ...critterIds.map((actorId): Container => ({
@@ -30,7 +40,7 @@ export function initialContainers(
       kind: 'satchel',
       location: { actorId },
       capacity: null,
-      allowed: [...ITEM_IDS],
+      allowed: [...itemIds],
       items: [],
     })),
     {
@@ -38,7 +48,7 @@ export function initialContainers(
       kind: 'chest',
       location: { areaId: 'homestead', position: { x: -1, z: 4 } },
       capacity: 64,
-      allowed: [...ITEM_IDS],
+      allowed: [...itemIds],
       items: [],
     },
     {

@@ -583,6 +583,63 @@
 .seeds {
   color: #b79859;
 }
+.produce {
+  color: #9b7fb0;
+}
+.forecast,
+.calendar-events {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+}
+.forecast li,
+.calendar-events li {
+  display: flex;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: #ecebdf;
+}
+.calendar-year {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 12px;
+}
+.calendar-season h3 {
+  margin: 0 0 6px;
+  font-size: 12px;
+}
+.calendar-season ol {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.calendar-season li {
+  padding: 4px 0;
+  border-radius: 4px;
+  text-align: center;
+  font-size: 10px;
+  background: #fffdf5;
+  border: 1px solid var(--line);
+}
+.calendar-season li.past {
+  opacity: 0.45;
+}
+.calendar-season li.marked {
+  border-color: #b76e54;
+  font-weight: 700;
+}
+.calendar-season li.today {
+  background: #537a74;
+  border-color: #537a74;
+  color: #fff;
+}
 .player-energy {
   display: flex;
   align-items: center;

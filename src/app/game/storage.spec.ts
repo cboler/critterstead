@@ -6,6 +6,20 @@ import { activeCritter } from './model';
 import { legacyV1 } from './fixtures/legacy-v1';
 import { legacyV2 } from './fixtures/legacy-v2';
 
+// Golden v7 garden for the frozen v1 crop: planted 9300, watered, ready 9550, now 9472.
+const legacyGarden = [
+  {
+    id: 'plot-1',
+    position: { x: -5, z: 2 },
+    tilled: true,
+    moistUntil: 10440,
+    crop: { speciesId: 'feed', plantedAt: 9300, growthMinutes: 102, withered: false },
+  },
+  { id: 'plot-2', position: { x: -3.6, z: 2 }, tilled: false, moistUntil: 0, crop: null },
+  { id: 'plot-3', position: { x: -5, z: 3.4 }, tilled: false, moistUntil: 0, crop: null },
+  { id: 'plot-4', position: { x: -3.6, z: 3.4 }, tilled: false, moistUntil: 0, crop: null },
+];
+
 describe('versioned homestead save validation', () => {
   it('accepts the initial state and an ordinary day transition', () => {
     const host = new LocalGameHost();
@@ -74,13 +88,16 @@ describe('versioned homestead save validation', () => {
 describe('v1 migration and individual references', () => {
   it('preserves the entire populated legacy save without mutating it or inventing narrative Pip', () => {
     const original = structuredClone(legacyV1);
-    const { critter, inventory, ...world } = original;
+    const { critter, inventory, crop, ...world } = original;
     const { berryKnowledge, ...individual } = critter;
     const migrated = readSave(original);
+    expect(crop.readyAt).toBe(9550);
     expect(migrated).toEqual({
       ...world,
-      version: 6,
+      version: 7,
       haulLesson: null,
+      plots: legacyGarden,
+      companionIndoors: false,
       containers: initialContainers(original.player.id, critter.id, inventory as InventoryItem[]),
       production: { progressMinutes: 0 },
       player: {
@@ -209,11 +226,14 @@ describe('v2 learning migration and v3 protection', () => {
   it('preserves every individual and world field, including paid activity and seeded state', () => {
     const before = structuredClone(legacyV2);
     const migrated = readSave(before);
-    const { inventory, ...oldWorld } = before;
+    const { inventory, crop, ...oldWorld } = before;
+    expect(crop).toEqual(legacyV1.crop);
     expect(migrated).toEqual({
       ...oldWorld,
-      version: 6,
+      version: 7,
       haulLesson: null,
+      plots: legacyGarden,
+      companionIndoors: false,
       containers: initialContainers(
         before.player.id,
         before.activeCritterId,
