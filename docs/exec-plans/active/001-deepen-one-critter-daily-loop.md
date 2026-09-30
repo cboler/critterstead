@@ -393,8 +393,8 @@ The outstanding human comparison between M3 routines has been conducted on the d
 
 ## Current handoff
 
-M1–M7 complete. M4–M6 are on `main` (PR #2); M7 is committed on branch
-`claude/m7-garden-calendar` (save v7; not yet pushed or merged). M8–M9 remain authorized. Next: implement M8 — boulder lifting and distance
+M1–M7 complete. M4–M6 are on `main` (PR #2); M7 was pushed to `main` as `eaad7ef`
+(save v7; Pages deploy triggered, human playtest on the published page pending). M8–M9 remain authorized. Next: implement M8 — boulder lifting and distance
 pacing minigames with same-day diminishing returns, then the Colosseum exhibition.
 
 M4 desktop persistence suite: 9 passed, including v1/v2 migration, paid activity,
