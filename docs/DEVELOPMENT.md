@@ -107,6 +107,11 @@ testing from migration testing:
   training) may occupy more space since the activity is the focal task.
 - Keep keyboard, pointer/touch, and controller inputs functional. Mocked Gamepad
   API tests do not constitute physical controller verification.
+- Rendering picks a quality tier from the WebGL renderer. Headless Playwright runs on
+  SwiftShader and gets the light tier (no post-processing or sun shadows; about 16 fps at
+  desktop size), so browser tests do not show the cinematic look and input loops should
+  not assume a fast frame rate; for visual review, launch Chromium with
+  `--use-angle=d3d11 --enable-gpu --ignore-gpu-blocklist` (Windows) to use the real GPU.
 - Preserve manifest, service worker, installed-app icons, CI/Pages workflows,
   and the SPA fallback. Avoid unnecessary dependencies and backend services.
 - Localization and color-blind accessibility are future design concerns; do not

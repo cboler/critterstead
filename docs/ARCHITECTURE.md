@@ -24,6 +24,7 @@ and persistence:
 | **[storage.ts](../src/app/game/storage.ts)**     | Save serialization, schema validation, explicit legacy migrations, IndexedDB driver                               | Game progression rules, entity logic, UI state                        |
 | **[app.ts](../src/app/app.ts), template/styles** | UI views, menus, HUD, input routing, audio cues, host lifecycle, Web Locks tab ownership                          | Direct mutation of authoritative state or game logic                  |
 | **[world.ts](../src/app/game/world.ts)**         | Three.js scene graph, procedural meshes, camera controls, particle effects, ground-click raycasting               | Authoritative state mutation, economy calculations, validation        |
+| **[render/](../src/app/game/render)** (world.ts) | Surroundings, atmosphere (light/weather), wind, post-processing, quality tiers, palettes                          | Game state, rules, saves; they only read the snapshot world.ts passes |
 
 ### Invariant principles
 
@@ -114,6 +115,20 @@ Save v8 adds per-critter `drills` (same-day session counts) and the `colosseum` 
 advance in `update`, finishing via `finishTraining`. `WorldObject` gates declare
 `destination` and `arrival`, so travel is data-driven. Exhibition results are
 competition entries tagged `event: 'exhibition'`; only the final score draws from the seed.
+
+## Current implementation additions — presentation (2026-09-30)
+
+The canvas is full-screen; HUD panels float over it and `app.ts` reports the covered
+edges each 200 ms (`setInsets`), so the orthographic follow camera frames the rancher in
+the uncovered area. The camera keeps one fixed viewing direction (screen-relative inputs
+stay valid) and only moves and zooms. `render/terrain.ts` builds non-walkable scenery past
+the playable square and never places tall scenery where it would hide playable ground.
+`render/atmosphere.ts` drives light from `state.minute` and `weatherFor(day)`;
+`render/post.ts` adds tilt-shift, night bloom and grading. `render/quality.ts` picks a
+tier from the WebGL renderer (software renderers such as headless SwiftShader get
+`light`: no post-processing or sun shadows, less detail); players can override it in
+Help. Fog starts beyond the camera's 60-unit focus distance. None of this reads or writes
+save data.
 
 ## Architectural reality audit (reconciliation baseline before M4)
 

@@ -383,6 +383,16 @@
       ><i class="chip-meter"><b [style.width.%]="companion().stamina"></b></i
     ></span>
   </button>
+  @for (fade of fades(); track fade) {
+    <div class="area-fade" (animationend)="endFade(fade)" aria-hidden="true"></div>
+  }
+  @if (morning(); as card) {
+    <div class="morning-card" aria-hidden="true">
+      <span class="sun-icon">{{ weatherIcons[card.weather] }}</span>
+      <strong>{{ card.title }}</strong>
+      <span>{{ card.date }}</span>
+    </div>
+  }
   <div class="recent-note" aria-live="polite">
     <span aria-hidden="true">✧</span>
     <p>

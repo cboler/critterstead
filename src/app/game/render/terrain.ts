@@ -393,7 +393,9 @@ export function buildSurroundings(area: AreaId, season: Season, detail: number):
   }
 
   // Meadow grass and flowers between the hedge and the trees.
-  const bladeMaterial = keep(new THREE.MeshStandardMaterial({ color: palette.blade, roughness: 1 }));
+  const bladeMaterial = keep(
+    new THREE.MeshStandardMaterial({ color: palette.blade, roughness: 1 }),
+  );
   addWind(bladeMaterial, 'blade');
   const blades = new THREE.InstancedMesh(
     keep(new THREE.ConeGeometry(0.35, 1, 4)),

@@ -154,6 +154,9 @@ async function savedState(page: Page): Promise<GameState> {
   );
 }
 
+// West of the nook: any stop within the walk tolerance reaches it, never the feed trough.
+const NOOK = { x: 2.5, z: -2.9 };
+
 async function position(page: Page): Promise<{ x: number; z: number }> {
   return (await developmentState(page)).player.position;
 }
@@ -247,7 +250,8 @@ test('plays a complete day and keeps the improved homestead after reload', async
     await expect(page.getByRole('button', { name: /^Ask Mallow to gather/ })).toBeDisabled();
     await page.getByRole('button', { name: /^Gather ·/ }).click();
     observations++;
-    await expect(page.getByRole('meter', { name: 'Sunberry foraging' })).toHaveAttribute(
+    // Phones start with the details panel collapsed, so match the meter without visibility.
+    await expect(page.locator('[role="meter"][aria-label="Sunberry foraging"]')).toHaveAttribute(
       'aria-valuenow',
       String(observations),
     );
@@ -278,13 +282,13 @@ test('plays a complete day and keeps the improved homestead after reload', async
   await page.getByRole('button', { name: /Return to Bramblewick/ }).click();
   await walk(page, -6, 5);
   await page.getByRole('button', { name: /^Sell berries/ }).click();
-  await walk(page, 4, -2);
+  await walk(page, NOOK.x, NOOK.z);
   await page.getByRole('button', { name: /Make it cozy/ }).click();
   expect((await developmentState(page)).shedLevel).toBe(1);
   await walk(page, 2, 6);
   await expect(page.getByRole('button', { name: /Run the trial/ })).toBeDisabled();
   await expect(page.locator('.action-reason')).toContainText('rest');
-  await walk(page, 4, -2);
+  await walk(page, NOOK.x, NOOK.z);
   const beforeRest = await developmentState(page);
   await page.screenshot({ path: testInfo.outputPath('nook-choice.png'), fullPage: true });
   await page.getByRole('button', { name: /Rest together.*120 min/ }).click();
@@ -372,7 +376,7 @@ test('preserves critter energy for a competition-oriented day by doing the harve
   await page.getByRole('button', { name: /Return to Bramblewick/ }).click();
   await walk(page, -6, 5);
   await page.getByRole('button', { name: /^Sell berries/ }).click();
-  await walk(page, 4, -2);
+  await walk(page, NOOK.x, NOOK.z);
   await page.getByRole('button', { name: /Make it cozy/ }).click();
   await walk(page, -5.6, 2);
   await page.getByRole('button', { name: /^Harvest · 3 feed/ }).click();
@@ -452,7 +456,7 @@ test('walks home exhausted, recovers without supplies, and feeds through ordinar
   await expect(page.locator('.learning-status')).toContainText('Feed Mallow');
   await walk(page, -8, 0);
   await page.getByRole('button', { name: /Return to Bramblewick/ }).click();
-  await walk(page, 4, -2);
+  await walk(page, NOOK.x, NOOK.z);
   await page.getByRole('button', { name: /Rest together/ }).click();
   await expect.poll(async () => activeCritter(await savedState(page)).stamina).toBe(35);
   await page.reload();

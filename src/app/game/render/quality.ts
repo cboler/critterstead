@@ -4,6 +4,8 @@ export type QualityChoice = 'auto' | Quality;
 
 export interface QualitySettings {
   pixelRatio: number;
+  // Sun shadows; the light tier keeps only the figures' contact shadows.
+  shadows: boolean;
   shadowMapSize: number;
   // Full-screen passes: tilt-shift focus, bloom, and grading.
   post: boolean;
@@ -13,9 +15,31 @@ export interface QualitySettings {
 }
 
 export const QUALITY_SETTINGS: Record<Quality, QualitySettings> = {
-  cinematic: { pixelRatio: 2, shadowMapSize: 2048, post: true, bloom: true, detail: 1 },
-  balanced: { pixelRatio: 1.5, shadowMapSize: 2048, post: true, bloom: false, detail: 0.7 },
-  light: { pixelRatio: 1, shadowMapSize: 1024, post: false, bloom: false, detail: 0.35 },
+  // The miniature blur softens fine detail, so cinematic caps resolution at 1.5x.
+  cinematic: {
+    pixelRatio: 1.5,
+    shadows: true,
+    shadowMapSize: 2048,
+    post: true,
+    bloom: true,
+    detail: 1,
+  },
+  balanced: {
+    pixelRatio: 1.25,
+    shadows: true,
+    shadowMapSize: 2048,
+    post: true,
+    bloom: false,
+    detail: 0.7,
+  },
+  light: {
+    pixelRatio: 1,
+    shadows: false,
+    shadowMapSize: 1024,
+    post: false,
+    bloom: false,
+    detail: 0.35,
+  },
 };
 
 const STORAGE_KEY = 'critterstead-visual-quality';

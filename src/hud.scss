@@ -1339,3 +1339,71 @@
   background: #f0cf82;
   box-shadow: 0 0 0 5px #f0cf8233;
 }
+
+// Moments: a soft fade when changing areas, and a title card for each new morning.
+.area-fade {
+  position: absolute;
+  inset: 0;
+  z-index: 15;
+  pointer-events: none;
+  background: #f4eedb;
+  animation: area-fade 0.8s ease-out forwards;
+}
+.is-night .area-fade {
+  background: #121a28;
+}
+@keyframes area-fade {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+.morning-card {
+  position: absolute;
+  z-index: 16;
+  left: 50%;
+  top: 34%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  pointer-events: none;
+  color: #2c4232;
+  text-shadow:
+    0 0 24px #f8f5e6,
+    0 0 6px #f8f5e6;
+  animation: morning-card 3.4s ease forwards;
+}
+.morning-card strong {
+  display: block;
+  font:
+    600 58px Georgia,
+    serif;
+  letter-spacing: -1px;
+}
+.morning-card span {
+  display: block;
+  font-size: 14px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+}
+.morning-card .sun-icon {
+  font-size: 40px;
+  letter-spacing: 0;
+}
+@keyframes morning-card {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -38%);
+  }
+  16% {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+  76% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}

@@ -714,6 +714,14 @@ Critters grow from energetic youths into peak adults and eventually wise elders:
 - Path clearing: blocked routes (fallen timber, rockslides) require player and critter
   labor to permanently open.
 
+### Presentation
+
+- The diorama fills the screen; HUD panels float above it and never cover the rancher.
+- The camera follows at a fixed orthographic angle with player zoom; each area continues
+  past its fence as scenery, so spaces read as places rather than floating islands.
+- Time of day, weather and seasons are visible in light, sky tint, precipitation and
+  foliage; a gentle miniature focus and warm glows at night support the toy-diorama feel.
+
 ### Viewport and interaction stability
 
 The 3D world diorama is the heart of the experience. Opening, closing, or cycling nearby

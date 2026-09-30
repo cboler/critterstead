@@ -41,49 +41,49 @@ const MOODS: Mood[] = [
     sunIntensity: 1.5,
     sky: '#f0c0ae',
     ground: '#6b5a58',
-    hemisphere: 1.55,
+    hemisphere: 1.4,
     fog: '#e6bfae',
-    exposure: 1.02,
+    exposure: 1,
   },
   {
     minute: 430,
-    sun: '#ffe0b6',
-    sunIntensity: 2.7,
-    sky: '#eef1e8',
-    ground: '#8f8670',
-    hemisphere: 2.25,
+    sun: '#ffdcae',
+    sunIntensity: 3,
+    sky: '#e9eee6',
+    ground: '#877d68',
+    hemisphere: 1.75,
     fog: '#e2e8df',
-    exposure: 1.1,
+    exposure: 1.04,
   },
   {
     minute: 720,
-    sun: '#fff3da',
-    sunIntensity: 3.25,
-    sky: '#eff7f1',
-    ground: '#988872',
-    hemisphere: 2.6,
+    sun: '#fff1d4',
+    sunIntensity: 3.6,
+    sky: '#e8f1ec',
+    ground: '#8f7f69',
+    hemisphere: 1.95,
     fog: '#dde9e3',
-    exposure: 1.13,
+    exposure: 1.05,
   },
   {
     minute: 1020,
-    sun: '#ffe5bd',
-    sunIntensity: 3,
-    sky: '#f1f3e7',
-    ground: '#958470',
-    hemisphere: 2.45,
+    sun: '#ffe1b4',
+    sunIntensity: 3.35,
+    sky: '#ecefe3',
+    ground: '#8b7a66',
+    hemisphere: 1.85,
     fog: '#e4e7da',
-    exposure: 1.12,
+    exposure: 1.05,
   },
   {
     minute: 1110,
-    sun: '#ffb56c',
-    sunIntensity: 2.35,
-    sky: '#f6d6ae',
-    ground: '#7c6551',
-    hemisphere: 2,
+    sun: '#ffb266',
+    sunIntensity: 2.6,
+    sky: '#f3d2a8',
+    ground: '#76604c',
+    hemisphere: 1.65,
     fog: '#efd3ae',
-    exposure: 1.1,
+    exposure: 1.04,
   },
   {
     minute: 1170,
@@ -91,9 +91,9 @@ const MOODS: Mood[] = [
     sunIntensity: 1.45,
     sky: '#e7a7a0',
     ground: '#5d4a54',
-    hemisphere: 1.5,
+    hemisphere: 1.4,
     fog: '#d99b91',
-    exposure: 1.04,
+    exposure: 1.02,
   },
   {
     minute: 1235,
@@ -132,12 +132,44 @@ const SUNSET = 1200;
 const MOON_DIRECTION = new THREE.Vector3(-0.45, 0.82, 0.38).normalize();
 const WEATHER_LIGHT: Record<
   Weather,
-  { sun: number; sky: number; haze: string; mix: number; tint: string; exposure: number }
+  {
+    sun: number;
+    sky: number;
+    haze: string;
+    mix: number;
+    tint: string;
+    tinted: number;
+    exposure: number;
+  }
 > = {
-  sunny: { sun: 1, sky: 1, haze: '#ffffff', mix: 0, tint: '#ffffff', exposure: 1 },
-  cloudy: { sun: 0.55, sky: 1.05, haze: '#c9d1d2', mix: 0.35, tint: '#e2e8ee', exposure: 0.97 },
-  rain: { sun: 0.28, sky: 0.9, haze: '#9aa8b0', mix: 0.6, tint: '#c9d5de', exposure: 0.9 },
-  snow: { sun: 0.62, sky: 1.08, haze: '#e1e8ee', mix: 0.5, tint: '#e6eeff', exposure: 0.98 },
+  sunny: { sun: 1, sky: 1, haze: '#ffffff', mix: 0, tint: '#ffffff', tinted: 0, exposure: 1 },
+  cloudy: {
+    sun: 0.55,
+    sky: 1.2,
+    haze: '#c9d1d2',
+    mix: 0.35,
+    tint: '#e2e8ee',
+    tinted: 0.5,
+    exposure: 0.98,
+  },
+  rain: {
+    sun: 0.28,
+    sky: 1.05,
+    haze: '#9aa8b0',
+    mix: 0.6,
+    tint: '#c9d5de',
+    tinted: 0.6,
+    exposure: 0.92,
+  },
+  snow: {
+    sun: 0.62,
+    sky: 1.2,
+    haze: '#e1e8ee',
+    mix: 0.5,
+    tint: '#e6eeff',
+    tinted: 0.55,
+    exposure: 0.98,
+  },
 };
 
 /** A small canvas-drawn radial glow for halos and fireflies. */
@@ -425,7 +457,9 @@ export class Atmosphere {
     if (!sunUp || twilight < 1) this.sunDirection.lerp(MOON_DIRECTION, 1 - twilight).normalize();
     if (frame.indoors) this.sunDirection.set(-0.35, 0.8, 0.5).normalize();
 
-    this.sun.color.copy(a.set(from.sun).lerp(b.set(to.sun), t)).lerp(b.set(weather.tint), 0.55);
+    this.sun.color
+      .copy(a.set(from.sun).lerp(b.set(to.sun), t))
+      .lerp(b.set(weather.tint), weather.tinted);
     this.sun.intensity =
       THREE.MathUtils.lerp(from.sunIntensity, to.sunIntensity, t) *
       weather.sun *

@@ -8,6 +8,8 @@ import { buildSurroundings, type Surroundings } from './render/terrain';
 import { PALETTES, type SeasonPalette } from './render/palette';
 import { Atmosphere, glowTexture } from './render/atmosphere';
 import { addWind, wind } from './render/wind';
+import { Finish } from './render/post';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { activeCritter, type AreaId, type CropId, type GameState, type Point } from './model';
 import {
   detectQuality,
@@ -100,6 +102,9 @@ export class GameWorld {
   private readonly targetRing: THREE.Mesh;
   private targetId: string | null = null;
   private readonly butterflies = new THREE.Group();
+  private finish: Finish | null = null;
+  private environment: THREE.Texture | null = null;
+  private readonly glossy = new Map<string, THREE.MeshStandardMaterial>();
   private readonly gpuName: string;
   private readonly sunRight = new THREE.Vector3();
   private readonly sunUp = new THREE.Vector3();
@@ -179,8 +184,8 @@ export class GameWorld {
   ) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
     this.gpuName = rendererName(this.renderer.getContext());
-    this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    // PCF filtering softens by `shadow.radius` (three.js folded PCFSoft into it).
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.13;
@@ -198,11 +203,11 @@ export class GameWorld {
     this.container.appendChild(this.labelLayer);
     this.critterLabel = this.makeLabel('', true);
     this.scene.background = new THREE.Color('#dce9e3');
-    this.scene.fog = new THREE.Fog('#dce9e3', 49, 95);
+    // The camera sits 60 units from its focus; haze begins beyond the playable view.
+    this.scene.fog = new THREE.Fog('#dce9e3', 74, 150);
     this.camera.position.copy(VIEW_DIRECTION).multiplyScalar(60);
     this.camera.lookAt(0, 0, 0);
     this.sun.position.copy(SUN_OFFSET);
-    this.sun.castShadow = true;
     this.sun.shadow.camera.near = 1;
     this.sun.shadow.camera.far = 90;
     this.scene.add(this.sun.target);
@@ -222,6 +227,20 @@ export class GameWorld {
     this.workTool.position.set(0.45, 0.9, 0.25);
     this.farmerBody.add(this.carriedLoad, this.workTool);
     this.buildCritter();
+    // Figures get a slightly glossier glaze than the matte scenery.
+    for (const figure of [this.farmer, this.critter])
+      figure.traverse((object) => {
+        if (!(object instanceof THREE.Mesh)) return;
+        const base = object.material as THREE.MeshStandardMaterial;
+        const key = base.color.getHexString();
+        let glaze = this.glossy.get(key);
+        if (!glaze) {
+          glaze = base.clone();
+          glaze.roughness = 0.55;
+          this.glossy.set(key, glaze);
+        }
+        object.material = glaze;
+      });
     this.companionLoad.add(this.mesh(this.box, '#c59160', [0, 0.9, 0.3], [0.85, 0.18, 0.35]));
     this.companionLoad.add(this.mesh(this.box, '#866546', [0.37, 0.6, 0], [0.27, 0.35, 0.4]));
     this.critterBody.add(this.companionLoad);
@@ -306,7 +325,25 @@ export class GameWorld {
     this.qualityTier = choice === 'auto' ? detectQuality(this.gpuName) : choice;
     const settings = QUALITY_SETTINGS[this.qualityTier];
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, settings.pixelRatio));
+    // Toggling the caster changes the lights' state, so materials recompile to match.
+    this.renderer.shadowMap.enabled = settings.shadows;
+    this.sun.castShadow = settings.shadows;
     this.atmosphere.configure(settings.detail, this.qualityTier !== 'light');
+    this.finish?.dispose();
+    this.finish = settings.post
+      ? new Finish(this.renderer, this.scene, this.camera, { bloom: settings.bloom })
+      : null;
+    // A soft studio-light reflection gives the figures (only) a glazed, toy-like sheen.
+    if (this.qualityTier !== 'light' && !this.environment) {
+      const generator = new THREE.PMREMGenerator(this.renderer);
+      this.environment = generator.fromScene(new RoomEnvironment(), 0.04).texture;
+      generator.dispose();
+    }
+    for (const glaze of this.glossy.values()) {
+      glaze.envMap = this.qualityTier === 'light' ? null : this.environment;
+      glaze.envMapIntensity = 0.28;
+      glaze.needsUpdate = true;
+    }
     if (this.sun.shadow.mapSize.x !== settings.shadowMapSize) {
       this.sun.shadow.mapSize.set(settings.shadowMapSize, settings.shadowMapSize);
       this.sun.shadow.map?.dispose();
@@ -528,7 +565,9 @@ export class GameWorld {
         }
       }
       for (const roof of this.shedRoof.children) {
-        (roof as THREE.Mesh).material = this.material(state.shedLevel > 0 ? '#426d65' : '#859078');
+        (roof as THREE.Mesh).material = this.material(
+          this.palette.snow ? '#e6ecec' : state.shedLevel > 0 ? '#426d65' : '#859078',
+        );
       }
       this.smoke.children.forEach((puff, index) => {
         const t = (this.clock * 0.2 + index * 0.29) % 1;
@@ -570,7 +609,13 @@ export class GameWorld {
         label.always || (label === closestLabel && distance < 5) ? '1' : '0';
       this.positionLabel(label.element, label.position);
     }
-    this.renderer.render(this.scene, this.camera);
+    if (this.finish) {
+      // Keep the rancher inside the sharp band of the miniature focus.
+      const focus = this.projection
+        .set(state.player.position.x, 0.9, state.player.position.z)
+        .project(this.camera);
+      this.finish.render(focus.y * 0.5 + 0.5, this.atmosphere.night, indoors ? 0.55 : 1);
+    } else this.renderer.render(this.scene, this.camera);
   }
 
   /** HUD coverage in CSS pixels; the camera keeps the rancher in the uncovered area. */
@@ -615,6 +660,9 @@ export class GameWorld {
     this.geometries.forEach((geometry) => geometry.dispose());
     this.materials.forEach((material) => material.dispose());
     this.areaMaterials.forEach((material) => material.dispose());
+    this.glossy.forEach((material) => material.dispose());
+    this.finish?.dispose();
+    this.environment?.dispose();
     this.atmosphere.dispose();
     this.soft.dispose();
     this.renderer.dispose();
@@ -669,6 +717,7 @@ export class GameWorld {
     this.width = Math.max(this.container.clientWidth, 1);
     this.height = Math.max(this.container.clientHeight, 1);
     this.renderer.setSize(this.width, this.height, false);
+    this.finish?.setSize(this.width, this.height, this.renderer.getPixelRatio());
     this.updateProjection();
   }
 
@@ -1183,7 +1232,7 @@ export class GameWorld {
     house.add(this.mesh(this.box, '#d7c8a3', [0, 0.12, 0], [3.65, 0.24, 3.15]));
     house.add(this.mesh(this.box, '#f1dfb5', [0, 1.23, 0], [3.35, 2.25, 2.8]));
     house.add(this.mesh(this.box, '#d6c29a', [0, 0.35, 1.43], [3.37, 0.2, 0.08]));
-    this.roof(house, 3.95, 3.5, 2.25, 1.18, '#b76e54');
+    this.roof(house, 3.95, 3.5, 2.25, 1.18, this.palette.snow ? '#eef2f2' : '#b76e54');
     // The gable fills the roof's open ends with the same warm plaster as the walls.
     const triangle = new THREE.Shape();
     triangle.moveTo(-1.66, 0);
@@ -1423,17 +1472,31 @@ export class GameWorld {
     const lane = this.mesh(this.box, '#d2b887', [0.5, 0.07, -1], [8, 0.02, 0.8]);
     this.scenery.add(lane);
     // Low arena wall, and tiered but unfinished stands around the far half.
-    for (let post = 0; post < 22; post++) {
-      const angle = (post / 22) * Math.PI * 2;
-      this.scenery.add(
-        this.mesh(
-          this.box,
-          '#c9b58c',
-          [1 + Math.cos(angle) * 5.6, 0.3, -1 + Math.sin(angle) * 3.8],
-          [0.6, 0.6, 0.6],
-        ),
+    for (let post = 0; post < 26; post++) {
+      const angle = (post / 26) * Math.PI * 2;
+      const block = this.mesh(
+        this.box,
+        post % 2 ? '#bdb6a4' : '#cdc6b2',
+        [1 + Math.cos(angle) * 5.6, 0.26, -1 + Math.sin(angle) * 3.8],
+        [0.78, 0.52, 0.5],
       );
+      block.rotation.y = -angle;
+      this.scenery.add(block);
     }
+    // Tall festival banners at the arena's ends.
+    const bannerColors = ['#c8866a', '#5f8a6a', '#e0b35c', '#6c938b'];
+    [
+      [-5.2, -1],
+      [7.2, -1],
+      [1, -5.4],
+      [1, 3.3],
+    ].forEach(([x, z], index) => {
+      this.scenery.add(this.mesh(this.cylinder, '#8c6a45', [x, 1.6, z], [0.07, 3.2, 0.07]));
+      this.scenery.add(
+        this.mesh(this.box, bannerColors[index], [x + 0.32, 2.45, z], [0.6, 1.3, 0.04]),
+      );
+      this.scenery.add(this.mesh(this.cone, '#f0d27a', [x, 3.3, z], [0.12, 0.25, 0.12]));
+    });
     const colors = ['#c8866a', '#6c938b', '#e0b35c', '#8e7bb0', '#d9a77f', '#5f8a6a'];
     for (let tier = 0; tier < 3; tier++) {
       const radiusX = 6.2 + tier * 0.8;
@@ -1454,9 +1517,33 @@ export class GameWorld {
           );
           continue;
         }
-        this.scenery.add(
-          this.mesh(this.box, '#bfae8d', [x, 0.25 + tier * 0.45, z], [1.3, 0.5 + tier * 0.9, 0.9]),
+        // Stone risers topped with wooden benches and the odd bright cushion.
+        const riser = this.mesh(
+          this.box,
+          tier % 2 ? '#b9ae96' : '#c7bca3',
+          [x, 0.25 + tier * 0.45, z],
+          [1.3, 0.5 + tier * 0.9, 0.9],
         );
+        riser.rotation.y = -angle + Math.PI / 2;
+        this.scenery.add(riser);
+        const bench = this.mesh(
+          this.box,
+          seat % 2 ? '#a57e55' : '#b58c60',
+          [x, 0.54 + tier * 0.9, z],
+          [1.26, 0.1, 0.62],
+        );
+        bench.rotation.y = -angle + Math.PI / 2;
+        this.scenery.add(bench);
+        if (seat % 3 === 1) {
+          const cushion = this.mesh(
+            this.box,
+            colors[(seat + tier * 2) % colors.length],
+            [x, 0.61 + tier * 0.9, z],
+            [0.9, 0.05, 0.4],
+          );
+          cushion.rotation.y = -angle + Math.PI / 2;
+          this.scenery.add(cushion);
+        }
         if ((seat * 7 + tier) % 3 === 0) continue;
         const fan = new THREE.Group();
         fan.add(
@@ -1799,8 +1886,9 @@ export class GameWorld {
     addWind(blade, 'blade');
     this.areaMaterials.push(blade);
     const grass = new THREE.InstancedMesh(this.cone, blade, 360);
-    const flowers = new THREE.InstancedMesh(this.sphere, this.material(this.palette.flower), 94);
-    const lavender = new THREE.InstancedMesh(this.sphere, this.material('#b5a5b4'), 50);
+    // Buds are a few pixels wide; the low-poly pebble reads the same at a quarter the cost.
+    const flowers = new THREE.InstancedMesh(this.pebble, this.material(this.palette.flower), 94);
+    const lavender = new THREE.InstancedMesh(this.pebble, this.material('#b5a5b4'), 50);
     const transform = new THREE.Object3D();
     let grassCount = 0;
     let flowerCount = 0;

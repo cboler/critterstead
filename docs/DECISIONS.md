@@ -51,6 +51,7 @@ For sequencing, see [ROADMAP.md](ROADMAP.md) and [exec-plans/README.md](exec-pla
 | **D31** | Monster Rancher training minigames family               | Accepted    | [Training](GAME-DESIGN.md#training-system)                                                                                  |
 | **D32** | Viewport decoupling from interaction dock UI            | Accepted    | [Architecture](ARCHITECTURE.md#1-viewport--canvas-decoupling)                                                               |
 | **D33** | Restructured Campaign 001 vertical slice runway         | Accepted    | [Roadmap](ROADMAP.md)                                                                                                       |
+| **D36** | Full-screen living diorama with a following camera      | Implemented | [Plan 002](exec-plans/completed/002-living-diorama-presentation.md)                                                         |
 | **D35** | Per-discipline same-day training curve; gauge drills    | Implemented | [Plan 001 M8](exec-plans/active/001-deepen-one-critter-daily-loop.md#m8-evidence--2026-09-29)                               |
 | **D34** | Moisture-gated growth, dawn boundary, hashed weather    | Implemented | [Plan 001 M7](exec-plans/active/001-deepen-one-critter-daily-loop.md#m7-evidence--2026-09-29)                               |
 
@@ -227,6 +228,14 @@ gains, shown before the player commits. Competitions are once-a-day and outside 
 curve. Strength and endurance drills are timed gauges rather than more timing cues, so
 each discipline asks for a different kind of attention. Constants remain provisional;
 tonics and recovery items stay future work.
+
+### D36 — Full-screen living diorama with a following camera (implemented 2026-09-30)
+
+The world fills the screen and the HUD floats over it; the orthographic camera follows the
+rancher at a fixed angle and frames the area the HUD leaves uncovered, so the dock never
+hides the rancher and the canvas never resizes (D32 holds). Areas continue past the fence
+as non-walkable scenery; time of day, weather and season are visible. Rendering tiers keep
+software renderers and phones fast. Presentation only: rules and saves are unchanged.
 
 ---
 

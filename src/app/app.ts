@@ -11,7 +11,7 @@ import {
   computed,
 } from '@angular/core';
 import { AREAS } from './game/content';
-import { calendarDate, calendarView, capitalize, weatherFor } from './game/calendar';
+import { calendarDate, calendarView, capitalize, formatDate, weatherFor } from './game/calendar';
 import { LocalGameHost } from './game/host';
 import { activeCritter, GameCommand, GameState, Interaction, Point } from './game/model';
 import { IndexedDbStorage } from './game/storage';
@@ -52,6 +52,7 @@ export class App implements AfterViewInit, OnDestroy {
   private previousTime = 0;
   private refreshElapsed = 0;
   private saveElapsed = 0;
+  private trainingEndedAt = -Infinity;
   private readonly keys = new Set<string>();
   private gamepadButtons: boolean[] = [];
   private walkTo: Point | null = null;
@@ -155,6 +156,17 @@ export class App implements AfterViewInit, OnDestroy {
   protected readonly quality = signal<Quality>('balanced');
   protected readonly rendererName = signal('');
   protected readonly night = signal(false);
+  // Presentation moments: a fade between areas and a title card each new morning.
+  protected readonly fades = signal<number[]>([]);
+  protected readonly morning = signal<{
+    serial: number;
+    title: string;
+    date: string;
+    weather: keyof App['weatherIcons'];
+  } | null>(null);
+  private momentSerial = 0;
+  private lastArea = '';
+  private lastDay = 0;
   protected readonly qualityOptions: { id: QualityChoice; label: string }[] = [
     { id: 'auto', label: 'Auto' },
     { id: 'cinematic', label: 'Cinematic' },
@@ -293,7 +305,9 @@ export class App implements AfterViewInit, OnDestroy {
       if (x || z) this.host.dispatch({ type: 'move', x, z, seconds: dt });
       const previousJournal = this.host.state.journal;
       const previousDay = this.host.state.day;
+      const training = !!this.host.state.training;
       this.host.update(dt);
+      if (training && !this.host.state.training) this.trainingEndedAt = performance.now();
       this.saveElapsed += dt;
       if (
         this.saveElapsed > 8 ||
@@ -326,6 +340,23 @@ export class App implements AfterViewInit, OnDestroy {
     this.learning.set(this.host.learning());
     this.hauling.set(this.host.haulingLearning());
     this.state.set(structuredClone(this.host.state));
+    const current = this.host.state;
+    if (this.lastArea && current.areaId !== this.lastArea)
+      this.fades.update((list) => [...list, ++this.momentSerial]);
+    if (this.lastDay && current.day > this.lastDay) {
+      const serial = ++this.momentSerial;
+      this.morning.set({
+        serial,
+        title: `Day ${current.day}`,
+        date: formatDate(current.day),
+        weather: weatherFor(current.day),
+      });
+      setTimeout(() => {
+        if (this.morning()?.serial === serial) this.morning.set(null);
+      }, 3600);
+    }
+    this.lastArea = current.areaId;
+    this.lastDay = current.day;
     const interaction = this.host.interaction();
     this.nearby.set(interaction);
     this.world?.setTarget(this.host.state.training ? null : (interaction?.id ?? null));
@@ -444,10 +475,15 @@ export class App implements AfterViewInit, OnDestroy {
       this.act();
       return;
     }
+    if (this.tapAfterDrill()) return;
     const action = this.host
       .interaction()
       ?.actions.find((item) => item.id === this.gamepadAction() && !item.disabled);
     this.act(action?.id);
+  }
+  /** Taps meant for a drill that just ended must not start the dock's next (paid) action. */
+  private tapAfterDrill(): boolean {
+    return !this.host.state.training && performance.now() - this.trainingEndedAt < 700;
   }
   protected act(action?: string): void {
     if (!this.ready() || this.paused() || this.panel()) return;
@@ -464,7 +500,9 @@ export class App implements AfterViewInit, OnDestroy {
   }
   private command(command: GameCommand): boolean {
     this.walkTo = null;
+    const training = !!this.host.state.training;
     const done = this.host.dispatch(command);
+    if (training && !this.host.state.training) this.trainingEndedAt = performance.now();
     if (done) this.chime();
     // Touch arrows unmount during activities, so a held arrow would never report release.
     if (this.host.state.training) this.keys.clear();
@@ -500,7 +538,8 @@ export class App implements AfterViewInit, OnDestroy {
       if (target.tagName === 'BUTTON' && key === ' ') return;
       event.preventDefault();
       this.keys.add(key);
-      if (!event.repeat && (key === 'e' || key === ' ')) this.zone.run(() => this.act());
+      if (!event.repeat && (key === 'e' || key === ' ') && !this.tapAfterDrill())
+        this.zone.run(() => this.act());
     }
     if (!event.repeat && key === 'escape')
       this.zone.run(() => {
@@ -538,6 +577,9 @@ export class App implements AfterViewInit, OnDestroy {
   protected async install(): Promise<void> {
     await this.installPrompt?.prompt();
     this.canInstall.set(false);
+  }
+  protected endFade(fade: number): void {
+    this.fades.update((list) => list.filter((item) => item !== fade));
   }
   protected toggleRail(): void {
     this.railOpen.update((open) => !open);
