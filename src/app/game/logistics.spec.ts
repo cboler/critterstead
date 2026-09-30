@@ -20,6 +20,7 @@ describe('localized storage and the first production chain', () => {
       before.critters.map((critter) => ({
         ...critter,
         hauling: { enabled: false, phase: 'idle', cued: false },
+        drills: { day: before.day, sessions: {} },
       })),
     );
     expect('inventory' in state).toBe(false);

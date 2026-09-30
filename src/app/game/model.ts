@@ -1,4 +1,5 @@
-export type AreaId = 'homestead' | 'glade' | 'cottage';
+export type AreaId = 'homestead' | 'glade' | 'cottage' | 'colosseum';
+export type Drill = 'hoops' | 'lift' | 'pace';
 export type Season = 'spring' | 'summer' | 'autumn' | 'winter';
 export type Weather = 'sunny' | 'cloudy' | 'rain' | 'snow';
 export type CropId = 'feed' | 'turnip' | 'wheat' | 'sunberry';
@@ -88,7 +89,10 @@ export interface Critter extends ActorCapabilities {
   pedigree: { parentIds: string[] };
   genetics: Record<string, string>;
   history: string[];
-  competitions: { day: number; time: number; medal: string }[];
+  // Completed training sessions per discipline on one game day, for diminishing returns.
+  drills: { day: number; sessions: Partial<Record<Drill, number>> };
+  // Clover Cup entries have no event; exhibition entries store points in `time`.
+  competitions: { day: number; time: number; medal: string; event?: 'exhibition' }[];
 }
 export interface InventoryItem {
   id: string;
@@ -152,10 +156,17 @@ export interface Training {
   hits: number[];
   elapsed: number;
   lastHitAt?: number;
-  kind: 'training' | 'race';
+  kind: 'training' | 'race' | 'lift' | 'pace' | 'exhibition';
+  // Gauge drills: meter is force or pace, progress is 0-1 toward done, reserve is breath.
+  meter?: number;
+  progress?: number;
+  reserve?: number;
+  // Exhibition: 0 sprint, 1 stone pull. Pacing: 1 while winded.
+  stage?: number;
+  scores?: number[];
 }
 export interface GameState {
-  version: 7;
+  version: 8;
   seed: number;
   day: number;
   minute: number;
@@ -211,10 +222,16 @@ export interface WorldObject {
     | 'bed'
     | 'calendar'
     | 'hearth'
-    | 'counter';
+    | 'counter'
+    | 'lift'
+    | 'pace'
+    | 'exhibition';
   name: string;
   position: Point;
   radius: number;
+  // Gates: where they lead and where the rancher arrives.
+  destination?: AreaId;
+  arrival?: Point;
 }
 export interface AreaDefinition {
   id: AreaId;

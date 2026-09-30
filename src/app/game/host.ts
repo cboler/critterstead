@@ -15,6 +15,8 @@ import {
   BERRY_NODES,
   CROP_IDS,
   CROPS,
+  DRILLS,
+  EXHIBITION,
   GAME_CONFIG,
   PRODUCE_PRICES,
   STARTER,
@@ -34,11 +36,22 @@ import {
 } from './calendar';
 import { advanceGarden, plotReady } from './garden';
 import {
+  drillMultiplier,
+  liftScore,
+  paceScore,
+  push,
+  recordDrill,
+  startGauge,
+  stepLift,
+  stepPace,
+} from './drills';
+import {
   activeCritter,
   BehaviorDefinition,
   BehaviorStage,
   CropId,
   Critter,
+  Drill,
   Container,
   GameCommand,
   GameState,
@@ -52,6 +65,26 @@ import {
 
 const clamp = (value: number, min = 0, max = 100) => Math.max(min, Math.min(max, value));
 const COTTAGE_COMPANION_SPOT: Point = { x: 0.5, z: 3.4 };
+const ROUTES: Record<GameState['areaId'], { label: string; description: string; arrival: string }> =
+  {
+    homestead: {
+      label: 'Return to Bramblewick',
+      description: 'A cozy nook and a familiar garden are just down the path.',
+      arrival:
+        'Home again. The honesty stall takes berries, and {name}’s nook could use some love.',
+    },
+    glade: {
+      label: 'Explore Clover Glade',
+      description: 'Follow the path with {name}. There are sunberries waiting beyond the fence.',
+      arrival: 'Clover Glade smells of warm grass and sunberries. {name}’s ears perk up.',
+    },
+    colosseum: {
+      label: 'Walk to the Colosseum',
+      description: 'The half-built stands are already full of neighbours who love a good show.',
+      arrival: 'Banners, half-built stands, and a cheerful crowd. {name} stands a little taller.',
+    },
+    cottage: { label: '', description: '', arrival: '' },
+  };
 const ITEM_LABELS: Partial<Record<InventoryItem['itemId'], string>> = {
   turnip: 'turnips',
   berry: 'sunberries',
@@ -70,7 +103,7 @@ const hauling = BEHAVIORS['lumber-hauling'];
 
 export function createInitialState(): GameState {
   return {
-    version: 7,
+    version: 8,
     seed: 240921,
     day: 1,
     minute: 480,
@@ -108,6 +141,7 @@ export function createInitialState(): GameState {
         hunger: 35,
         learnedBehaviors: {},
         hauling: { enabled: false, phase: 'idle', cued: false },
+        drills: { day: 1, sessions: {} },
         skills: { harvesting: 0, racing: 0 },
         visualTraits: { coat: 'peach', accent: 'moss' },
         pedigree: { parentIds: [] },
@@ -359,8 +393,16 @@ export class LocalGameHost {
     if (this.state.training) {
       const training = this.state.training;
       training.elapsed += dt;
-      const cycle = (training.elapsed * (training.kind === 'race' ? 0.9 : 0.72)) % 2;
-      training.phase = cycle <= 1 ? cycle : 2 - cycle;
+      if (this.gauge(training)) {
+        const done =
+          training.kind === 'pace'
+            ? stepPace(training, this.critter, dt)
+            : stepLift(training, this.critter, dt, training.kind === 'exhibition');
+        if (done) this.finishTraining();
+      } else {
+        const cycle = (training.elapsed * (training.kind === 'training' ? 0.72 : 0.9)) % 2;
+        training.phase = cycle <= 1 ? cycle : 2 - cycle;
+      }
     }
     if (this.state.work) {
       this.state.work.remainingSeconds = Math.max(0, this.state.work.remainingSeconds - dt);
@@ -667,11 +709,11 @@ export class LocalGameHost {
         return {
           id,
           title: 'A little practice, a little progress',
-          description: `Three encouraging cues. Tap near the center. Happiness, bond, a full tummy, timing, and endurance improve speed gains. Energy is spent when you start.`,
+          description: `Three encouraging cues. Tap near the center. Happiness, bond, a full tummy, timing, and endurance improve speed gains. Energy is spent when you start. ${this.drillCopy('hoops')}`,
           actions: [
             action(
               'train',
-              `Practice hoops · ${GAME_CONFIG.practiceEnergy} ${critter.name} energy · 5 yours · 40 min + cues`,
+              `Practice hoops · ${GAME_CONFIG.practiceEnergy} ${critter.name} energy · 5 yours · 40 min + cues${this.gainSuffix('hoops')}`,
               critter.hunger > 80
                 ? `${critter.name} is too hungry to concentrate.`
                 : energy(5, GAME_CONFIG.practiceEnergy),
@@ -718,20 +760,59 @@ export class LocalGameHost {
             }),
           ],
         };
-      case 'gate':
+      case 'gate': {
+        const route = ROUTES[object.destination!];
         return {
           id,
           title: object.name,
-          description:
-            state.areaId === 'homestead'
-              ? `Follow the path with ${critter.name}. There are sunberries waiting beyond the fence.`
-              : 'A cozy nook and a familiar garden are just down the path.',
+          description: route.description.replaceAll('{name}', critter.name),
           actions: [
             action(
               'travel',
-              state.areaId === 'homestead'
-                ? 'Explore Clover Glade · 10 min'
-                : 'Return to Bramblewick · 10 min',
+              `${state.areaId === 'colosseum' ? 'Back to Clover Glade' : route.label} · ${this.travelMinutes(object.destination!)} min`,
+            ),
+          ],
+        };
+      }
+      case 'lift':
+      case 'pace': {
+        const drill = DRILLS[object.kind];
+        const lift = object.kind === 'lift';
+        return {
+          id,
+          title: lift ? 'Boulder lift' : 'Pacing loop',
+          description: `${
+            lift
+              ? 'Tap to push the force gauge up; the boulder pushes it back down. Hold it in the green for three seconds. Builds strength.'
+              : 'Tap to set the pace. Faster laps spend breath; run dry and you are winded. Builds endurance and a little speed.'
+          } ${this.drillCopy(object.kind)}`,
+          actions: [
+            action(
+              object.kind,
+              `${lift ? 'Boulder lift' : 'Distance pacing'} · ${drill.energy} ${critter.name} energy · 5 yours · ${drill.minutes} min${this.gainSuffix(object.kind)}`,
+              critter.hunger > 80
+                ? `${critter.name} is too hungry to concentrate.`
+                : energy(5, drill.energy),
+            ),
+          ],
+        };
+      }
+      case 'exhibition':
+        return {
+          id,
+          title: 'Athletic exhibition',
+          description: `One showing a day: a timed sprint, then a heavy stone pull. Speed and strength count as much as your timing. Gold needs ${EXHIBITION.gold} points, silver ${EXHIBITION.silver}.`,
+          actions: [
+            action(
+              'exhibit',
+              `Enter the exhibition · ${EXHIBITION.energy} ${critter.name} energy · 5 yours · ${EXHIBITION.minutes} min`,
+              critter.competitions.some(
+                (result) => result.day === state.day && result.event === 'exhibition',
+              )
+                ? 'Today’s exhibition is done. The crowd will be back tomorrow.'
+                : critter.hunger > 80
+                  ? `${critter.name} needs a meal before performing.`
+                  : energy(5, EXHIBITION.energy),
             ),
           ],
         };
@@ -744,7 +825,7 @@ export class LocalGameHost {
             action(
               'race',
               `Run the trial · ${GAME_CONFIG.trialEnergy} ${critter.name} energy · 5 yours · 45 min + cues`,
-              critter.competitions.some((result) => result.day === state.day)
+              critter.competitions.some((result) => result.day === state.day && !result.event)
                 ? 'Today’s trial is complete. Come back tomorrow.'
                 : critter.hunger > 80
                   ? `${critter.name} needs a meal before racing.`
@@ -951,6 +1032,31 @@ export class LocalGameHost {
             : `${critter.name} takes a place on the starting line. Three good cues; one happy runner.`,
         );
         return true;
+      case 'lift':
+      case 'pace':
+      case 'exhibit': {
+        const kind = action === 'exhibit' ? 'exhibition' : action;
+        state.player.stamina -= 5;
+        critter.stamina -= kind === 'exhibition' ? EXHIBITION.energy : DRILLS[kind].energy;
+        state.training = {
+          critterId: critter.id,
+          phase: 0,
+          hits: [],
+          elapsed: 0,
+          lastHitAt: 0,
+          kind,
+        };
+        if (kind === 'exhibition') state.training.stage = 0;
+        else startGauge(state.training);
+        this.note(
+          kind === 'lift'
+            ? `${critter.name} braces against the boulder. Keep the gauge in the green!`
+            : kind === 'pace'
+              ? `${critter.name} sets off around the loop. Find a pace you can keep.`
+              : `The crowd hushes. First, the sprint: three cues near the center!`,
+        );
+        return true;
+      }
       case 'sell': {
         const amount = this.berryValue();
         state.player.coins += amount;
@@ -972,19 +1078,19 @@ export class LocalGameHost {
         this.add('seed', 1);
         this.note('One packet of feed seeds. They grow in spring, summer, and autumn.');
         return true;
-      case 'travel':
-        state.areaId = state.areaId === 'homestead' ? 'glade' : 'homestead';
-        state.areaInstanceId = `local-${state.areaId}`;
-        state.player.position = state.areaId === 'glade' ? { x: -6, z: 0 } : { x: 6, z: 0 };
-        critter.position = { x: state.player.position.x, z: 1.2 };
-        this.advanceMinutes(10);
-        this.flag('explored');
-        this.note(
-          state.areaId === 'glade'
-            ? `Clover Glade smells of warm grass and sunberries. ${critter.name}’s ears perk up.`
-            : `Home again. The honesty stall takes berries, and ${critter.name}’s nook could use some love.`,
-        );
+      case 'travel': {
+        const gate = AREAS[state.areaId].objects.find((item) => item.id === id)!;
+        const destination = gate.destination!;
+        const minutes = this.travelMinutes(destination);
+        state.areaId = destination;
+        state.areaInstanceId = `local-${destination}`;
+        state.player.position = { ...gate.arrival! };
+        critter.position = { x: gate.arrival!.x, z: gate.arrival!.z + 1.2 };
+        this.advanceMinutes(minutes);
+        this.flag(destination === 'colosseum' ? 'visited-colosseum' : 'explored');
+        this.note(ROUTES[destination].arrival.replaceAll('{name}', critter.name));
         return true;
+      }
       case 'gather':
       case 'critter-gather': {
         const node = state.resources.find((item) => item.id === id)!;
@@ -1048,19 +1154,102 @@ export class LocalGameHost {
     if (
       !training ||
       training.critterId !== state.activeCritterId ||
-      training.elapsed - (training.lastHitAt ?? 0) < 0.3
+      training.elapsed - (training.lastHitAt ?? 0) < (this.gauge(training) ? 0.08 : 0.3)
     )
       return false;
-    training.hits.push(clamp(1 - Math.abs(training.phase - 0.5) * 2, 0, 1));
     training.lastHitAt = training.elapsed;
+    if (this.gauge(training)) {
+      push(training);
+      return true;
+    }
+    training.hits.push(clamp(1 - Math.abs(training.phase - 0.5) * 2, 0, 1));
     if (training.hits.length < 3) return true;
+    if (training.kind === 'exhibition') {
+      // The sprint is scored; the heavy stone pull follows in the same paid showing.
+      training.scores = [training.hits.reduce((sum, value) => sum + value, 0) / 3];
+      training.hits = [];
+      training.stage = 1;
+      startGauge(training);
+      this.note('A clean sprint! Now the stone pull: keep the gauge in the green.');
+      return true;
+    }
+    this.finishTraining();
+    return true;
+  }
+
+  private finishTraining(): void {
+    const state = this.state;
+    const training = state.training!;
     const accuracy = training.hits.reduce((sum, value) => sum + value, 0) / 3;
     const critter = activeCritter(state);
     const care = (critter.happiness + critter.bond + (100 - critter.hunger)) / 300;
+    if (training.kind === 'lift' || training.kind === 'pace') {
+      const lift = training.kind === 'lift';
+      const score = lift ? liftScore(training, critter) : paceScore(training);
+      const multiplier = drillMultiplier(critter, training.kind, state.day);
+      const gain = Math.round((0.2 + score * 0.7 + care * 0.3) * multiplier * 100) / 100;
+      const side = Math.round(gain * 0.3 * 100) / 100;
+      if (lift) {
+        critter.stats.strength = Math.round((critter.stats.strength + gain) * 100) / 100;
+        critter.stats.endurance = Math.round((critter.stats.endurance + side) * 100) / 100;
+      } else {
+        critter.stats.endurance = Math.round((critter.stats.endurance + gain) * 100) / 100;
+        critter.stats.speed = Math.round((critter.stats.speed + side) * 100) / 100;
+      }
+      critter.skills[training.kind === 'lift' ? 'lifting' : 'pacing'] =
+        (critter.skills[training.kind === 'lift' ? 'lifting' : 'pacing'] ?? 0) + 1;
+      recordDrill(critter, training.kind, state.day);
+      critter.bond = clamp(critter.bond + 2);
+      critter.happiness = clamp(critter.happiness + 3);
+      this.flag(lift ? 'lifted' : 'paced');
+      state.training = null;
+      this.advanceMinutes(DRILLS[training.kind].minutes);
+      this.note(
+        `${score > 0.75 ? 'Superb effort!' : score > 0.4 ? 'Solid work!' : 'A brave try.'} ${critter.name} gains ${gain.toFixed(2)} ${lift ? 'strength' : 'endurance'}${multiplier < 1 ? ` (${Math.round(multiplier * 100)}% gains, repeated today)` : ''}. ${Math.round(critter.stamina)} energy left.`,
+      );
+      return;
+    }
+    if (training.kind === 'exhibition') {
+      const sprint = training.scores?.[0] ?? 0;
+      const pull = liftScore(training, critter, true);
+      const points =
+        Math.round(
+          (sprint * 25 +
+            pull * 25 +
+            critter.stats.speed * 2.5 +
+            critter.stats.strength * 2.5 +
+            care * 8 +
+            this.random() * 4) *
+            10,
+        ) / 10;
+      const medal =
+        points >= EXHIBITION.gold ? 'gold' : points >= EXHIBITION.silver ? 'silver' : 'bronze';
+      const coins = EXHIBITION.coins[medal];
+      critter.competitions.push({ day: state.day, time: points, medal, event: 'exhibition' });
+      critter.history.push(
+        `Day ${state.day}: ${medal} at the Colosseum exhibition (${points} points).`,
+      );
+      critter.skills.racing += 1;
+      critter.bond = clamp(critter.bond + 3);
+      critter.happiness = clamp(critter.happiness + 6);
+      state.player.coins += coins;
+      this.flag('exhibited');
+      state.training = null;
+      this.advanceMinutes(EXHIBITION.minutes);
+      this.note(
+        `The crowd roars! ${critter.name} scores ${points} points (sprint ${Math.round(sprint * 100)}%, pull ${Math.round(pull * 100)}%) for a ${medal} medal and ${coins} coins.`,
+      );
+      return;
+    }
     if (training.kind === 'training') {
+      const multiplier = drillMultiplier(critter, 'hoops', state.day);
       const gain =
-        Math.round((0.25 + accuracy * 0.8 + care * 0.35 + critter.stats.endurance * 0.008) * 100) /
-        100;
+        Math.round(
+          (0.25 + accuracy * 0.8 + care * 0.35 + critter.stats.endurance * 0.008) *
+            multiplier *
+            100,
+        ) / 100;
+      recordDrill(critter, 'hoops', state.day);
       critter.stats.speed = Math.round((critter.stats.speed + gain) * 100) / 100;
       critter.stats.endurance = Math.round((critter.stats.endurance + gain * 0.35) * 100) / 100;
       critter.skills.racing += 1;
@@ -1068,7 +1257,7 @@ export class LocalGameHost {
       this.flag('trained');
       this.advanceMinutes(40);
       this.note(
-        `${accuracy > 0.75 ? 'Lovely rhythm!' : accuracy > 0.4 ? 'Good practice!' : 'Every little try counts.'} ${critter.name} gains ${gain.toFixed(2)} speed. ${Math.round(critter.stamina)} energy left; rest together at the nook to recover.`,
+        `${accuracy > 0.75 ? 'Lovely rhythm!' : accuracy > 0.4 ? 'Good practice!' : 'Every little try counts.'} ${critter.name} gains ${gain.toFixed(2)} speed${multiplier < 1 ? ` (${Math.round(multiplier * 100)}% gains, repeated today)` : ''}. ${Math.round(critter.stamina)} energy left; rest together at the nook to recover.`,
       );
     } else {
       const time =
@@ -1097,7 +1286,28 @@ export class LocalGameHost {
     }
     critter.happiness = clamp(critter.happiness + 3);
     state.training = null;
-    return true;
+  }
+
+  private gauge(training: GameState['training']): boolean {
+    return (
+      !!training &&
+      (training.kind === 'lift' ||
+        training.kind === 'pace' ||
+        (training.kind === 'exhibition' && training.stage === 1))
+    );
+  }
+  private gainSuffix(drill: Drill): string {
+    const multiplier = drillMultiplier(this.critter, drill, this.state.day);
+    return multiplier < 1 ? ` · ${Math.round(multiplier * 100)}% gains today` : '';
+  }
+  private drillCopy(drill: Drill): string {
+    const multiplier = drillMultiplier(this.critter, drill, this.state.day);
+    return multiplier < 1
+      ? `Repeating a drill today tires it out: the next session gives ${Math.round(multiplier * 100)}% gains. Mix disciplines; gains reset tomorrow.`
+      : 'Full gains for the first session today.';
+  }
+  private travelMinutes(destination: GameState['areaId']): number {
+    return destination === 'colosseum' || this.state.areaId === 'colosseum' ? 15 : 10;
   }
 
   private gather(node: ResourceNode, actor: 'player' | 'command' | 'autonomous'): void {

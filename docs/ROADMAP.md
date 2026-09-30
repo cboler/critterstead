@@ -67,7 +67,7 @@ staged progression (M1 through M9) that systematically builds the foundational v
   |
 [M7: Multi-Crop Farming & Calendar] (Complete - save v7)
   |
-[M8: Diverse Training & Colosseum] (Next)
+[M8: Diverse Training & Colosseum] (Complete - save v8)
   |
 [M9: Vertical Slice Gate] (Specified)
 ```
@@ -145,7 +145,10 @@ staged progression (M1 through M9) that systematically builds the foundational v
   4. Cottage interior features an **inspectable wall calendar** tracking the 120-day year
      (4 seasons $\times$ 30 days), upcoming festivals, and market days.
 
-#### M8 — Diverse training disciplines and Colosseum exhibition
+#### M8 — Diverse training disciplines and Colosseum exhibition (Complete)
+
+- **Delivered**: save v8; boulder lift (yard), distance pacing (glade), same-day
+  diminishing returns, and the Colosseum exhibition reached through the glade.
 
 - **Player-visible change**:
   1. Expand training beyond rhythm hoops by introducing two activity-matched minigames:

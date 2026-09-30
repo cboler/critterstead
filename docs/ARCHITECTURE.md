@@ -106,6 +106,15 @@ companion stays at its yard position and the host keeps running its hauling job;
 a following companion enters with the rancher. Migration v6 → v7 keeps the old crop's
 promised growth in bed 1. v5/v6 containers validate against the legacy item list.
 
+## Current implementation additions — M8 (2026-09-29)
+
+Save v8 adds per-critter `drills` (same-day session counts) and the `colosseum` area.
+`Training` covers hoops, race, lift, pace and exhibition; gauge kinds carry
+`meter/progress/reserve/stage`. Their fixed-step physics live in `drills.ts` and
+advance in `update`, finishing via `finishTraining`. `WorldObject` gates declare
+`destination` and `arrival`, so travel is data-driven. Exhibition results are
+competition entries tagged `event: 'exhibition'`; only the final score draws from the seed.
+
 ## Architectural reality audit (reconciliation baseline before M4)
 
 The following audit records the reconciled pre-M4 baseline. The dated additions

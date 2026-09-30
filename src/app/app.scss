@@ -1011,8 +1011,9 @@ dd {
     margin-top: 2px;
   }
   .training-card {
-    bottom: 66px;
-    width: calc(100% - 170px);
+    bottom: 12px;
+    /* Touch arrows are hidden during activities, so the card can use the width. */
+    width: calc(100% - 24px);
     left: auto;
     right: 12px;
     transform: none;

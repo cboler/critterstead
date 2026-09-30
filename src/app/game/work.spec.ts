@@ -101,6 +101,7 @@ describe('physical work and rancher capabilities', () => {
       old.critters.map((critter) => ({
         ...critter,
         hauling: { enabled: false, phase: 'idle', cued: false },
+        drills: { day: old.day, sessions: {} },
       })),
     );
     expect(backpack(migrated).items).toEqual(old.inventory);

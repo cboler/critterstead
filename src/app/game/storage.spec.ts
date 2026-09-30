@@ -94,7 +94,7 @@ describe('v1 migration and individual references', () => {
     expect(crop.readyAt).toBe(9550);
     expect(migrated).toEqual({
       ...world,
-      version: 7,
+      version: 8,
       haulLesson: null,
       plots: legacyGarden,
       companionIndoors: false,
@@ -112,6 +112,7 @@ describe('v1 migration and individual references', () => {
         {
           ...individual,
           hauling: { enabled: false, phase: 'idle', cued: false },
+          drills: { day: original.day, sessions: {} },
           learnedBehaviors: { 'sunberry-foraging': berryKnowledge },
           ownerId: original.player.id,
           lastPettedDay: original.day,
@@ -230,7 +231,7 @@ describe('v2 learning migration and v3 protection', () => {
     expect(crop).toEqual(legacyV1.crop);
     expect(migrated).toEqual({
       ...oldWorld,
-      version: 7,
+      version: 8,
       haulLesson: null,
       plots: legacyGarden,
       companionIndoors: false,
@@ -252,6 +253,7 @@ describe('v2 learning migration and v3 protection', () => {
       critters: before.critters.map(({ berryKnowledge, ...individual }) => ({
         ...individual,
         hauling: { enabled: false, phase: 'idle', cued: false },
+        drills: { day: before.day, sessions: {} },
         learnedBehaviors: { 'sunberry-foraging': berryKnowledge },
       })),
     });

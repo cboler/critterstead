@@ -302,7 +302,7 @@ test('plays a complete day and keeps the improved homestead after reload', async
   await expect(page.locator('.learning')).toContainText('Independent forager');
   await page.getByRole('button', { name: /Field journal/ }).click();
   await expect(page.locator('.journal-summary')).toContainText('Shed level 1');
-  await expect(page.getByText('Clover Cup memories', { exact: true })).toBeVisible();
+  await expect(page.getByText('Competition memories', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Close panel', exact: true }).click();
   await page.screenshot({ path: testInfo.outputPath('day-two.png'), fullPage: true });
   await testInfo.attach('work-routine-tomorrow', {

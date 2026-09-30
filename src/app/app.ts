@@ -82,6 +82,54 @@ export class App implements AfterViewInit, OnDestroy {
   protected readonly date = computed(() => calendarDate(this.state().day));
   protected readonly weatherIcons = { sunny: '☀', cloudy: '☁', rain: '☂', snow: '❄' } as const;
   protected readonly capitalize = capitalize;
+  protected readonly activityCopy = computed(() => {
+    const activity = this.state().training;
+    const name = this.companion().name;
+    const beats = 'when the marker reaches the green patch.';
+    if (!activity)
+      return { eyebrow: '', heading: '', instructions: '', button: '', status: '', gauge: null };
+    if (activity.kind === 'lift' || (activity.kind === 'exhibition' && activity.stage === 1))
+      return {
+        eyebrow: activity.kind === 'lift' ? 'BOULDER LIFT' : 'THE EXHIBITION · STONE PULL',
+        heading: activity.kind === 'lift' ? 'Steady strength' : 'Pull, ' + name + ', pull!',
+        instructions: 'to push the gauge up. Keep it in the green until the hold fills.',
+        button: 'Push, ' + name + '!',
+        status: Math.round(activity.elapsed) + 's',
+        gauge: 'lift' as const,
+      };
+    if (activity.kind === 'pace')
+      return {
+        eyebrow: 'DISTANCE PACING',
+        heading: 'Find a pace you can keep',
+        instructions: 'to speed up. Above the green you spend breath; run dry and you are winded.',
+        button: 'Pace!',
+        status: Math.round(activity.elapsed) + 's',
+        gauge: 'pace' as const,
+      };
+    return {
+      eyebrow:
+        activity.kind === 'race'
+          ? 'THE CLOVER CUP'
+          : activity.kind === 'exhibition'
+            ? 'THE EXHIBITION · SPRINT'
+            : 'A LITTLE PRACTICE',
+      heading:
+        activity.kind === 'race'
+          ? 'Cheer ' + name + ' across the line!'
+          : activity.kind === 'exhibition'
+            ? 'Sprint for the crowd!'
+            : 'Find your rhythm together',
+      instructions: beats,
+      button:
+        activity.kind === 'race'
+          ? 'Cheer!'
+          : activity.kind === 'exhibition'
+            ? 'Sprint!'
+            : 'Hop, ' + name + '!',
+      status: '',
+      gauge: null,
+    };
+  });
   protected weather() {
     return weatherFor(this.state().day);
   }
@@ -377,6 +425,8 @@ export class App implements AfterViewInit, OnDestroy {
     this.walkTo = null;
     const done = this.host.dispatch(command);
     if (done) this.chime();
+    // Touch arrows unmount during activities, so a held arrow would never report release.
+    if (this.host.state.training) this.keys.clear();
     this.refresh();
     void this.save();
     return done;

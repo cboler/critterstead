@@ -29,6 +29,21 @@ export const GAME_CONFIG = {
   trialEnergy: 35,
 } as const;
 
+// M8 provisional training tuning: share of gains for the 1st, 2nd, 3rd and later same-day session.
+export const DRILL_GAIN_STEPS = [1, 0.55, 0.3, 0.15];
+export const DRILLS = {
+  hoops: { energy: 30, minutes: 40 },
+  lift: { energy: 25, minutes: 30 },
+  pace: { energy: 30, minutes: 45 },
+} as const;
+export const EXHIBITION = {
+  energy: 40,
+  minutes: 60,
+  gold: 80,
+  silver: 62,
+  coins: { gold: 15, silver: 9, bronze: 5 },
+} as const;
+
 // One authored learning arc. Work/reward execution remains an explicit host rule.
 export const BEHAVIORS: Record<BehaviorId, BehaviorDefinition> = {
   'lumber-hauling': {
@@ -141,7 +156,22 @@ export const AREAS: Record<AreaId, AreaDefinition> = {
         position: { x: -6, z: 5 },
         radius: 1.1,
       },
-      { id: 'gate', kind: 'gate', name: 'To Clover Glade', position: { x: 8, z: 0 }, radius: 1 },
+      {
+        id: 'gate',
+        kind: 'gate',
+        name: 'To Clover Glade',
+        position: { x: 8, z: 0 },
+        radius: 1,
+        destination: 'glade',
+        arrival: { x: -6, z: 0 },
+      },
+      {
+        id: 'lift',
+        kind: 'lift',
+        name: 'Boulder lift',
+        position: { x: 5.2, z: 6.6 },
+        radius: 1.1,
+      },
       {
         id: 'race',
         kind: 'race',
@@ -196,7 +226,56 @@ export const AREAS: Record<AreaId, AreaDefinition> = {
     halfSize: 10,
     spawn: { x: -6, z: 0 },
     objects: [
-      { id: 'gate', kind: 'gate', name: 'Back to the yard', position: { x: -8, z: 0 }, radius: 1 },
+      {
+        id: 'gate',
+        kind: 'gate',
+        name: 'Back to the yard',
+        position: { x: -8, z: 0 },
+        radius: 1,
+        destination: 'homestead',
+        arrival: { x: 6, z: 0 },
+      },
+      {
+        id: 'colosseum-gate',
+        kind: 'gate',
+        name: 'To the Colosseum grounds',
+        position: { x: 7.6, z: -4.4 },
+        radius: 1,
+        destination: 'colosseum',
+        arrival: { x: -6, z: 4 },
+      },
+      {
+        id: 'pace',
+        kind: 'pace',
+        name: 'Pacing loop',
+        position: { x: 1.2, z: 6.8 },
+        radius: 1.1,
+      },
+    ],
+  },
+  colosseum: {
+    id: 'colosseum',
+    name: 'The Colosseum grounds',
+    subtitle: 'Unfinished stands, very finished enthusiasm',
+    halfSize: 10,
+    spawn: { x: -6, z: 4 },
+    objects: [
+      {
+        id: 'gate',
+        kind: 'gate',
+        name: 'Back to Clover Glade',
+        position: { x: -8, z: 4 },
+        radius: 1,
+        destination: 'glade',
+        arrival: { x: 6.4, z: -3.4 },
+      },
+      {
+        id: 'exhibition',
+        kind: 'exhibition',
+        name: 'Exhibition steward',
+        position: { x: -3, z: 1 },
+        radius: 1,
+      },
     ],
   },
 };

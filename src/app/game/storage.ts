@@ -213,7 +213,7 @@ export function readSave(value: unknown): GameState {
       if (crop.watered)
         plots[0].moistUntil = Math.max(nextDawn(legacy.totalMinutes), crop.readyAt ?? 0);
     }
-    const migrated: GameState = {
+    const migrated: LegacyGameStateV7 = {
       ...legacy,
       version: 7,
       player: { ...legacy.player, skills: { farming: 1, ...legacy.player.skills } },
@@ -225,6 +225,21 @@ export function readSave(value: unknown): GameState {
           ? { ...container, allowed: [...ITEM_IDS] }
           : container,
       ),
+    };
+    return readSave(migrated);
+  }
+  if (root['version'] === 7) {
+    validateState(value, 7);
+    const legacy = structuredClone(value as LegacyGameStateV7);
+    if (legacy.critters.some((critter) => 'drills' in critter)) corrupt('ambiguous drills');
+    // No sessions are known before v8, so today's first session of each drill gives full gains.
+    const migrated: GameState = {
+      ...legacy,
+      version: 8,
+      critters: legacy.critters.map((critter) => ({
+        ...critter,
+        drills: { day: legacy.day, sessions: {} },
+      })),
     };
     validateSave(migrated);
     return migrated;
@@ -241,7 +256,11 @@ interface LegacyCrop {
   watered: boolean;
   readyAt: number | null;
 }
-type LegacyGameStateV6 = Omit<GameState, 'version' | 'plots' | 'companionIndoors'> & {
+type LegacyGameStateV7 = Omit<GameState, 'version' | 'critters'> & {
+  version: 7;
+  critters: Omit<Critter, 'drills'>[];
+};
+type LegacyGameStateV6 = Omit<LegacyGameStateV7, 'version' | 'plots' | 'companionIndoors'> & {
   version: 6;
   crop: LegacyCrop;
 };
@@ -275,10 +294,10 @@ type LegacyGameStateV1 = Omit<
 
 /** Writes accept only the current schema. Older records must pass readSave first. */
 export function validateSave(value: unknown): asserts value is GameState {
-  validateState(value, 7);
+  validateState(value, 8);
 }
 
-type SaveVersion = 1 | 2 | 3 | 4 | 5 | 6 | 7;
+type SaveVersion = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 function validateState(value: unknown, version: SaveVersion): void {
   const root = record(value, 'save');
   if (root['version'] !== version) {
@@ -517,7 +536,26 @@ function validateState(value: unknown, version: SaveVersion): void {
     number(training['phase'], 'training.phase', 0, 1);
     number(training['elapsed'], 'training.elapsed');
     if (training['lastHitAt'] !== undefined) number(training['lastHitAt'], 'training.lastHitAt');
-    choice(training['kind'], ['training', 'race'], 'training.kind');
+    choice(
+      training['kind'],
+      version >= 8 ? ['training', 'race', 'lift', 'pace', 'exhibition'] : ['training', 'race'],
+      'training.kind',
+    );
+    for (const key of ['meter', 'progress', 'reserve'])
+      if (training[key] !== undefined) number(training[key], `training.${key}`, 0, 1);
+    if (training['stage'] !== undefined)
+      choice(String(training['stage']), ['0', '1'], 'training.stage');
+    if (training['scores'] !== undefined)
+      for (const score of array(training['scores'], 'training.scores'))
+        number(score, 'training.score', 0, 1);
+    if (
+      version >= 8 &&
+      training['kind'] !== 'training' &&
+      training['kind'] !== 'race' &&
+      training['kind'] !== 'exhibition' &&
+      (training['meter'] === undefined || training['progress'] === undefined)
+    )
+      corrupt('training gauge');
     const hits = array(training['hits'], 'training.hits');
     for (const hit of hits) number(hit, 'training.hit', 0, 1);
     if (
@@ -611,6 +649,16 @@ function validateCritter(critter: Record<string, unknown>, version: SaveVersion)
     number(result['day'], 'competition.day', 1, Number.MAX_SAFE_INTEGER, true);
     number(result['time'], 'competition.time');
     string(result['medal'], 'competition.medal');
+    if (result['event'] !== undefined && (version < 8 || result['event'] !== 'exhibition'))
+      corrupt('competition.event');
+  }
+  if (version >= 8) {
+    const drills = record(critter['drills'], 'critter.drills');
+    number(drills['day'], 'drills.day', 1, Number.MAX_SAFE_INTEGER, true);
+    for (const [drill, count] of Object.entries(record(drills['sessions'], 'drills.sessions'))) {
+      choice(drill, ['hoops', 'lift', 'pace'], 'drills.drill');
+      number(count, 'drills.count', 0, 10000, true);
+    }
   }
 }
 
@@ -658,7 +706,11 @@ function choice(value: unknown, choices: string[], path: string): void {
 function area(value: unknown, version: SaveVersion): void {
   choice(
     value,
-    version >= 7 ? ['homestead', 'glade', 'cottage'] : ['homestead', 'glade'],
+    version >= 8
+      ? ['homestead', 'glade', 'cottage', 'colosseum']
+      : version >= 7
+        ? ['homestead', 'glade', 'cottage']
+        : ['homestead', 'glade'],
     'areaId',
   );
 }

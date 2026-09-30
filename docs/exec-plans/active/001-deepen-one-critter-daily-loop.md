@@ -4,7 +4,8 @@
 M3 implementation and local verification complete and merged into `main` via PR #1
 (`d9ba9d7`) on 2026-09-27; human evaluation concluded (see recorded findings below).
 M4–M9 restructured to systematically build the first living stead vertical slice.
-M4–M6 merged to `main` via PR #2. M7 complete and locally verified on 2026-09-29 (save v7).
+M4–M6 merged to `main` via PR #2. M7 (save v7) and M8 (save v8) complete and locally
+verified on 2026-09-29.
 Source baseline: `3a346fc` (documentation bootstrap on gameplay `06aa91e`),
 identical in content to the published bootstrap `7e14cac`.
 
@@ -220,17 +221,17 @@ playtest is a pending product gate, not a claim of failure or success.
 
 ### M8 — Diverse training disciplines and Colosseum exhibition
 
-**Status:** not started; builds on M4 stats and physical simulation.
+**Status:** complete and locally verified (2026-09-29); save v8. Evidence below.
 **Player-visible expectation:** Training expands to include activity-matched minigames for Strength (Boulder Lifting) and Endurance (Distance Pacing) with daily diminishing returns; the Colosseum gate opens into an athletic exhibition arena.
 
-- [ ] Implement two new interactive training minigames: - **Boulder Lifting / Pressing** (STR): rhythmic force-gauge balance against visible weight. - **Distance Pacing / Sprint Relay** (END/SPD): sustained movement and stamina pacing challenge.
-- [ ] Implement daily diminishing returns: repeatedly training the same discipline on the
+- [x] Implement two new interactive training minigames: - **Boulder Lifting / Pressing** (STR): rhythmic force-gauge balance against visible weight. - **Distance Pacing / Sprint Relay** (END/SPD): sustained movement and stamina pacing challenge.
+- [x] Implement daily diminishing returns: repeatedly training the same discipline on the
       same game day yields progressively reduced stat/skill gains, discouraging grind and
       rewarding balanced daily schedules.
-- [ ] Open the path to the Colosseum: player and companion can enter the skeletal Colosseum diorama.
-- [ ] Implement the **Colosseum Athletic Exhibition Trial**: a multi-stage athletic showcase
+- [x] Open the path to the Colosseum: player and companion can enter the skeletal Colosseum diorama.
+- [x] Implement the **Colosseum Athletic Exhibition Trial**: a multi-stage athletic showcase
       combining speed and strength checks with spectator fanfare and coin/medal rewards.
-- [ ] Unit and browser tests verify minigame mechanics, diminishing returns curve, Colosseum
+- [x] Unit and browser tests verify minigame mechanics, diminishing returns curve, Colosseum
       transition, and rewards.
 
 ### M9 — Vertical slice integration, multi-day playtesting, and campaign gate
@@ -393,9 +394,10 @@ The outstanding human comparison between M3 routines has been conducted on the d
 
 ## Current handoff
 
-M1–M7 complete. M4–M6 are on `main` (PR #2); M7 was pushed to `main` as `eaad7ef`
-(save v7; Pages deploy triggered, human playtest on the published page pending). M8–M9 remain authorized. Next: implement M8 — boulder lifting and distance
-pacing minigames with same-day diminishing returns, then the Colosseum exhibition.
+M1–M8 complete. M7 is on `main` as `eaad7ef`; M8 (save v8) follows it on `main`.
+Human playtests happen on the published page and are pending for M7/M8. M9 remains
+authorized. Next: M9 — multi-day integration walkthrough, quality gates, and the
+structured human playtest protocol and product report.
 
 M4 desktop persistence suite: 9 passed, including v1/v2 migration, paid activity,
 malformed/future/ambiguous save protection, and single-writer ownership.
@@ -515,3 +517,40 @@ merge or Pages deployment is implied by the campaign branch push.
   after inspection.
 - **Known:** the component stylesheet warning rose from 16.48 to 17.29 kB (unchanged
   20 kB error budget). No human fun/balance acceptance is claimed.
+
+## M8 evidence — 2026-09-29
+
+- **Drills:** `drills.ts` holds pure gauge physics. The boulder lift (yard, STR) is a
+  force gauge that falls against the weight; hold it in the 55–80% band for 3 s within
+  10 s. Higher strength slows the fall. Distance pacing (glade loop, END with some SPD)
+  sets pace by tapping. Above the 50–65% steady zone breath drains (END softens this);
+  empty breath means winded (pace capped until 30% breath). Score blends lap time and
+  breath left. Tests show sprinting winds the runner and scores below a steady pace.
+- **Diminishing returns (provisional):** hoops, lift and pace each give 100/55/30/15%
+  gains for the 1st/2nd/3rd/4th+ session of a discipline on one game day. The share
+  appears on the action label and description before paying, and in the result
+  note. Each discipline counts separately and resets the next day. The Clover Cup and
+  exhibition are once-a-day events and do not use the curve.
+- **Colosseum:** gates now carry destination/arrival data. A gate at the glade's east edge
+  leads to the new `colosseum` area (15 min): a skeletal stadium shell with an unfinished
+  back arc of stands, scaffold gaps, pennants, a crowd that cheers, and confetti after a
+  showing. The exhibition (40/5 energy, 60 min, once a day) is a 3-cue sprint, then a
+  heavier stone pull (2.5 s hold). Points = sprint·25 + pull·25 + SPD·2.5 + STR·2.5 +
+  care·8 + seeded 0–4. Gold 80 / silver 62 pays 15/9/5 coins. Starter stats with perfect
+  play reach about silver; gold needs training.
+- **Save v8:** each critter gains `drills` (day and session counts). Training kinds add
+  lift/pace/exhibition with gauge fields. Competition entries may carry
+  `event: 'exhibition'`, so the Clover Cup's daily limit stays separate. A frozen v7
+  fixture protects migration; unknown drills, bad counts, missing gauge fields and
+  unknown events fail closed. The M7 in-browser v7 save upgraded to v8 cleanly.
+- **UI:** gauge cards show the band, held/lap progress, breath and a "winded" state.
+  Companion stats show one decimal so training gains are visible. On phones, touch arrows
+  hide during activities (movement is already locked), and the card takes the full
+  width: the pacing card had overflowed the frame by 47 px at 375 px wide.
+- **Verification (local, Windows):** 119 unit tests; lint; `/critterstead/` production
+  build and `check:pwa`. Browser: full suite 31 passed, 25 intentional skips; 32 `persistence.spec.ts` failures were stale save-version assertions (7, received 8). After updating them, `persistence.spec.ts` passes 36/36 on all viewports. New `training.spec.ts` passes on phone
+  and desktop: a real-key lift, the 55% label, glade → Colosseum, sprint, pull,
+  medal, reload and journal. Inspected lift, sprint and pacing cards, the stadium and
+  the glade loop; card placement measured at 375×812 and 844×390.
+- **Known:** stylesheet warning 17.28 kB (20 kB error budget). The glade loop and the
+  distant crowd are small at phone scale. No human fun/balance acceptance is claimed.

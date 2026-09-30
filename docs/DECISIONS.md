@@ -51,6 +51,7 @@ For sequencing, see [ROADMAP.md](ROADMAP.md) and [exec-plans/README.md](exec-pla
 | **D31** | Monster Rancher training minigames family               | Accepted    | [Training](GAME-DESIGN.md#training-system)                                                                                  |
 | **D32** | Viewport decoupling from interaction dock UI            | Accepted    | [Architecture](ARCHITECTURE.md#1-viewport--canvas-decoupling)                                                               |
 | **D33** | Restructured Campaign 001 vertical slice runway         | Accepted    | [Roadmap](ROADMAP.md)                                                                                                       |
+| **D35** | Per-discipline same-day training curve; gauge drills    | Implemented | [Plan 001 M8](exec-plans/active/001-deepen-one-critter-daily-loop.md#m8-evidence--2026-09-29)                               |
 | **D34** | Moisture-gated growth, dawn boundary, hashed weather    | Implemented | [Plan 001 M7](exec-plans/active/001-deepen-one-critter-daily-loop.md#m7-evidence--2026-09-29)                               |
 
 ---
@@ -218,6 +219,14 @@ Crops grow in game minutes only while their bed is moist. Watering lasts until t
 06:00 dawn; rain and season withering are applied at dawn. Weather is a fixed hash of the
 day, so forecasts are knowable in advance and never perturb seeded outcomes. The tradeoff:
 all saves share the same weather. Crop constants remain provisional.
+
+### D35 — Per-discipline same-day training curve; gauge drills (implemented 2026-09-29)
+
+Each training discipline tracks its own sessions per game day; repeats give 100/55/30/15%
+gains, shown before the player commits. Competitions are once-a-day and outside the
+curve. Strength and endurance drills are timed gauges rather than more timing cues, so
+each discipline asks for a different kind of attention. Constants remain provisional;
+tonics and recovery items stay future work.
 
 ---
 

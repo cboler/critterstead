@@ -97,6 +97,13 @@ export class GameWorld {
   private lastCueCount = 0;
   private lastJournal: string | undefined;
   private raceProgress = 0;
+  // Station props that animate with a gauge drill, plus the Colosseum crowd.
+  private readonly liftStone = new THREE.Group();
+  private readonly pullStone = new THREE.Group();
+  private readonly spectators = new THREE.Group();
+  private readonly confetti = new THREE.Group();
+  private fanfareTime = 0;
+  private lastShowings = -1;
 
   constructor(
     private readonly container: HTMLElement,
@@ -180,7 +187,19 @@ export class GameWorld {
     );
     let visualCritterPosition = companion.position;
     let jumpHeight = 0;
-    if (state.training) {
+    const activity = state.training;
+    const gaugeMeter = activity?.meter ?? 0;
+    if (activity?.kind === 'lift') {
+      visualCritterPosition = { x: 4.3, z: 6.6 };
+    } else if (activity?.kind === 'pace') {
+      const angle = (activity.progress ?? 0) * Math.PI * 2 - Math.PI / 2;
+      visualCritterPosition = { x: 1.2 + Math.cos(angle) * 1.6, z: 6.8 + Math.sin(angle) * 1.6 };
+    } else if (activity?.kind === 'exhibition') {
+      visualCritterPosition =
+        activity.stage === 1
+          ? { x: 2.2, z: -1 }
+          : { x: -3.5 + ((activity.hits.length + activity.phase * 0.3) / 3) * 6, z: -1 };
+    } else if (state.training) {
       if (state.training.hits.length !== this.lastCueCount) this.cueTime = 0;
       if (state.training.kind === 'race') {
         const progress = (state.training.hits.length + state.training.phase * 0.2) / 3;
@@ -218,7 +237,33 @@ export class GameWorld {
         ? Math.abs(Math.sin(this.clock * 12)) * 0.11
         : Math.sin(this.clock * 2.4) * 0.025;
     this.critter.position.y = jumpHeight;
-    if (state.training?.kind === 'race' && !this.reducedMotion) {
+    // Gauge drills lift their stones with the force meter.
+    this.liftStone.position.y = activity?.kind === 'lift' ? gaugeMeter * 0.6 : 0;
+    this.pullStone.position.x =
+      activity?.kind === 'exhibition' && activity.stage === 1 ? (activity.progress ?? 0) * 1.5 : 0;
+    const showings = companion.competitions.filter((item) => item.event === 'exhibition').length;
+    if (this.lastShowings >= 0 && showings > this.lastShowings) this.fanfareTime = 4;
+    this.lastShowings = showings;
+    this.fanfareTime = Math.max(0, this.fanfareTime - dt);
+    const cheering = activity?.kind === 'exhibition' || this.fanfareTime > 0;
+    this.spectators.children.forEach((fan, index) => {
+      fan.position.y =
+        cheering && !this.reducedMotion
+          ? Math.abs(Math.sin(this.clock * 9 + index * 1.3)) * 0.25
+          : 0;
+    });
+    this.confetti.visible = this.fanfareTime > 0;
+    this.confetti.children.forEach((piece, index) => {
+      const t = (this.clock * 0.6 + index * 0.137) % 1;
+      piece.position.y = 4.5 - t * 4.2;
+      piece.rotation.z = this.clock * 3 + index;
+    });
+    if (
+      (state.training?.kind === 'race' ||
+        activity?.kind === 'pace' ||
+        (activity?.kind === 'exhibition' && activity.stage !== 1)) &&
+      !this.reducedMotion
+    ) {
       this.critterLegs.forEach((leg, index) => {
         leg.rotation.x = Math.sin(this.clock * 17 + index * Math.PI) * 0.6;
       });
@@ -450,6 +495,10 @@ export class GameWorld {
     this.groundLoads.clear();
     this.cargoSignature = '';
     this.beds.clear();
+    this.liftStone.clear();
+    this.pullStone.clear();
+    this.spectators.clear();
+    this.confetti.clear();
     this.smoke.clear();
     this.shedRoof.clear();
     this.labels.forEach((label) => label.element.remove());
@@ -465,7 +514,8 @@ export class GameWorld {
       if (state.areaId === 'homestead') {
         this.homestead();
         this.gardenBeds(state);
-      } else this.glade(state);
+      } else if (state.areaId === 'colosseum') this.colosseum();
+      else this.glade(state);
     }
     for (const node of state.materialNodes.filter((node) => node.areaId === state.areaId)) {
       const group = new THREE.Group();
@@ -543,7 +593,8 @@ export class GameWorld {
       frame.add(this.millBlade);
       this.scenery.add(frame);
     }
-    if (!indoors) this.grass(state.areaId === 'homestead' ? 97 : 301);
+    if (state.areaId === 'homestead' || state.areaId === 'glade')
+      this.grass(state.areaId === 'homestead' ? 97 : 301);
   }
 
   private island(): void {
@@ -670,6 +721,7 @@ export class GameWorld {
     this.training(3, 2);
     this.market(-6, 5);
     this.race(2, 6);
+    this.liftStation(5.2, 6.6);
     const trees: [number, number, number][] = [
       [-7.3, -6.7, 1.1],
       [-2.2, -7.2, 0.9],
@@ -796,6 +848,18 @@ export class GameWorld {
     });
     this.gate(-8, 0, true);
     this.label('↙ Back to the yard', -8, 2.4, 0, true);
+    this.gate(7.6, -4.4, false);
+    this.label('Colosseum grounds ↗', 7.6, 2.4, -4.4, true);
+    const loop = this.mesh(
+      this.keep(new THREE.RingGeometry(1.25, 1.95, 40)),
+      '#d9c38e',
+      [1.2, 0.04, 6.8],
+    );
+    loop.rotation.x = -Math.PI / 2;
+    this.scenery.add(loop);
+    this.scenery.add(this.mesh(this.cylinder, '#b59569', [1.2, 0.55, 6.8], [0.07, 1.1, 0.07]));
+    this.scenery.add(this.mesh(this.box, '#6c938b', [1.2, 1.05, 6.8], [0.6, 0.3, 0.05]));
+    this.label('Pacing loop', 1.2, 1.7, 6.8);
     for (let index = 0; index < 8; index++) {
       const x = -5.1 + index * 0.17;
       const z = -2.8 + Math.sin(index * 7) * 0.3;
@@ -1051,6 +1115,123 @@ export class GameWorld {
     const spout = this.mesh(this.cylinder, '#709896', [-5.92, 0.25, 2.2], [0.07, 0.5, 0.07]);
     spout.rotation.z = -0.95;
     this.scenery.add(spout);
+  }
+
+  private liftStation(x: number, z: number): void {
+    const base = this.mesh(this.cylinder, '#b2bd78', [x, 0.039, z], [1.3, 0.045, 1.3]);
+    this.scenery.add(base);
+    this.liftStone.position.set(0, 0, 0);
+    this.liftStone.add(this.mesh(this.pebble, '#8f9c97', [x, 0.55, z], [0.7, 0.55, 0.6]));
+    this.liftStone.add(this.mesh(this.box, '#a5835b', [x, 0.55, z + 0.62], [0.9, 0.1, 0.1]));
+    this.scenery.add(this.liftStone);
+    for (const side of [-1, 1])
+      this.scenery.add(
+        this.mesh(this.box, '#a5835b', [x + side * 0.8, 0.5, z - 0.3], [0.1, 1, 0.1]),
+      );
+  }
+
+  private colosseum(): void {
+    this.path(
+      [
+        [-9.2, 4],
+        [-6, 3.2],
+        [-3.5, 1.5],
+        [-2, 0.4],
+      ],
+      1.4,
+    );
+    const arena = this.mesh(this.cylinder, '#e3cf9e', [1, 0.03, -1], [5.4, 0.06, 3.6]);
+    arena.receiveShadow = true;
+    this.scenery.add(arena);
+    const lane = this.mesh(this.box, '#d2b887', [0.5, 0.07, -1], [8, 0.02, 0.8]);
+    this.scenery.add(lane);
+    // Low arena wall, and tiered but unfinished stands around the far half.
+    for (let post = 0; post < 22; post++) {
+      const angle = (post / 22) * Math.PI * 2;
+      this.scenery.add(
+        this.mesh(
+          this.box,
+          '#c9b58c',
+          [1 + Math.cos(angle) * 5.6, 0.3, -1 + Math.sin(angle) * 3.8],
+          [0.6, 0.6, 0.6],
+        ),
+      );
+    }
+    const colors = ['#c8866a', '#6c938b', '#e0b35c', '#8e7bb0', '#d9a77f', '#5f8a6a'];
+    for (let tier = 0; tier < 3; tier++) {
+      const radiusX = 6.2 + tier * 0.8;
+      const radiusZ = 4.4 + tier * 0.75;
+      for (let seat = 0; seat < 16; seat++) {
+        // Only the back arc is built; gaps and bare scaffolding mark the unfinished shell.
+        const angle = Math.PI * 1.02 + (seat / 15) * Math.PI * 0.96;
+        const x = 1 + Math.cos(angle) * radiusX;
+        const z = -1 + Math.sin(angle) * radiusZ;
+        if ((seat + tier) % 5 === 4) {
+          this.scenery.add(
+            this.mesh(
+              this.box,
+              '#a38b60',
+              [x, 0.6 + tier * 0.45, z],
+              [0.08, 1.2 + tier * 0.9, 0.08],
+            ),
+          );
+          continue;
+        }
+        this.scenery.add(
+          this.mesh(this.box, '#bfae8d', [x, 0.25 + tier * 0.45, z], [1.3, 0.5 + tier * 0.9, 0.9]),
+        );
+        if ((seat * 7 + tier) % 3 === 0) continue;
+        const fan = new THREE.Group();
+        fan.add(
+          this.mesh(
+            this.sphere,
+            colors[(seat + tier) % colors.length],
+            [x, 0.85 + tier * 0.9, z],
+            [0.2, 0.26, 0.2],
+          ),
+        );
+        fan.add(this.mesh(this.sphere, '#e3b48d', [x, 1.2 + tier * 0.9, z], [0.14, 0.14, 0.14]));
+        this.spectators.add(fan);
+      }
+    }
+    this.scenery.add(this.spectators);
+    for (let piece = 0; piece < 30; piece++) {
+      this.confetti.add(
+        this.mesh(
+          this.box,
+          colors[piece % colors.length],
+          [
+            1 + Math.cos(piece * 2.4) * (1 + (piece % 5)),
+            3,
+            -1 + Math.sin(piece * 2.4) * (0.8 + (piece % 4)),
+          ],
+          [0.12, 0.02, 0.08],
+        ),
+      );
+    }
+    this.confetti.visible = false;
+    this.scenery.add(this.confetti);
+    this.pullStone.add(this.mesh(this.pebble, '#7f8c88', [2.9, 0.5, -1], [0.75, 0.5, 0.6]));
+    this.scenery.add(this.pullStone);
+    this.pennants(-4, -4.8, 6, -4.8, 3.2);
+    const booth = new THREE.Group();
+    booth.position.set(-3, 0, 1);
+    booth.add(this.mesh(this.box, '#9b714b', [0, 0.45, 0], [1.2, 0.9, 0.7]));
+    booth.add(this.mesh(this.box, '#e7d8ac', [0, 0.93, 0], [1.3, 0.06, 0.8]));
+    booth.add(this.mesh(this.cylinder, '#b59569', [-0.55, 1.2, -0.25], [0.05, 1.3, 0.05]));
+    booth.add(this.mesh(this.cylinder, '#b59569', [0.55, 1.2, -0.25], [0.05, 1.3, 0.05]));
+    booth.add(this.mesh(this.box, '#c8866a', [0, 1.85, -0.25], [1.4, 0.12, 0.8]));
+    this.scenery.add(booth);
+    this.gate(-8, 4, true);
+    const heights: Partial<Record<string, number>> = { gate: 2.4, exhibition: 2.3 };
+    for (const object of AREAS.colosseum.objects)
+      this.label(
+        object.kind === 'gate' ? '↙ Back to Clover Glade' : object.name,
+        object.position.x,
+        heights[object.kind] ?? 1.8,
+        object.position.z,
+        object.kind === 'gate',
+      );
   }
 
   private cottageInterior(): void {
@@ -1495,7 +1676,9 @@ export class GameWorld {
     if (this.lastJournal !== undefined && message !== this.lastJournal) {
       // Journal language chooses an ephemeral expression, never a gameplay outcome.
       const care = /trill|crunches|nibble|soft bedding/i.test(message);
-      const achievement = /sunberries|watches|learn|rhythm|practice|gains|ribbon/i.test(message);
+      const achievement = /sunberries|watches|learn|rhythm|practice|gains|ribbon|medal/i.test(
+        message,
+      );
       if (care || achievement) {
         this.feedbackTime = 1.8;
         this.affection.visible = care;

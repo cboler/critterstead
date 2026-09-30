@@ -91,27 +91,49 @@
         }
         @if (state().training; as activity) {
           <div class="training-card" id="game-controls">
-            <span class="eyebrow">{{
-              activity.kind === 'race' ? 'THE CLOVER CUP' : 'A LITTLE PRACTICE'
-            }}</span>
-            <h2>
-              {{
-                activity.kind === 'race'
-                  ? 'Cheer ' + companion().name + ' across the line!'
-                  : 'Find your rhythm together'
-              }}
-            </h2>
+            @let copy = activityCopy();
+            <span class="eyebrow">{{ copy.eyebrow }}</span>
+            <h2>{{ copy.heading }}</h2>
             <p>
-              Press <kbd>{{ controllerConnected() ? 'A' : 'Space' }}</kbd> when the marker reaches
-              the green patch.
+              Press <kbd>{{ controllerConnected() ? 'A' : 'Space' }}</kbd> {{ copy.instructions }}
             </p>
-            <div class="timing-track">
-              <span class="sweet-spot"></span><i [style.left.%]="activity.phase * 100"></i>
-            </div>
+            @if (copy.gauge) {
+              <div
+                class="timing-track"
+                role="meter"
+                [attr.aria-label]="copy.gauge === 'lift' ? 'Force gauge' : 'Pace'"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                [attr.aria-valuenow]="round((activity.meter ?? 0) * 100)"
+              >
+                <span
+                  class="sweet-spot"
+                  [style.left.%]="copy.gauge === 'lift' ? 55 : 50"
+                  [style.width.%]="copy.gauge === 'lift' ? 25 : 15"
+                ></span
+                ><i [style.left.%]="(activity.meter ?? 0) * 100"></i>
+              </div>
+              <div class="meter-label">
+                <span>{{ copy.gauge === 'lift' ? 'Held' : 'Lap' }}</span
+                ><strong>{{ round((activity.progress ?? 0) * 100) }}%</strong>
+              </div>
+              <div class="meter"><i [style.width.%]="(activity.progress ?? 0) * 100"></i></div>
+              @if (copy.gauge === 'pace') {
+                <div class="meter-label">
+                  <span>Breath{{ activity.stage === 1 ? ' · winded!' : '' }}</span
+                  ><strong>{{ round((activity.reserve ?? 0) * 100) }}%</strong>
+                </div>
+                <div class="meter"><i [style.width.%]="(activity.reserve ?? 0) * 100"></i></div>
+              }
+            } @else {
+              <div class="timing-track">
+                <span class="sweet-spot"></span><i [style.left.%]="activity.phase * 100"></i>
+              </div>
+            }
             <div class="training-footer">
-              <span>{{ activity.hits.length }} / 3 beats</span
+              <span>{{ copy.gauge ? copy.status : activity.hits.length + ' / 3 beats' }}</span
               ><button class="primary" (click)="act()">
-                {{ activity.kind === 'race' ? 'Cheer!' : 'Hop, ' + companion().name + '!' }}
+                {{ copy.button }}
                 <kbd>{{ controllerConnected() ? 'A' : 'Space' }}</kbd>
               </button>
             </div>
@@ -131,44 +153,46 @@
             ><span>Click the ground to walk</span>
           }
         </div>
-        <div class="touch-controls" aria-label="Movement controls">
-          <button
-            aria-label="Move up"
-            (pointerdown)="direction('w', true)"
-            (pointerup)="direction('w', false)"
-            (pointerleave)="direction('w', false)"
-            (pointercancel)="direction('w', false)"
-          >
-            ↑
-          </button>
-          <div>
+        @if (!state().training) {
+          <div class="touch-controls" aria-label="Movement controls">
             <button
-              aria-label="Move left"
-              (pointerdown)="direction('a', true)"
-              (pointerup)="direction('a', false)"
-              (pointerleave)="direction('a', false)"
-              (pointercancel)="direction('a', false)"
+              aria-label="Move up"
+              (pointerdown)="direction('w', true)"
+              (pointerup)="direction('w', false)"
+              (pointerleave)="direction('w', false)"
+              (pointercancel)="direction('w', false)"
             >
-              ←</button
-            ><button
-              aria-label="Move down"
-              (pointerdown)="direction('s', true)"
-              (pointerup)="direction('s', false)"
-              (pointerleave)="direction('s', false)"
-              (pointercancel)="direction('s', false)"
-            >
-              ↓</button
-            ><button
-              aria-label="Move right"
-              (pointerdown)="direction('d', true)"
-              (pointerup)="direction('d', false)"
-              (pointerleave)="direction('d', false)"
-              (pointercancel)="direction('d', false)"
-            >
-              →
+              ↑
             </button>
+            <div>
+              <button
+                aria-label="Move left"
+                (pointerdown)="direction('a', true)"
+                (pointerup)="direction('a', false)"
+                (pointerleave)="direction('a', false)"
+                (pointercancel)="direction('a', false)"
+              >
+                ←</button
+              ><button
+                aria-label="Move down"
+                (pointerdown)="direction('s', true)"
+                (pointerup)="direction('s', false)"
+                (pointerleave)="direction('s', false)"
+                (pointercancel)="direction('s', false)"
+              >
+                ↓</button
+              ><button
+                aria-label="Move right"
+                (pointerdown)="direction('d', true)"
+                (pointerup)="direction('d', false)"
+                (pointerleave)="direction('d', false)"
+                (pointercancel)="direction('d', false)"
+              >
+                →
+              </button>
+            </div>
           </div>
-        </div>
+        }
       </div>
       @if (!state().training && nearby(); as target) {
         <div class="interaction-dock" id="game-controls">
@@ -238,7 +262,7 @@
           @for (stat of statNames; track stat) {
             <div>
               <span>{{ stat }}</span
-              ><strong>{{ round(companion().stats[stat]) }}</strong>
+              ><strong>{{ companion().stats[stat].toFixed(1) }}</strong>
             </div>
           }
         </div>
@@ -514,10 +538,18 @@
           }
         </div>
         @if (companion().competitions.length) {
-          <h3>Clover Cup memories</h3>
+          <h3>Competition memories</h3>
           <ul>
             @for (race of companion().competitions; track $index) {
-              <li>Day {{ race.day }} · {{ race.time }}s · {{ race.medal }}</li>
+              <li>
+                Day {{ race.day }} ·
+                {{
+                  race.event === 'exhibition'
+                    ? 'Colosseum exhibition · ' + race.time + ' points'
+                    : 'Clover Cup · ' + race.time + 's'
+                }}
+                · {{ race.medal }}
+              </li>
             }
           </ul>
         }
