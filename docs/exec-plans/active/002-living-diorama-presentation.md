@@ -1,6 +1,6 @@
 # 002 — Living diorama presentation
 
-**Status:** in progress (V1). Requested 2026-09-30 by the product owner: the game reads as
+**Status:** in progress (V3). V1 (`2c7b6dc`) and V2 committed locally. Requested 2026-09-30 by the product owner: the game reads as
 "compact"; make the visuals impressive. Independent of Campaign 001 M9 and save schema.
 
 ## Outcome and scope
@@ -43,6 +43,15 @@ inspection at 1440×900, 1280×800, 390×844 and 844×390; 44 px targets and red
 - App styles move to a global stylesheet so the HUD theme is not limited by the
   per-component style budget (the component file already exceeded its warning).
 
+## Progress
+
+- V1: full-bleed stage, follow camera (damped, zoom 4.2–12, HUD-aware framing), frosted HUD,
+  details tabs/chip, quality tiers. Layout tests now assert the canvas fills the screen and
+  the dock never covers the rancher.
+- V2: terrain, forest ring (instanced, merged low-poly variants), hedges, brook with bridge,
+  paths past the gates, seasonal palettes. Tall scenery is never planted where it would hide
+  playable ground from the fixed camera angle.
+
 ## Next action
 
-Implement V1.
+Implement V3 (sun path, time-of-day grading, night glow, rain and snow).

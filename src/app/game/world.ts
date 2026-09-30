@@ -3,7 +3,9 @@ import * as THREE from 'three';
 import { productionStatus, quantity } from './logistics';
 import { AREAS, CROPS } from './content';
 import { plotReady } from './garden';
-import { weatherFor } from './calendar';
+import { calendarDate, weatherFor } from './calendar';
+import { buildSurroundings, type Surroundings } from './render/terrain';
+import { PALETTES, type SeasonPalette } from './render/palette';
 import { activeCritter, type AreaId, type CropId, type GameState, type Point } from './model';
 import {
   detectQuality,
@@ -72,6 +74,10 @@ export class GameWorld {
   private outdoorZoom: number = ZOOM_LIMITS.standard;
   private shadowExtent = 0;
   private qualityTier: Quality = 'balanced';
+  private surroundings?: Surroundings;
+  // Scenery depends on the area, the season's palette, and the detail tier.
+  private builtKey = '';
+  private palette: SeasonPalette = PALETTES.spring;
   private readonly gpuName: string;
   private readonly sunRight = new THREE.Vector3();
   private readonly sunUp = new THREE.Vector3();
@@ -236,9 +242,18 @@ export class GameWorld {
     const dt = Math.min(Math.max(dtSeconds, 0), 0.1);
     this.clock += this.reducedMotion ? 0 : dt;
     this.cueTime += dt;
-    if (this.area !== state.areaId) {
+    const sceneryKey = `${state.areaId}:${calendarDate(state.day).season}:${this.qualityTier}`;
+    if (this.builtKey !== sceneryKey) {
+      const moved = this.area !== state.areaId;
+      this.builtKey = sceneryKey;
       this.area = state.areaId;
+      this.palette = PALETTES[calendarDate(state.day).season];
       this.buildArea(state);
+      if (!moved) {
+        // A season or quality change rebuilds scenery in place without moving the camera.
+        this.lastPlayer.set(state.player.position.x, state.player.position.z);
+        this.lastCritter.set(companion.position.x, companion.position.z);
+      }
       this.snapCamera = true;
       this.resize();
       this.lastPlayer.set(state.player.position.x, state.player.position.z);
@@ -294,6 +309,7 @@ export class GameWorld {
     }
     // Frame before any label is projected so labels never trail the camera.
     this.frame(state, visualCritterPosition, dt);
+    this.surroundings?.update(this.clock, 1);
     const critterMoving = this.animateActor(
       this.critter,
       visualCritterPosition,
@@ -678,6 +694,8 @@ export class GameWorld {
   }
 
   private buildArea(state: GameState): void {
+    this.surroundings?.dispose();
+    this.surroundings = undefined;
     this.scenery.traverse((object) => {
       if (object instanceof THREE.InstancedMesh) object.dispose();
     });
@@ -699,13 +717,18 @@ export class GameWorld {
     this.labels.forEach((label) => label.element.remove());
     this.labels.length = 0;
     const indoors = state.areaId === 'cottage';
-    const sky = indoors ? '#e9dcc6' : '#dce9e3';
+    const sky = indoors ? '#e9dcc6' : this.palette.sky;
     (this.scene.background as THREE.Color).set(sky);
     this.scene.fog?.color.set(sky);
     this.backdrop.material = this.material(sky);
     if (indoors) this.cottageInterior();
     else {
-      this.island();
+      this.surroundings = buildSurroundings(
+        state.areaId,
+        calendarDate(state.day).season,
+        QUALITY_SETTINGS[this.qualityTier].detail,
+      );
+      this.scenery.add(this.surroundings.group);
       if (state.areaId === 'homestead') {
         this.homestead();
         this.gardenBeds(state);
@@ -790,59 +813,6 @@ export class GameWorld {
     }
     if (state.areaId === 'homestead' || state.areaId === 'glade')
       this.grass(state.areaId === 'homestead' ? 97 : 301);
-  }
-
-  private island(): void {
-    const shape = new THREE.Shape();
-    const e = 9.25;
-    const r = 2.3;
-    shape.moveTo(-e + r, -e);
-    shape.lineTo(e - r, -e);
-    shape.quadraticCurveTo(e, -e, e, -e + r);
-    shape.lineTo(e, e - r);
-    shape.quadraticCurveTo(e, e, e - r, e);
-    shape.lineTo(-e + r, e);
-    shape.quadraticCurveTo(-e, e, -e, e - r);
-    shape.lineTo(-e, -e + r);
-    shape.quadraticCurveTo(-e, -e, -e + r, -e);
-    const geometry = this.keep(
-      new THREE.ExtrudeGeometry(shape, {
-        depth: 0.88,
-        bevelEnabled: true,
-        bevelSize: 0.22,
-        bevelThickness: 0.2,
-        bevelSegments: 3,
-        steps: 1,
-        curveSegments: 8,
-      }),
-    );
-    const island = new THREE.Mesh(geometry, [this.material('#91ad66'), this.material('#bc9670')]);
-    island.rotation.x = -Math.PI / 2;
-    island.position.y = -1.08;
-    island.receiveShadow = true;
-    island.castShadow = true;
-    this.scenery.add(island);
-    const grassTop = new THREE.Mesh(
-      this.keep(new THREE.ShapeGeometry(shape)),
-      this.material('#9ab66d'),
-    );
-    grassTop.rotation.x = -Math.PI / 2;
-    grassTop.position.y = 0.015;
-    grassTop.receiveShadow = true;
-    this.scenery.add(grassTop);
-    for (let index = 0; index < 17; index++) {
-      const angle = (index / 17) * Math.PI * 2;
-      const x = Math.cos(angle) * 8.8;
-      const z = Math.sin(angle) * 8.8;
-      this.scenery.add(
-        this.mesh(
-          this.pebble,
-          index % 2 ? '#c9af86' : '#bca17c',
-          [x, -0.65, z],
-          [0.35, 0.18, 0.28],
-        ),
-      );
-    }
   }
 
   private path(points: [number, number][], width = 1.2, color = '#e1ce9b'): void {
@@ -1079,13 +1049,15 @@ export class GameWorld {
     branch.rotation.z = -0.7;
     tree.add(branch);
     const colors =
-      variant % 3 === 0 ? ['#8b9f57', '#a3b566', '#b5c67a'] : ['#628965', '#7b9e6d', '#94ad72'];
+      variant % 3 === 0 && this.palette.accent ? this.palette.accent : this.palette.canopy;
     tree.add(this.mesh(this.sphere, colors[0], [0, 2.7, 0], [1.15, 1.26, 1.06]));
     tree.add(this.mesh(this.sphere, colors[1], [-0.67, 2.42, 0.13], [0.86, 0.94, 0.83]));
     tree.add(this.mesh(this.sphere, colors[1], [0.65, 2.53, 0.17], [0.85, 0.96, 0.86]));
     tree.add(this.mesh(this.sphere, colors[2], [0.09, 3.32, 0.15], [0.88, 0.86, 0.85]));
+    if (this.palette.snow)
+      tree.add(this.mesh(this.sphere, '#f6f8f8', [0.05, 3.62, 0.14], [0.76, 0.36, 0.74]));
     tree.rotation.y = variant * 2.1;
-    if (variant % 3 === 0) {
+    if (variant % 3 === 0 && !this.palette.accent && !this.palette.snow) {
       for (let fruit = 0; fruit < 5; fruit++) {
         const angle = fruit * 1.7;
         tree.add(
@@ -1313,7 +1285,12 @@ export class GameWorld {
   }
 
   private liftStation(x: number, z: number): void {
-    const base = this.mesh(this.cylinder, '#b2bd78', [x, 0.039, z], [1.3, 0.045, 1.3]);
+    const base = this.mesh(
+      this.cylinder,
+      this.palette.snow ? '#dde5e2' : '#b2bd78',
+      [x, 0.039, z],
+      [1.3, 0.045, 1.3],
+    );
     this.scenery.add(base);
     this.liftStone.position.set(0, 0, 0);
     this.liftStone.add(this.mesh(this.pebble, '#8f9c97', [x, 0.55, z], [0.7, 0.55, 0.6]));
@@ -1513,7 +1490,12 @@ export class GameWorld {
   }
 
   private training(x: number, z: number): void {
-    const track = this.mesh(this.cylinder, '#b2bd78', [x, 0.039, z], [2.1, 0.045, 1.9]);
+    const track = this.mesh(
+      this.cylinder,
+      this.palette.snow ? '#dde5e2' : '#b2bd78',
+      [x, 0.039, z],
+      [2.1, 0.045, 1.9],
+    );
     track.receiveShadow = true;
     this.scenery.add(track);
     const hoop = this.mesh(this.keep(new THREE.TorusGeometry(0.63, 0.075, 8, 36)), '#d6a367', [
@@ -1688,8 +1670,8 @@ export class GameWorld {
       randomSeed = (randomSeed * 1664525 + 1013904223) >>> 0;
       return randomSeed / 4294967296;
     };
-    const grass = new THREE.InstancedMesh(this.cone, this.material('#7f9e59'), 360);
-    const flowers = new THREE.InstancedMesh(this.sphere, this.material('#f4e2a2'), 94);
+    const grass = new THREE.InstancedMesh(this.cone, this.material(this.palette.blade), 360);
+    const flowers = new THREE.InstancedMesh(this.sphere, this.material(this.palette.flower), 94);
     const lavender = new THREE.InstancedMesh(this.sphere, this.material('#b5a5b4'), 50);
     const transform = new THREE.Object3D();
     let grassCount = 0;
