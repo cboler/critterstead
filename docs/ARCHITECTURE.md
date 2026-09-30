@@ -122,13 +122,14 @@ The canvas is full-screen; HUD panels float over it and `app.ts` reports the cov
 edges each 200 ms (`setInsets`), so the orthographic follow camera frames the rancher in
 the uncovered area. The camera keeps one fixed viewing direction (screen-relative inputs
 stay valid) and only moves and zooms. `render/terrain.ts` builds non-walkable scenery past
-the playable square and never places tall scenery where it would hide playable ground.
-`render/atmosphere.ts` drives light from `state.minute` and `weatherFor(day)`;
-`render/post.ts` adds tilt-shift, night bloom and grading. `render/quality.ts` picks a
-tier from the WebGL renderer (software renderers such as headless SwiftShader get
-`light`: no post-processing or sun shadows, less detail); players can override it in
-Help. Fog starts beyond the camera's 60-unit focus distance. None of this reads or writes
-save data.
+the playable square and never places tall scenery where it would hide playable ground;
+its instances are grouped into 12-unit tiles so camera and shadow culling skip what is
+out of view. `render/atmosphere.ts` drives light from `state.minute` and
+`weatherFor(day)`; `render/post.ts` adds tilt-shift, night bloom and grading.
+`render/quality.ts` picks a tier from the WebGL renderer (software renderers such as
+headless SwiftShader get `light`: no post-processing or sun shadows, less detail, half
+resolution); players can override it in Help. Fog starts beyond the camera's 60-unit
+focus distance. None of this reads or writes save data.
 
 ## Architectural reality audit (reconciliation baseline before M4)
 

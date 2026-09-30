@@ -2,13 +2,13 @@ import { expect, test } from '@playwright/test';
 import { createInitialState } from '../src/app/game/host';
 import { addItem } from '../src/app/game/logistics';
 import { activeCritter } from '../src/app/game/model';
-import { developmentState, savedState, seedSave, walk } from './helpers';
+import { developmentState, PACE, savedState, seedSave, SPOTS, walk } from './helpers';
 
 test('teaches the whole hauling route, cues it, then watches independent deliveries across reload', async ({
   page,
 }, info) => {
   test.skip(!['desktop', 'phone-portrait'].includes(info.project.name));
-  test.setTimeout(180_000);
+  test.setTimeout(180_000 * PACE);
   // Focused fixture supplies the mill, but grants no learning or completed route.
   // M5's separate fresh-start journey verifies gathering and delivering the inputs.
   const state = createInitialState();
@@ -28,7 +28,7 @@ test('teaches the whole hauling route, cues it, then watches independent deliver
   await page.goto('/');
   await expect(page.locator('.world-canvas canvas')).toBeVisible();
   for (let lesson = 1; lesson <= 2; lesson++) {
-    await walk(page, 6.5, 1);
+    await walk(page, ...SPOTS.millOutput);
     await expect
       .poll(async () => {
         const current = await developmentState(page);
@@ -84,7 +84,7 @@ test('an independent worker visibly waits for feed, eats locally, and rests befo
   page,
 }, info) => {
   test.skip(info.project.name !== 'desktop');
-  test.setTimeout(60000);
+  test.setTimeout(60000 * PACE);
   const state = createInitialState();
   const critter = activeCritter(state);
   critter.learnedBehaviors['lumber-hauling'] = 6;

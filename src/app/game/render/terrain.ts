@@ -28,6 +28,43 @@ const TOWARD_CAMERA = new THREE.Vector2(17, 25).normalize();
 // Screen height of an object covers ground about this far behind it (camera ~36° up).
 const OCCLUSION_PER_HEIGHT = 1.4;
 
+// Scenery instances are grouped into square tiles, so camera and shadow culling skip the
+// (large) part of the surroundings that is out of view.
+const TILE = 12;
+
+interface Batch {
+  geometry: THREE.BufferGeometry;
+  material: THREE.Material;
+  limit: number;
+  count: number;
+  tiles: Map<string, { matrices: THREE.Matrix4[]; colors: THREE.Color[] }>;
+  cast: boolean;
+  receive: boolean;
+}
+
+function addInstance(batch: Batch, matrix: THREE.Matrix4, color?: THREE.Color): void {
+  if (batch.count >= batch.limit) return;
+  const key = `${Math.floor(matrix.elements[12] / TILE)},${Math.floor(matrix.elements[14] / TILE)}`;
+  let tile = batch.tiles.get(key);
+  if (!tile) batch.tiles.set(key, (tile = { matrices: [], colors: [] }));
+  tile.matrices.push(matrix.clone());
+  if (color) tile.colors.push(color.clone());
+  batch.count++;
+}
+
+/** One instanced mesh per occupied tile, sharing the batch's geometry and material. */
+function tileMeshes(batch: Batch): THREE.InstancedMesh[] {
+  return [...batch.tiles.values()].map(({ matrices, colors }) => {
+    const mesh = new THREE.InstancedMesh(batch.geometry, batch.material, matrices.length);
+    matrices.forEach((matrix, index) => mesh.setMatrixAt(index, matrix));
+    colors.forEach((color, index) => mesh.setColorAt(index, color));
+    mesh.castShadow = batch.cast;
+    mesh.receiveShadow = batch.receive;
+    mesh.computeBoundingSphere();
+    return mesh;
+  });
+}
+
 /** Whether scenery of this height at (x, z) would stand between the camera and play. */
 function occludesPlay(x: number, z: number, height: number): boolean {
   const reach = height * OCCLUSION_PER_HEIGHT;
@@ -300,45 +337,46 @@ export function buildSurroundings(area: AreaId, season: Season, detail: number):
   // Canopies sway; bushes are too short to bend.
   addWind(foliage, 'tree');
   const random = scatter(layout.seed * 31 + season.length);
-  const instanced = (geometry: THREE.BufferGeometry, count: number): THREE.InstancedMesh => {
-    const mesh = new THREE.InstancedMesh(keep(geometry), foliage, Math.max(1, count));
-    mesh.count = 0;
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    keep(mesh);
-    group.add(mesh);
-    return mesh;
+  const batches: Batch[] = [];
+  const batch = (
+    geometry: THREE.BufferGeometry,
+    limit: number,
+    material: THREE.Material = foliage,
+    shadows = { cast: true, receive: true },
+  ): Batch => {
+    const created: Batch = {
+      geometry: keep(geometry),
+      material,
+      limit,
+      count: 0,
+      tiles: new Map(),
+      ...shadows,
+    };
+    batches.push(created);
+    return created;
   };
   const transform = new THREE.Object3D();
   const tint = new THREE.Color();
-  const place = (
-    mesh: THREE.InstancedMesh,
-    x: number,
-    z: number,
-    scale: number,
-    lift = 0,
-  ): void => {
-    if (mesh.count >= mesh.instanceMatrix.count) return;
+  const place = (target: Batch, x: number, z: number, scale: number, lift = 0): void => {
+    if (target.count >= target.limit) return;
     transform.position.set(x, height(x, z) - 0.04 + lift, z);
     transform.rotation.set(0, random() * Math.PI * 2, 0);
     transform.scale.setScalar(scale);
     transform.updateMatrix();
-    mesh.setMatrixAt(mesh.count, transform.matrix);
-    mesh.setColorAt(mesh.count, tint.setScalar(0.86 + random() * 0.22));
-    mesh.count++;
+    addInstance(target, transform.matrix, tint.setScalar(0.86 + random() * 0.22));
   };
 
-  const bushes = instanced(bush(palette.bush), Math.round(300 * Math.max(0.6, detail)));
+  const bushes = batch(bush(palette.bush), Math.round(300 * Math.max(0.6, detail)));
   // Forest ring: denser and more coniferous with distance.
   const treeBudget = Math.round(560 * detail);
-  const rounds = instanced(
+  const rounds = batch(
     palette.snow ? bareTree(palette.trunk) : roundTree(palette.canopy, palette.trunk, false),
     treeBudget,
   );
   const accents = palette.accent
-    ? instanced(roundTree(palette.accent, palette.trunk, false), Math.round(treeBudget * 0.35))
+    ? batch(roundTree(palette.accent, palette.trunk, false), Math.round(treeBudget * 0.35))
     : null;
-  const conifers = instanced(conifer(palette.conifer, palette.trunk, palette.snow), treeBudget);
+  const conifers = batch(conifer(palette.conifer, palette.trunk, palette.snow), treeBudget);
   for (
     let attempt = 0;
     attempt < treeBudget * 9 && rounds.count + conifers.count < treeBudget;
@@ -397,21 +435,19 @@ export function buildSurroundings(area: AreaId, season: Season, detail: number):
     new THREE.MeshStandardMaterial({ color: palette.blade, roughness: 1 }),
   );
   addWind(bladeMaterial, 'blade');
-  const blades = new THREE.InstancedMesh(
-    keep(new THREE.ConeGeometry(0.35, 1, 4)),
-    bladeMaterial,
+  const blades = batch(
+    new THREE.ConeGeometry(0.35, 1, 4),
     Math.round(1100 * detail),
+    bladeMaterial,
+    { cast: false, receive: true },
   );
-  const petals = new THREE.InstancedMesh(
-    keep(new THREE.IcosahedronGeometry(1, 0)),
-    keep(new THREE.MeshStandardMaterial({ color: palette.flower, roughness: 0.8 })),
+  const petals = batch(
+    new THREE.IcosahedronGeometry(1, 0),
     Math.round(260 * detail),
+    keep(new THREE.MeshStandardMaterial({ color: palette.flower, roughness: 0.8 })),
+    { cast: false, receive: false },
   );
-  keep(blades);
-  keep(petals);
-  blades.count = 0;
-  petals.count = 0;
-  for (let attempt = 0; attempt < blades.instanceMatrix.count * 2; attempt++) {
+  for (let attempt = 0; attempt < blades.limit * 2; attempt++) {
     const x = (random() * 2 - 1) * 19;
     const z = (random() * 2 - 1) * 19;
     const edge = Math.max(Math.abs(x), Math.abs(z));
@@ -426,17 +462,15 @@ export function buildSurroundings(area: AreaId, season: Season, detail: number):
     transform.rotation.set(0, random() * Math.PI, random() * 0.4 - 0.2);
     transform.scale.set(size * 0.35, size, size * 0.35);
     transform.updateMatrix();
-    if (blades.count < blades.instanceMatrix.count)
-      blades.setMatrixAt(blades.count++, transform.matrix);
-    if (!palette.snow && random() < 0.25 && petals.count < petals.instanceMatrix.count) {
+    addInstance(blades, transform.matrix);
+    if (!palette.snow && random() < 0.25 && petals.count < petals.limit) {
       transform.position.y += size * 0.62;
       transform.scale.setScalar(0.055);
       transform.updateMatrix();
-      petals.setMatrixAt(petals.count++, transform.matrix);
+      addInstance(petals, transform.matrix);
     }
   }
-  blades.receiveShadow = true;
-  group.add(blades, petals);
+  for (const created of batches) for (const mesh of tileMeshes(created)) group.add(keep(mesh));
 
   // Paths continue past the gates toward the rest of the world.
   const pathMaterial = keep(

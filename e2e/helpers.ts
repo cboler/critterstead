@@ -44,6 +44,22 @@ export async function position(page: Page): Promise<{ x: number; z: number }> {
   return (await developmentState(page)).player.position;
 }
 
+/** Browser tests on CI render in software on shared runners; long journeys get more time. */
+export const PACE = process.env['CI'] ? 2 : 1;
+
+/**
+ * Stops where every point within the walk's arrival tolerance is nearest to the intended
+ * station, so where frame timing happens to stop the rancher never selects a neighbour.
+ */
+export const SPOTS = {
+  nook: [2.5, -2.9],
+  millInput: [4.9, 0.9],
+  millOutput: [6.6, 1.2],
+  firstBed: [-5.6, 1.4],
+  secondBed: [-2.9, 1.3],
+  lift: [5.2, 7.4],
+} as const;
+
 export async function walk(page: Page, x: number, z: number): Promise<void> {
   const directions = [
     { keys: ['w'], x: -0.6, z: -0.8 },
@@ -55,8 +71,7 @@ export async function walk(page: Page, x: number, z: number): Promise<void> {
     { keys: ['s', 'a'], x: -0.2 / Math.SQRT2, z: 1.4 / Math.SQRT2 },
     { keys: ['s', 'd'], x: 1.4 / Math.SQRT2, z: 0.2 / Math.SQRT2 },
   ];
-  // Slow rendering can need more steering corrections; retain the same arrival tolerance.
-  const deadline = Date.now() + 60_000;
+  const deadline = Date.now() + 120_000;
   while (Date.now() < deadline) {
     const current = await position(page);
     const dx = x - current.x;
@@ -66,9 +81,16 @@ export async function walk(page: Page, x: number, z: number): Promise<void> {
     const direction = [...directions].sort(
       (a, b) => b.x * dx + b.z * dz - (a.x * dx + a.z * dz),
     )[0];
+    // Hold each stride until the rancher has actually covered it, so slow frames still make
+    // progress; strides shrink near the destination so a late release cannot overshoot.
+    const stride = distance < 3 ? distance / 2 : Math.min(2.5, distance - 1.5);
     for (const key of direction.keys) await page.keyboard.down(key);
-    // Ease near a destination so frame timing cannot make us overshoot it.
-    await page.waitForTimeout(Math.min(650, (distance / 4) * (distance < 3 ? 400 : 1000)));
+    const started = Date.now();
+    let moved = 0;
+    while (moved < stride && Date.now() - started < 3000) {
+      const now = await position(page);
+      moved = Math.hypot(now.x - current.x, now.z - current.z);
+    }
     for (const key of direction.keys) await page.keyboard.up(key);
   }
   throw new Error(`Could not walk to ${x}, ${z}; observed ${JSON.stringify(await position(page))}`);

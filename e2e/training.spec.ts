@@ -1,17 +1,37 @@
 import { expect, test, type Page } from '@playwright/test';
-import { activeCritter } from '../src/app/game/model';
-import { developmentState, savedState, walk } from './helpers';
+import { activeCritter, type GameState } from '../src/app/game/model';
+import { developmentState, PACE, savedState, SPOTS, walk } from './helpers';
 
-/** Tap Space whenever the gauge drops below the target, until the activity ends. */
+interface GameWindow {
+  ng: { getComponent(element: Element): { state(): GameState } };
+}
+
+/**
+ * Taps Space on every frame the gauge sits below the target, until the activity ends.
+ * Tapping from inside the page keeps pace with the frame rate, however slow rendering is.
+ */
 async function holdGauge(page: Page, target: number): Promise<void> {
-  const deadline = Date.now() + 30_000;
-  while (Date.now() < deadline) {
-    const training = (await developmentState(page)).training;
-    if (!training) return;
-    if ((training.meter ?? 0) < target) await page.keyboard.press('Space');
-    else await page.waitForTimeout(40);
-  }
-  throw new Error('The gauge activity did not finish.');
+  const finished = await page.evaluate(
+    (goal) =>
+      new Promise<boolean>((resolve) => {
+        const game = (window as unknown as GameWindow).ng.getComponent(
+          document.querySelector('app-root')!,
+        );
+        const deadline = performance.now() + 60_000;
+        const frame = (): void => {
+          const training = game.state().training;
+          if (!training) return resolve(true);
+          if (performance.now() > deadline) return resolve(false);
+          if ((training.meter ?? 0) < goal)
+            for (const type of ['keydown', 'keyup'])
+              window.dispatchEvent(new KeyboardEvent(type, { key: ' ', code: 'Space' }));
+          requestAnimationFrame(frame);
+        };
+        requestAnimationFrame(frame);
+      }),
+    target,
+  );
+  if (!finished) throw new Error('The gauge activity did not finish.');
 }
 
 async function sprint(page: Page): Promise<void> {
@@ -39,18 +59,27 @@ test('trains strength with fading repeat gains, then earns a Colosseum exhibitio
   page,
 }, info) => {
   test.skip(!['desktop', 'phone-portrait'].includes(info.project.name));
-  test.setTimeout(240_000);
+  test.setTimeout(240_000 * PACE);
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/');
   await expect(page.locator('.world-canvas canvas')).toBeVisible();
 
-  await walk(page, 5.2, 5.6);
+  await walk(page, ...SPOTS.lift);
   const start = activeCritter(await developmentState(page)).stats.strength;
   await page.getByRole('button', { name: /^Boulder lift · 25 Mallow energy/ }).click();
   await expect(page.locator('.training-card')).toContainText('Steady strength');
   await expect(page.getByRole('meter', { name: 'Force gauge' })).toBeVisible();
   await page.screenshot({ path: info.outputPath('boulder-lift.png'), fullPage: true });
+  // One real key press proves the keyboard path; the helper then keeps the gauge up. The
+  // drill ignores taps in its first 0.08 s, which slow frames can stretch past the press.
+  await expect
+    .poll(async () => (await developmentState(page)).training?.elapsed ?? 0)
+    .toBeGreaterThan(0.1);
+  await page.keyboard.press('Space');
+  await expect
+    .poll(async () => (await developmentState(page)).training?.lastHitAt ?? 0)
+    .toBeGreaterThan(0);
   await holdGauge(page, 0.62);
   const lifted = activeCritter(await developmentState(page));
   expect(lifted.stats.strength).toBeGreaterThan(start + 0.5);

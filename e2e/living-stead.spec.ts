@@ -1,11 +1,11 @@
 import { expect, test } from '@playwright/test';
-import { developmentState, savedState, walk } from './helpers';
+import { developmentState, PACE, savedState, SPOTS, walk } from './helpers';
 
 test('physically supplies the sawmill, clears its full crate, and carries lumber with the companion', async ({
   page,
 }, info) => {
   test.skip(!['desktop', 'phone-portrait'].includes(info.project.name));
-  test.setTimeout(180_000);
+  test.setTimeout(180_000 * PACE);
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/');
@@ -18,7 +18,7 @@ test('physically supplies the sawmill, clears its full crate, and carries lumber
       .toBeNull();
   }
   await walk(page, 0, 0);
-  await walk(page, 5, 1);
+  await walk(page, ...SPOTS.millInput);
   await expect(page.locator('.interaction-copy')).toContainText('no timber');
   await page.getByRole('button', { name: /^Store 1 timber/ }).click();
   await page.getByRole('button', { name: /^Store 1 timber/ }).click();
@@ -31,7 +31,7 @@ test('physically supplies the sawmill, clears its full crate, and carries lumber
       .poll(async () => (await developmentState(page)).work, { timeout: 15_000 })
       .toBeNull();
   }
-  await walk(page, 6.5, 1);
+  await walk(page, ...SPOTS.millOutput);
   await expect(page.locator('.interaction-copy')).toContainText('output crate full');
   await page.getByRole('button', { name: /^Take 1 lumber/ }).click();
   await expect(page.getByRole('button', { name: /^Ask Mallow: carry 1 lumber/ })).toBeEnabled();
@@ -58,7 +58,7 @@ test('works physical timber and stone, carries and sets down cargo, and keeps a 
   page,
 }, info) => {
   test.skip(!['desktop', 'phone-portrait'].includes(info.project.name));
-  test.setTimeout(180_000);
+  test.setTimeout(180_000 * PACE);
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/');

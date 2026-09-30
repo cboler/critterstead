@@ -2,6 +2,7 @@ import { backpack } from '../src/app/game/model';
 import { expect, test, type Page } from '@playwright/test';
 import { activeCritter, type GameState } from '../src/app/game/model';
 import { createInitialState } from '../src/app/game/host';
+import { developmentState, PACE, savedState, SPOTS, walk } from './helpers';
 
 test('opens a responsive, playable homestead without runtime errors', async ({
   page,
@@ -113,84 +114,6 @@ test('keeps care and day progression across a reload', async ({ page }) => {
   await expect(page.locator('body')).toContainText(/Day\s+2/);
 });
 
-// Read precise development state without changing it; walking still uses real key input.
-interface DebugGameWindow extends Window {
-  ng?: {
-    getComponent(element: Element): {
-      state(): GameState;
-    };
-  };
-}
-
-async function developmentState(page: Page): Promise<GameState> {
-  return page.evaluate(() => {
-    const root = document.querySelector('app-root');
-    const game = root && (window as DebugGameWindow).ng?.getComponent(root);
-    if (!game) throw new Error('Angular development diagnostics are unavailable.');
-    return game.state();
-  });
-}
-
-// A rendered action result can precede the asynchronous IndexedDB commit.
-async function savedState(page: Page): Promise<GameState> {
-  return page.evaluate(
-    () =>
-      new Promise<GameState>((resolve, reject) => {
-        const open = indexedDB.open('critterstead', 1);
-        open.onerror = () => reject(open.error);
-        open.onsuccess = () => {
-          const database = open.result;
-          const request = database.transaction('saves').objectStore('saves').get('homestead');
-          request.onsuccess = () => {
-            database.close();
-            resolve(request.result as GameState);
-          };
-          request.onerror = () => {
-            database.close();
-            reject(request.error);
-          };
-        };
-      }),
-  );
-}
-
-// West of the nook: any stop within the walk tolerance reaches it, never the feed trough.
-const NOOK = { x: 2.5, z: -2.9 };
-
-async function position(page: Page): Promise<{ x: number; z: number }> {
-  return (await developmentState(page)).player.position;
-}
-
-async function walk(page: Page, x: number, z: number): Promise<void> {
-  const directions = [
-    { keys: ['w'], x: -0.6, z: -0.8 },
-    { keys: ['s'], x: 0.6, z: 0.8 },
-    { keys: ['a'], x: -0.8, z: 0.6 },
-    { keys: ['d'], x: 0.8, z: -0.6 },
-    { keys: ['w', 'a'], x: -1.4 / Math.SQRT2, z: -0.2 / Math.SQRT2 },
-    { keys: ['w', 'd'], x: 0.2 / Math.SQRT2, z: -1.4 / Math.SQRT2 },
-    { keys: ['s', 'a'], x: -0.2 / Math.SQRT2, z: 1.4 / Math.SQRT2 },
-    { keys: ['s', 'd'], x: 1.4 / Math.SQRT2, z: 0.2 / Math.SQRT2 },
-  ];
-  // Slow rendering can need more steering corrections; retain the same arrival tolerance.
-  const deadline = Date.now() + 30_000;
-  while (Date.now() < deadline) {
-    const current = await position(page);
-    const dx = x - current.x;
-    const dz = z - current.z;
-    const distance = Math.hypot(dx, dz);
-    if (distance <= 0.8) return;
-    const direction = [...directions].sort(
-      (a, b) => b.x * dx + b.z * dz - (a.x * dx + a.z * dz),
-    )[0];
-    for (const key of direction.keys) await page.keyboard.down(key);
-    // Ease near a destination so frame timing cannot make us overshoot it.
-    await page.waitForTimeout(Math.min(650, (distance / 4) * (distance < 3 ? 400 : 1000)));
-    for (const key of direction.keys) await page.keyboard.up(key);
-  }
-  throw new Error(`Could not walk to ${x}, ${z}; observed ${JSON.stringify(await position(page))}`);
-}
-
 async function activity(page: Page, name: RegExp): Promise<void> {
   for (let beat = 0; beat < 3; beat++) {
     await expect
@@ -222,7 +145,7 @@ test('plays a complete day and keeps the improved homestead after reload', async
     !['desktop', 'phone-portrait'].includes(testInfo.project.name),
     'The complete keyboard scenario runs at narrow and desktop sizes.',
   );
-  test.setTimeout(300_000);
+  test.setTimeout(300_000 * PACE);
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/');
@@ -233,7 +156,7 @@ test('plays a complete day and keeps the improved homestead after reload', async
   await page.getByRole('button', { name: /Practice hoops/ }).click();
   await activity(page, /Hop, Mallow!/);
   expect((await developmentState(page)).flags).toContain('trained');
-  await walk(page, -5.6, 2);
+  await walk(page, ...SPOTS.firstBed);
   await page.getByRole('button', { name: /Plant feed seeds/ }).click();
   await page.getByRole('button', { name: /Water the garden bed/ }).click();
   await walk(page, 8, 0);
@@ -282,13 +205,13 @@ test('plays a complete day and keeps the improved homestead after reload', async
   await page.getByRole('button', { name: /Return to Bramblewick/ }).click();
   await walk(page, -6, 5);
   await page.getByRole('button', { name: /^Sell berries/ }).click();
-  await walk(page, NOOK.x, NOOK.z);
+  await walk(page, ...SPOTS.nook);
   await page.getByRole('button', { name: /Make it cozy/ }).click();
   expect((await developmentState(page)).shedLevel).toBe(1);
   await walk(page, 2, 6);
   await expect(page.getByRole('button', { name: /Run the trial/ })).toBeDisabled();
   await expect(page.locator('.action-reason')).toContainText('rest');
-  await walk(page, NOOK.x, NOOK.z);
+  await walk(page, ...SPOTS.nook);
   const beforeRest = await developmentState(page);
   await page.screenshot({ path: testInfo.outputPath('nook-choice.png'), fullPage: true });
   await page.getByRole('button', { name: /Rest together.*120 min/ }).click();
@@ -307,7 +230,7 @@ test('plays a complete day and keeps the improved homestead after reload', async
   expect(recovered.player.coins).toBe(beforeRest.player.coins);
   await page.screenshot({ path: testInfo.outputPath('recovered.png'), fullPage: true });
 
-  await walk(page, -5.6, 2);
+  await walk(page, ...SPOTS.firstBed);
   await page.getByRole('button', { name: /^Harvest · 3 feed/ }).click();
   await walk(page, 2, 6);
   await page.getByRole('button', { name: /Run the trial/ }).click();
@@ -340,14 +263,14 @@ test('preserves critter energy for a competition-oriented day by doing the harve
   page,
 }, testInfo) => {
   test.skip(!['desktop', 'phone-portrait'].includes(testInfo.project.name));
-  test.setTimeout(300_000);
+  test.setTimeout(300_000 * PACE);
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/');
   await expect(page.locator('.world-canvas canvas')).toBeVisible();
   await page.getByRole('button', { name: /Give a little scritch/ }).click();
   await page.getByRole('button', { name: /Offer feed/ }).click();
-  await walk(page, -5.6, 2);
+  await walk(page, ...SPOTS.firstBed);
   await page.getByRole('button', { name: /Plant feed seeds/ }).click();
   await page.getByRole('button', { name: /Water the garden bed/ }).click();
   await walk(page, 3, 2);
@@ -376,9 +299,9 @@ test('preserves critter energy for a competition-oriented day by doing the harve
   await page.getByRole('button', { name: /Return to Bramblewick/ }).click();
   await walk(page, -6, 5);
   await page.getByRole('button', { name: /^Sell berries/ }).click();
-  await walk(page, NOOK.x, NOOK.z);
+  await walk(page, ...SPOTS.nook);
   await page.getByRole('button', { name: /Make it cozy/ }).click();
-  await walk(page, -5.6, 2);
+  await walk(page, ...SPOTS.firstBed);
   await page.getByRole('button', { name: /^Harvest · 3 feed/ }).click();
   await walk(page, 2, 6);
   await page.getByRole('button', { name: /Run the trial.*35 Mallow/ }).click();
@@ -415,7 +338,7 @@ test('walks home exhausted, recovers without supplies, and feeds through ordinar
   page,
 }, testInfo) => {
   test.skip(!['desktop', 'phone-portrait'].includes(testInfo.project.name));
-  test.setTimeout(180_000);
+  test.setTimeout(180_000 * PACE);
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   // A saved bad day is the starting fixture; subsequent progress uses only normal controls.
@@ -456,7 +379,7 @@ test('walks home exhausted, recovers without supplies, and feeds through ordinar
   await expect(page.locator('.learning-status')).toContainText('Feed Mallow');
   await walk(page, -8, 0);
   await page.getByRole('button', { name: /Return to Bramblewick/ }).click();
-  await walk(page, NOOK.x, NOOK.z);
+  await walk(page, ...SPOTS.nook);
   await page.getByRole('button', { name: /Rest together/ }).click();
   await expect.poll(async () => activeCritter(await savedState(page)).stamina).toBe(35);
   await page.reload();

@@ -4,6 +4,7 @@ import { createInitialState } from '../src/app/game/host';
 import { activeCritter, type GameState } from '../src/app/game/model';
 import { legacyV1 } from '../src/app/game/fixtures/legacy-v1';
 import { legacyV2 } from '../src/app/game/fixtures/legacy-v2';
+import { developmentState } from './helpers';
 
 async function readSave(page: Page): Promise<unknown> {
   return page.evaluate(async () => {
@@ -197,7 +198,13 @@ test('migrates a populated v1 save, preserves Pip, and resumes paid training aft
   await expect(page.locator('.training-footer')).toContainText('1 / 3 beats');
   await page.getByRole('button', { name: /Hop, Pip!/ }).click();
   await expect(page.locator('.training-footer')).toContainText('2 / 3 beats');
-  await page.waitForTimeout(400);
+  // Beats need 0.3 s of game time between them; slow frames stretch that in wall time.
+  await expect
+    .poll(async () => {
+      const training = (await developmentState(page)).training;
+      return !!training && training.elapsed - (training.lastHitAt ?? 0) > 0.35;
+    })
+    .toBe(true);
   await page.getByRole('button', { name: /Hop, Pip!/ }).click();
   await expect(page.locator('.training-card')).toHaveCount(0);
   await expect

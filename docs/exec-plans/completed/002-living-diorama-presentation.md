@@ -69,6 +69,26 @@ add-ons ship with the existing package).
 - Provisional: zoom limits, camera damping, wind strengths, mood colors, tilt-shift band,
   quality thresholds. No physical-device or human visual acceptance is claimed.
 
+## Follow-up: Pages deploy
+
+The V5 push and the earlier M8 push failed the Pages workflow's browser suite, so the live
+site stayed on M7. GitHub's runner renders in software several times slower than the dev
+machine: walks stalled, the gauge drill could not be held, and 30 s tests timed out.
+
+- Scenery instances are tiled for culling, and the light tier draws software renderers at
+  half resolution: locally SwiftShader went from 16 to 34 fps (desktop) and 26 to 47
+  (phone), against 24 and 30 for the M8 build CI last ran.
+- Browser tests no longer depend on frame rate: `walk` holds each stride until the rancher
+  has moved; stations are visited from `SPOTS`, where the whole arrival tolerance selects
+  them (mill input and output, first and second bed, lift, nook); the gauge helper taps
+  from inside the page each frame after one real key press; CI doubles timeouts (`PACE`).
+- Evidence: a temporary (uncommitted) patch throttled animation frames to emulate CI.
+  At ~6.5 fps the whole suite passed once a Pip hoops test waited on the game clock
+  instead of a fixed 400 ms; at 4 fps the heaviest desktop journeys (training, hauling,
+  sawmill, household) passed. Normal local suite: 63 passed, 25 project-scoped skips, 0
+  failed; unit 121/121, lint, formatting, `/critterstead/` build and `check:pwa` pass.
+
 ## Next action
 
-None in this plan. Campaign 001 continues with M9.
+Confirm the Pages workflow passes for the follow-up commit and the live site shows the
+diorama. Campaign 001 then continues with M9.

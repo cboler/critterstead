@@ -50,15 +50,23 @@ export function rendererName(gl: WebGLRenderingContext | WebGL2RenderingContext)
   return String(gl.getParameter(info ? info.UNMASKED_RENDERER_WEBGL : gl.RENDERER));
 }
 
+const SOFTWARE = /swiftshader|llvmpipe|softpipe|software|basic render/i;
+
 /**
  * Software rasterizers (headless test browsers, blocked GPUs) get the light tier; small
  * touch screens get the balanced tier; everything else starts cinematic.
  */
 export function detectQuality(renderer: string): Quality {
-  if (/swiftshader|llvmpipe|softpipe|software|basic render/i.test(renderer)) return 'light';
+  if (SOFTWARE.test(renderer)) return 'light';
   const touch = window.matchMedia?.('(pointer: coarse)').matches ?? false;
   const small = Math.min(window.innerWidth, window.innerHeight) < 600;
   return touch || small ? 'balanced' : 'cinematic';
+}
+
+/** Software rasterizers are bound by pixel count, so the light tier draws them at half size. */
+export function pixelRatioFor(quality: Quality, renderer: string): number {
+  const cap = QUALITY_SETTINGS[quality].pixelRatio;
+  return quality === 'light' && SOFTWARE.test(renderer) ? cap / 2 : cap;
 }
 
 export function storedQualityChoice(): QualityChoice {

@@ -1,11 +1,16 @@
 import { defineConfig } from '@playwright/test';
 
+// CI runners render WebGL in software on shared CPUs, several times slower than a desktop.
+const pace = process.env['CI'] ? 2 : 1;
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
   forbidOnly: !!process.env['CI'],
   retries: process.env['CI'] ? 2 : 0,
   workers: 1,
+  timeout: 30_000 * pace,
+  expect: { timeout: 5_000 * pace },
   reporter: 'list',
   use: {
     baseURL: 'http://127.0.0.1:4200',

@@ -1,11 +1,11 @@
 import { expect, test } from '@playwright/test';
-import { developmentState, savedState, walk } from './helpers';
+import { developmentState, PACE, savedState, SPOTS, walk } from './helpers';
 
 test('tills and sows a seasonal bed, reads the cottage calendar, and keeps it all after reload', async ({
   page,
 }, info) => {
   test.skip(!['desktop', 'phone-portrait'].includes(info.project.name));
-  test.setTimeout(180_000);
+  test.setTimeout(180_000 * PACE);
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/');
@@ -17,7 +17,7 @@ test('tills and sows a seasonal bed, reads the cottage calendar, and keeps it al
   await expect(page.getByRole('button', { name: /^Buy sunberry seeds/ })).toContainText(
     'summer & autumn',
   );
-  await walk(page, -3.2, 2);
+  await walk(page, ...SPOTS.secondBed);
   await expect(page.locator('.interaction-copy')).toContainText('Garden bed 2 · overgrown');
   await page.getByRole('button', { name: /^Till the soil/ }).click();
   await expect(page.getByRole('button', { name: /^Plant garden sunberries/ })).toBeDisabled();

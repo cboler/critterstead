@@ -13,6 +13,7 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import { activeCritter, type AreaId, type CropId, type GameState, type Point } from './model';
 import {
   detectQuality,
+  pixelRatioFor,
   QUALITY_SETTINGS,
   rendererName,
   type Quality,
@@ -324,7 +325,9 @@ export class GameWorld {
   setQuality(choice: QualityChoice): void {
     this.qualityTier = choice === 'auto' ? detectQuality(this.gpuName) : choice;
     const settings = QUALITY_SETTINGS[this.qualityTier];
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, settings.pixelRatio));
+    this.renderer.setPixelRatio(
+      Math.min(window.devicePixelRatio, pixelRatioFor(this.qualityTier, this.gpuName)),
+    );
     // Toggling the caster changes the lights' state, so materials recompile to match.
     this.renderer.shadowMap.enabled = settings.shadows;
     this.sun.castShadow = settings.shadows;
