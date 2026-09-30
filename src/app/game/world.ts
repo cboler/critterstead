@@ -5,6 +5,13 @@ import { AREAS, CROPS } from './content';
 import { plotReady } from './garden';
 import { weatherFor } from './calendar';
 import { activeCritter, type AreaId, type CropId, type GameState, type Point } from './model';
+import {
+  detectQuality,
+  QUALITY_SETTINGS,
+  rendererName,
+  type Quality,
+  type QualityChoice,
+} from './render/quality';
 
 interface BedModel {
   soil: THREE.Mesh;
@@ -32,11 +39,43 @@ interface WorldLabel {
   position: THREE.Vector3;
   always?: boolean;
 }
+/** Screen space, in CSS pixels, covered by HUD panels; the camera frames the rest. */
+export interface ViewInsets {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+}
+// The camera always looks along the same diagonal, so screen-relative controls stay stable.
+const VIEW_DIRECTION = new THREE.Vector3(17, 22, 25).normalize();
+const SUN_OFFSET = new THREE.Vector3(-11, 22, 13);
+const ZOOM_LIMITS = { min: 4.2, max: 12, standard: 6.6 } as const;
+const INDOOR_ZOOM = 4.6;
+// Narrow phone screens still show a useful width of the world around the rancher.
+const MIN_HALF_WIDTH = 5.4;
+const RELEASE_EVENTS = ['pointerup', 'pointercancel', 'pointerleave'] as const;
 
 /** A view of the simulation. Geometry and animation never change game state. */
 export class GameWorld {
   private readonly scene = new THREE.Scene();
-  private readonly camera = new THREE.OrthographicCamera(-15, 15, 11, -11, 0.1, 120);
+  private readonly camera = new THREE.OrthographicCamera(-15, 15, 11, -11, 1, 220);
+  private readonly focus = new THREE.Vector3();
+  private readonly focusGoal = new THREE.Vector3();
+  private readonly insets: ViewInsets = { top: 0, right: 0, bottom: 0, left: 0 };
+  private readonly frameShift = new THREE.Vector2();
+  private readonly pointers = new Map<number, { x: number; y: number }>();
+  private pinchDistance = 0;
+  private zoom: number = ZOOM_LIMITS.standard;
+  private zoomGoal: number = ZOOM_LIMITS.standard;
+  private snapCamera = true;
+  private wasIndoors = false;
+  private outdoorZoom: number = ZOOM_LIMITS.standard;
+  private shadowExtent = 0;
+  private qualityTier: Quality = 'balanced';
+  private readonly gpuName: string;
+  private readonly sunRight = new THREE.Vector3();
+  private readonly sunUp = new THREE.Vector3();
+  private readonly sunDirection = SUN_OFFSET.clone().normalize();
   private readonly renderer: THREE.WebGLRenderer;
   private readonly observer: ResizeObserver;
   private readonly materials = new Map<string, THREE.MeshStandardMaterial>();
@@ -108,9 +147,10 @@ export class GameWorld {
   constructor(
     private readonly container: HTMLElement,
     private readonly onWalk: (point: Point) => void,
+    qualityChoice: QualityChoice = 'auto',
   ) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.8));
+    this.gpuName = rendererName(this.renderer.getContext());
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -131,12 +171,13 @@ export class GameWorld {
     this.critterLabel = this.makeLabel('', true);
     this.scene.background = new THREE.Color('#dce9e3');
     this.scene.fog = new THREE.Fog('#dce9e3', 49, 95);
-    this.camera.position.set(17, 22, 25);
+    this.camera.position.copy(VIEW_DIRECTION).multiplyScalar(60);
     this.camera.lookAt(0, 0, 0);
-    this.sun.position.set(-11, 22, 13);
+    this.sun.position.copy(SUN_OFFSET);
     this.sun.castShadow = true;
-    this.sun.shadow.mapSize.set(2048, 2048);
-    Object.assign(this.sun.shadow.camera, { left: -17, right: 17, top: 17, bottom: -17 });
+    this.sun.shadow.camera.near = 1;
+    this.sun.shadow.camera.far = 90;
+    this.scene.add(this.sun.target);
     this.sun.shadow.normalBias = 0.06;
     this.sun.shadow.bias = -0.0001;
     this.sun.shadow.radius = 4;
@@ -159,8 +200,34 @@ export class GameWorld {
     this.buildFeedback();
     this.permanentGeometryCount = this.geometries.length;
     this.renderer.domElement.addEventListener('pointerdown', this.walk);
+    this.renderer.domElement.addEventListener('pointermove', this.pinch);
+    for (const type of RELEASE_EVENTS)
+      this.renderer.domElement.addEventListener(type, this.release);
+    this.renderer.domElement.addEventListener('wheel', this.wheel, { passive: false });
     this.observer = new ResizeObserver(() => this.resize());
     this.observer.observe(container);
+    this.setQuality(qualityChoice);
+  }
+
+  get quality(): Quality {
+    return this.qualityTier;
+  }
+
+  get gpu(): string {
+    return this.gpuName;
+  }
+
+  /** Applies a tier; 'auto' picks one from the device and renderer. */
+  setQuality(choice: QualityChoice): void {
+    this.qualityTier = choice === 'auto' ? detectQuality(this.gpuName) : choice;
+    const settings = QUALITY_SETTINGS[this.qualityTier];
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, settings.pixelRatio));
+    if (this.sun.shadow.mapSize.x !== settings.shadowMapSize) {
+      this.sun.shadow.mapSize.set(settings.shadowMapSize, settings.shadowMapSize);
+      this.sun.shadow.map?.dispose();
+      this.sun.shadow.map = null;
+      this.shadowExtent = 0;
+    }
     this.resize();
   }
 
@@ -172,6 +239,7 @@ export class GameWorld {
     if (this.area !== state.areaId) {
       this.area = state.areaId;
       this.buildArea(state);
+      this.snapCamera = true;
       this.resize();
       this.lastPlayer.set(state.player.position.x, state.player.position.z);
       this.lastCritter.set(companion.position.x, companion.position.z);
@@ -224,6 +292,8 @@ export class GameWorld {
       this.lastCueCount = 0;
       this.raceProgress = 0;
     }
+    // Frame before any label is projected so labels never trail the camera.
+    this.frame(state, visualCritterPosition, dt);
     const critterMoving = this.animateActor(
       this.critter,
       visualCritterPosition,
@@ -405,9 +475,37 @@ export class GameWorld {
     this.renderer.render(this.scene, this.camera);
   }
 
+  /** HUD coverage in CSS pixels; the camera keeps the rancher in the uncovered area. */
+  setInsets(insets: ViewInsets): void {
+    Object.assign(this.insets, insets);
+  }
+
+  /** Where a world point appears on the canvas, in CSS pixels (used by layout checks). */
+  screenPoint(point: Point, height = 1): { x: number; y: number } {
+    const projected = new THREE.Vector3(point.x, height, point.z).project(this.camera);
+    return {
+      x: (projected.x * 0.5 + 0.5) * this.width,
+      y: (-projected.y * 0.5 + 0.5) * this.height,
+    };
+  }
+
+  /** Multiplies the visible world span; values above 1 zoom out. */
+  zoomBy(factor: number): void {
+    const indoors = this.area === 'cottage';
+    this.zoomGoal = THREE.MathUtils.clamp(
+      this.zoomGoal * factor,
+      indoors ? INDOOR_ZOOM * 0.8 : ZOOM_LIMITS.min,
+      indoors ? INDOOR_ZOOM * 1.3 : ZOOM_LIMITS.max,
+    );
+  }
+
   dispose(): void {
     this.observer.disconnect();
     this.renderer.domElement.removeEventListener('pointerdown', this.walk);
+    this.renderer.domElement.removeEventListener('pointermove', this.pinch);
+    for (const type of RELEASE_EVENTS)
+      this.renderer.domElement.removeEventListener(type, this.release);
+    this.renderer.domElement.removeEventListener('wheel', this.wheel);
     this.scenery.traverse((object) => {
       if (object instanceof THREE.InstancedMesh) object.dispose();
     });
@@ -418,8 +516,30 @@ export class GameWorld {
     this.labelLayer.remove();
   }
 
+  private readonly wheel = (event: WheelEvent): void => {
+    event.preventDefault();
+    this.zoomBy(Math.exp(THREE.MathUtils.clamp(event.deltaY, -120, 120) * 0.0016));
+  };
+
+  private readonly pinch = (event: PointerEvent): void => {
+    if (!this.pointers.has(event.pointerId)) return;
+    this.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (this.pointers.size !== 2) return;
+    const [a, b] = [...this.pointers.values()];
+    const distance = Math.hypot(a.x - b.x, a.y - b.y);
+    if (this.pinchDistance > 0 && distance > 0) this.zoomBy(this.pinchDistance / distance);
+    this.pinchDistance = distance;
+  };
+
+  private readonly release = (event: PointerEvent): void => {
+    this.pointers.delete(event.pointerId);
+    if (this.pointers.size < 2) this.pinchDistance = 0;
+  };
+
   private readonly walk = (event: PointerEvent): void => {
-    if (event.button !== 0) return;
+    this.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    // A second finger starts a pinch rather than a walk.
+    if (event.button !== 0 || this.pointers.size > 1) return;
     const rect = this.renderer.domElement.getBoundingClientRect();
     this.pointer.set(
       ((event.clientX - rect.left) / rect.width) * 2 - 1,
@@ -442,16 +562,91 @@ export class GameWorld {
   private resize(): void {
     this.width = Math.max(this.container.clientWidth, 1);
     this.height = Math.max(this.container.clientHeight, 1);
-    const aspect = this.width / this.height;
-    const vertical = Math.max(10.4, 13.4 / aspect);
-    this.camera.left = -vertical * aspect;
-    this.camera.right = vertical * aspect;
-    this.camera.top = vertical;
-    this.camera.bottom = -vertical;
-    // The cottage room is smaller than an outdoor area; frame it closer.
-    this.camera.zoom = this.area === 'cottage' ? 1.7 : 1;
-    this.camera.updateProjectionMatrix();
     this.renderer.setSize(this.width, this.height, false);
+    this.updateProjection();
+  }
+
+  /** Follows the rancher (or the current activity) with damped motion and zoom. */
+  private frame(state: GameState, companionView: Point, dt: number): void {
+    const player = state.player.position;
+    const indoors = state.areaId === 'cottage';
+    if (this.snapCamera) {
+      // The cottage frames its small room; the player's outdoor zoom returns afterwards.
+      if (indoors && !this.wasIndoors) this.outdoorZoom = this.zoomGoal;
+      if (indoors) this.zoomGoal = INDOOR_ZOOM;
+      else if (this.wasIndoors) this.zoomGoal = this.outdoorZoom;
+      this.wasIndoors = indoors;
+      this.zoom = this.zoomGoal;
+    }
+    if (indoors) this.focusGoal.set(player.x * 0.35, 0, player.z * 0.35);
+    else if (state.training)
+      this.focusGoal.set((player.x + companionView.x) / 2, 0, (player.z + companionView.z) / 2);
+    else this.focusGoal.set(player.x, 0, player.z);
+    const edge = (AREAS[state.areaId]?.halfSize ?? 10) - 2;
+    this.focusGoal.x = THREE.MathUtils.clamp(this.focusGoal.x, -edge, edge);
+    this.focusGoal.z = THREE.MathUtils.clamp(this.focusGoal.z, -edge, edge);
+    const shiftGoalX = (this.insets.left - this.insets.right) / 2;
+    const shiftGoalY = (this.insets.top - this.insets.bottom) / 2;
+    if (this.snapCamera) {
+      this.focus.copy(this.focusGoal);
+      this.frameShift.set(shiftGoalX, shiftGoalY);
+      this.snapCamera = false;
+    } else {
+      const follow = this.reducedMotion ? 1 : 1 - Math.exp(-dt * 4.5);
+      this.focus.lerp(this.focusGoal, follow);
+      this.zoom += (this.zoomGoal - this.zoom) * (this.reducedMotion ? 1 : 1 - Math.exp(-dt * 9));
+      const settle = this.reducedMotion ? 1 : 1 - Math.exp(-dt * 6);
+      this.frameShift.x += (shiftGoalX - this.frameShift.x) * settle;
+      this.frameShift.y += (shiftGoalY - this.frameShift.y) * settle;
+    }
+    this.camera.position.copy(this.focus).addScaledVector(VIEW_DIRECTION, 60);
+    this.camera.lookAt(this.focus);
+    this.updateProjection();
+    this.followSun();
+  }
+
+  private updateProjection(): void {
+    const aspect = this.width / this.height;
+    const halfHeight = Math.max(this.zoom, MIN_HALF_WIDTH / aspect);
+    const halfWidth = halfHeight * aspect;
+    const unitsPerPixel = (halfHeight * 2) / this.height;
+    const shiftX = this.frameShift.x * unitsPerPixel;
+    const shiftY = this.frameShift.y * unitsPerPixel;
+    this.camera.left = -halfWidth - shiftX;
+    this.camera.right = halfWidth - shiftX;
+    this.camera.top = halfHeight + shiftY;
+    this.camera.bottom = -halfHeight + shiftY;
+    this.camera.zoom = 1;
+    this.camera.updateProjectionMatrix();
+  }
+
+  /** Keeps the shadow map centered on the view, snapped to texels to avoid shimmering. */
+  private followSun(): void {
+    const aspect = this.width / this.height;
+    const halfHeight = Math.max(this.zoom, MIN_HALF_WIDTH / aspect);
+    const extent = Math.min(30, Math.hypot(halfHeight * aspect, halfHeight * 1.7) + 2);
+    const shadow = this.sun.shadow.camera;
+    if (Math.abs(extent - this.shadowExtent) > 0.25) {
+      this.shadowExtent = extent;
+      Object.assign(shadow, { left: -extent, right: extent, top: extent, bottom: -extent });
+      shadow.updateProjectionMatrix();
+    }
+    const texel = (this.shadowExtent * 2) / this.sun.shadow.mapSize.x;
+    const direction = this.sunDirection;
+    const right = this.sunRight.set(0, 1, 0).cross(direction).normalize();
+    const up = this.sunUp.copy(direction).cross(right);
+    const along = this.focus.dot(direction);
+    const x = Math.round(this.focus.dot(right) / texel) * texel;
+    const y = Math.round(this.focus.dot(up) / texel) * texel;
+    this.sun.target.position
+      .set(0, 0, 0)
+      .addScaledVector(right, x)
+      .addScaledVector(up, y)
+      .addScaledVector(direction, along);
+    this.sun.position
+      .copy(this.sun.target.position)
+      .addScaledVector(direction, SUN_OFFSET.length());
+    this.sun.target.updateMatrixWorld();
   }
 
   private keep<T extends THREE.BufferGeometry>(geometry: T): T {
@@ -1742,11 +1937,9 @@ export class GameWorld {
   private makeLabel(text: string, critter = false): HTMLDivElement {
     const element = document.createElement('div');
     element.textContent = text;
+    element.className = critter ? 'world-label critter-label' : 'world-label';
     element.style.cssText =
-      'position:absolute;left:0;top:0;white-space:nowrap;pointer-events:none;will-change:transform;transition:opacity .2s;' +
-      (critter
-        ? 'padding:3px 9px;border-radius:20px;background:#fcf8e9e8;color:#4f6b57;font:600 10px system-ui;box-shadow:0 2px 6px #344b3515;'
-        : 'padding:4px 8px;border-radius:4px;background:#faf7e6db;color:#536650;font:600 9px system-ui;letter-spacing:.04em;box-shadow:0 2px 5px #344b3510;');
+      'position:absolute;left:0;top:0;will-change:transform;transition:opacity .25s;';
     this.labelLayer.appendChild(element);
     return element;
   }

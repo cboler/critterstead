@@ -4,6 +4,11 @@
   --muted: #7d8171;
   --line: #e0e2d5;
   --sans: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  --hud-bg: #fcf9f0d1;
+  --hud-bg-strong: #fcf9f0f2;
+  --hud-edge: #ffffffb8;
+  --hud-shadow: 0 14px 34px #24342633, 0 2px 6px #2434261f;
+  --hud-blur: blur(14px) saturate(1.25);
   font-family: var(--sans);
   color: var(--ink);
   background: var(--paper);
@@ -22,8 +27,8 @@ body {
   text-size-adjust: 100%;
 }
 body {
-  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
-    env(safe-area-inset-left);
+  overflow: hidden;
+  overscroll-behavior: none;
   -webkit-font-smoothing: antialiased;
 }
 button,
@@ -109,18 +114,19 @@ a {
   color: #486c50;
 }
 .world-label {
-  font: 600 10px var(--sans);
-  padding: 5px 9px;
-  border-radius: 5px;
-  background: #fffdf0dd;
-  color: #45604b;
+  font: 600 12px var(--sans);
+  padding: 5px 11px;
+  border-radius: 999px;
+  background: #fcf9f0e8;
+  color: #3d5745;
   white-space: nowrap;
-  box-shadow: 0 2px 6px #23432910;
+  box-shadow: 0 3px 10px #2434262e;
   pointer-events: none;
 }
 .world-label.critter-label {
-  background: #476f50;
+  background: #486c50;
   color: #fff8e5;
+  font-size: 13px;
 }
 @media (prefers-reduced-motion: reduce) {
   *,

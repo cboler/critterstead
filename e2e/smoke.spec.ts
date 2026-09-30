@@ -27,12 +27,32 @@ test('opens a responsive, playable homestead without runtime errors', async ({
   await page.getByRole('button', { name: 'Pause game', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Resume game', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Resume game', exact: true }).click();
-  const dock = await page.locator('.interaction-dock').boundingBox();
-  const world = await page.locator('.world-view').boundingBox();
-  expect(dock).not.toBeNull();
-  expect(world).not.toBeNull();
-  expect(dock!.y).toBeGreaterThanOrEqual(world!.y + world!.height - 1);
-  expect(dock!.height).toBeLessThan(220);
+  // The world fills the screen; the dock floats over it without covering the rancher.
+  const canvas = await page.locator('.world-canvas canvas').boundingBox();
+  const viewport = page.viewportSize()!;
+  expect(canvas).toEqual({ x: 0, y: 0, width: viewport.width, height: viewport.height });
+  const dock = (await page.locator('.interaction-dock').boundingBox())!;
+  expect(dock.height).toBeLessThan(viewport.height * 0.6);
+  await expect
+    .poll(
+      async () => {
+        const rancher = await page.evaluate(() => {
+          const root = document.querySelector('app-root')!;
+          const game = (
+            window as unknown as {
+              ng: { getComponent(element: Element): Record<string, unknown> };
+            }
+          ).ng.getComponent(root) as unknown as {
+            world: { screenPoint(point: { x: number; z: number }, height: number): { y: number } };
+            state(): GameState;
+          };
+          return game.world.screenPoint(game.state().player.position, 1.7);
+        });
+        return rancher.y < dock.y;
+      },
+      { timeout: 5000 },
+    )
+    .toBe(true);
   for (const button of await page.locator('.interaction-actions button').all()) {
     expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   }

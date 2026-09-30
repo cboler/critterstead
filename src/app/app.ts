@@ -17,8 +17,19 @@ import { activeCritter, GameCommand, GameState, Interaction, Point } from './gam
 import { IndexedDbStorage } from './game/storage';
 import { encumbrance } from './game/checks';
 import { GameWorld } from './game/world';
+import {
+  storedQualityChoice,
+  storeQualityChoice,
+  type Quality,
+  type QualityChoice,
+} from './game/render/quality';
 
 type Panel = 'journal' | 'help' | 'developer' | 'calendar';
+
+/** Whether the details panel sits beside the world rather than over it. */
+function sidePanelLayout(): boolean {
+  return window.matchMedia?.('(min-width: 900px) and (min-height: 561px)').matches ?? true;
+}
 
 interface InstallPrompt extends Event {
   prompt(): Promise<void>;
@@ -137,6 +148,19 @@ export class App implements AfterViewInit, OnDestroy {
     this.command({ type: 'drop-cargo' });
   }
   protected readonly areas = AREAS;
+  // Wide screens open the details panel beside the world; phones start with a compact chip.
+  protected readonly railOpen = signal(sidePanelLayout());
+  protected readonly railTab = signal<'companion' | 'rancher'>('companion');
+  protected readonly qualityChoice = signal<QualityChoice>(storedQualityChoice());
+  protected readonly quality = signal<Quality>('balanced');
+  protected readonly rendererName = signal('');
+  protected readonly qualityOptions: { id: QualityChoice; label: string }[] = [
+    { id: 'auto', label: 'Auto' },
+    { id: 'cinematic', label: 'Cinematic' },
+    { id: 'balanced', label: 'Balanced' },
+    { id: 'light', label: 'Light' },
+  ];
+  private insetElapsed = 1;
   protected readonly statNames = ['strength', 'endurance', 'speed', 'intelligence'] as const;
   protected readonly goals = [
     {
@@ -209,11 +233,17 @@ export class App implements AfterViewInit, OnDestroy {
     this.refresh();
     try {
       this.zone.runOutsideAngular(() => {
-        this.world = new GameWorld(this.worldElement.nativeElement, (point) => {
-          if (!this.paused() && !this.panel() && !this.host.state.training) this.walkTo = point;
-        });
+        this.world = new GameWorld(
+          this.worldElement.nativeElement,
+          (point) => {
+            if (!this.paused() && !this.panel() && !this.host.state.training) this.walkTo = point;
+          },
+          this.qualityChoice(),
+        );
         this.frame = requestAnimationFrame(this.animate);
       });
+      this.quality.set(this.world!.quality);
+      this.rendererName.set(this.world!.gpu);
       this.ready.set(true);
       if (!this.saveBlocked) await this.save();
     } catch (error) {
@@ -272,6 +302,11 @@ export class App implements AfterViewInit, OnDestroy {
         this.saveElapsed = 0;
         void this.save();
       }
+    }
+    this.insetElapsed += dt;
+    if (this.insetElapsed >= 0.2) {
+      this.insetElapsed = 0;
+      this.measureInsets();
     }
     this.world?.render(this.host.state, dt);
     this.refreshElapsed += dt;
@@ -470,6 +505,10 @@ export class App implements AfterViewInit, OnDestroy {
       this.zone.run(() => this.openPanel(this.panel() === 'journal' ? null : 'journal'));
     if (!event.repeat && key === '`')
       this.zone.run(() => this.openPanel(this.panel() === 'developer' ? null : 'developer'));
+    if (!this.panel() && ['=', '+', '-', '_'].includes(key)) {
+      event.preventDefault();
+      this.zoom(key === '=' || key === '+' ? -1 : 1);
+    }
   };
   private readonly keyUp = (event: KeyboardEvent): void => {
     this.keys.delete(event.key.toLowerCase());
@@ -493,6 +532,39 @@ export class App implements AfterViewInit, OnDestroy {
   protected async install(): Promise<void> {
     await this.installPrompt?.prompt();
     this.canInstall.set(false);
+  }
+  protected toggleRail(): void {
+    this.railOpen.update((open) => !open);
+  }
+  /** Negative steps zoom in, positive steps zoom out. */
+  protected zoom(step: number): void {
+    this.world?.zoomBy(step < 0 ? 0.82 : 1.22);
+  }
+  protected setQuality(choice: QualityChoice): void {
+    this.qualityChoice.set(choice);
+    storeQualityChoice(choice);
+    this.world?.setQuality(choice);
+    if (this.world) this.quality.set(this.world.quality);
+  }
+  /** Tells the camera which screen edges HUD panels cover, so the rancher stays in view. */
+  private measureInsets(): void {
+    const shell = this.element.nativeElement.querySelector<HTMLElement>('.game-shell');
+    if (!shell || !this.world) return;
+    const box = (selector: string) => shell.querySelector(selector)?.getBoundingClientRect();
+    const height = window.innerHeight;
+    const width = window.innerWidth;
+    const top = Math.max(box('.masthead')?.bottom ?? 0, box('.day-bar')?.bottom ?? 0);
+    const covering = ['.satchel-bar', '.interaction-dock', '.training-card']
+      .map((selector) => box(selector))
+      .filter((rect): rect is DOMRect => !!rect && rect.height > 0)
+      .map((rect) => rect.top);
+    const bottom = height - Math.min(height, ...covering);
+    const rail = box('.side-rail');
+    const right =
+      this.railOpen() && sidePanelLayout() && rail && rail.width > 0 ? width - rail.left : 0;
+    const dock = box('.interaction-dock');
+    shell.style.setProperty('--dock-h', `${Math.round(dock?.height ?? 0)}px`);
+    this.world.setInsets({ top, right, bottom, left: 0 });
   }
   protected togglePause(): void {
     this.paused.update((value) => !value);
