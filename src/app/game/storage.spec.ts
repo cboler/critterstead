@@ -5,6 +5,11 @@ import { readSave, validateSave } from './storage';
 import { activeCritter } from './model';
 import { legacyV1 } from './fixtures/legacy-v1';
 import { legacyV2 } from './fixtures/legacy-v2';
+import { legacyV3 } from './fixtures/legacy-v3';
+import { legacyV4 } from './fixtures/legacy-v4';
+import { legacyV5 } from './fixtures/legacy-v5';
+import { legacyV6 } from './fixtures/legacy-v6';
+import { legacyV7 } from './fixtures/legacy-v7';
 
 // Golden v7 garden for the frozen v1 crop: planted 9300, watered, ready 9550, now 9472.
 const legacyGarden = [
@@ -321,4 +326,50 @@ describe('v2 learning migration and v3 protection', () => {
       expect(invalid).toEqual(before);
     }
   });
+});
+
+// M9 gate: every historical save shape reaches the current schema with nothing lost.
+describe('every legacy save version', () => {
+  const fixtures = [legacyV1, legacyV2, legacyV3, legacyV4, legacyV5, legacyV6, legacyV7];
+  it.each(fixtures.map((fixture) => [fixture.version, fixture] as const))(
+    'migrates a v%i save to v8 intact, idempotently, and ready to play',
+    (_, fixture) => {
+      const original = structuredClone(fixture) as Record<string, unknown> & typeof legacyV1;
+      const migrated = readSave(structuredClone(fixture));
+      expect(migrated.version).toBe(8);
+      expect(() => validateSave(migrated)).not.toThrow();
+      // The world, economy, clock and history carry over.
+      for (const key of ['seed', 'day', 'minute', 'totalMinutes', 'shedLevel'] as const)
+        expect(migrated[key], key).toBe(original[key]);
+      expect(migrated.player.coins).toBe(original.player.coins);
+      expect(migrated.journal.slice(0, original.journal.length)).toEqual(original.journal);
+      // Every companion keeps its identity and everything it earned. A v1 save held one
+      // companion without an id, so it is recognized by name.
+      const companions = (original['critters'] ?? [
+        original.critter,
+      ]) as (typeof legacyV1.critter & {
+        id?: string;
+      })[];
+      for (const companion of companions) {
+        const kept = migrated.critters.find((critter) =>
+          companion.id ? critter.id === companion.id : critter.name === companion.name,
+        );
+        expect(kept, companion.name).toBeDefined();
+        expect(kept).toMatchObject({
+          name: companion.name,
+          ageDays: companion.ageDays,
+          stats: companion.stats,
+          competitions: companion.competitions,
+          history: companion.history,
+        });
+      }
+      if (original['activeCritterId'])
+        expect(migrated.activeCritterId).toBe(original['activeCritterId']);
+      // A second read changes nothing, and the result plays and saves cleanly.
+      expect(readSave(structuredClone(migrated))).toEqual(migrated);
+      const host = new LocalGameHost(migrated);
+      host.update(1);
+      expect(() => validateSave(JSON.parse(JSON.stringify(host.state)))).not.toThrow();
+    },
+  );
 });

@@ -5,7 +5,8 @@ M3 implementation and local verification complete and merged into `main` via PR 
 (`d9ba9d7`) on 2026-09-27; human evaluation concluded (see recorded findings below).
 M4–M9 restructured to systematically build the first living stead vertical slice.
 M4–M6 merged to `main` via PR #2. M7 (save v7) and M8 (save v8) complete and locally
-verified on 2026-09-29.
+verified on 2026-09-29. M9 built on 2026-09-30; the campaign gate awaits the product
+owner.
 Source baseline: `3a346fc` (documentation bootstrap on gameplay `06aa91e`),
 identical in content to the published bootstrap `7e14cac`.
 
@@ -236,21 +237,25 @@ playtest is a pending product gate, not a claim of failure or success.
 
 ### M9 — Vertical slice integration, multi-day playtesting, and campaign gate
 
-**Status:** not started; campaign integration and formal product gate.
+**Status:** built 2026-09-30 ([evidence](#m9-evidence--2026-09-30)); the formal gate
+awaits the product owner.
 **Player-visible expectation:** A cohesive, multi-day vertical slice demonstrating the full living stead loop across 3+ days with genuine choices, delegation, progression, and exhibition competition; evaluated via a structured human playtest protocol.
 
-- [ ] Demonstrate a seamless multi-day gameplay loop: tending 4-crop garden, gathering wood/stone,
+- [x] Demonstrate a seamless multi-day gameplay loop: tending 4-crop garden, gathering wood/stone,
       refining lumber at sawmill, watching companion autonomously haul lumber, balancing training
       across hoop/lift/pace minigames, resting together, consulting the cottage calendar, and
       competing in Colosseum exhibitions.
-- [ ] Comprehensive quality gates: unit tests, lint, production build at `/critterstead/`,
+- [x] Comprehensive quality gates: unit tests, lint, production build at `/critterstead/`,
       PWA offline persistence check, and multi-day browser walkthrough.
-- [ ] Verified save migration pipeline supporting all legacy versions (v1, v2, v3, v4) without
+- [x] Verified save migration pipeline supporting all legacy versions (v1–v7) without
       data loss or reset.
-- [ ] Human playtest protocol and evaluation report: assessing whether care feels meaningful,
+- [x] Human playtest protocol and evaluation report: assessing whether care feels meaningful,
       learning is rewarding, physical logistics feel satisfying, and repeated days feel engaging.
+      Playtest 1 is recorded and its findings fixed; the product owner's playtest of the M9
+      build is pending.
 - [ ] Formal campaign exit gate: record findings, update roadmap, and authorize entry into
-      Stage 2 (Household and Opening). Do not begin Stage 2 automatically.
+      Stage 2 (Household and Opening). Do not begin Stage 2 automatically. Findings and
+      roadmap are recorded; authorization is the product owner's decision.
 
 ---
 
@@ -394,10 +399,10 @@ The outstanding human comparison between M3 routines has been conducted on the d
 
 ## Current handoff
 
-M1–M8 complete. M7 is on `main` as `eaad7ef`; M8 (save v8) follows it on `main`.
-Human playtests happen on the published page and are pending for M7/M8. M9 remains
-authorized. Next: M9 — multi-day integration walkthrough, quality gates, and the
-structured human playtest protocol and product report.
+M1–M9 built and published on `main`; playtest 1's findings are fixed in M9. Next: the
+product owner plays the M9 build (protocol in DEVELOPMENT.md) and holds the planned
+vision sessions; record that playtest, then take the gate decision on Stage 2. Do not
+begin Stage 2 before that decision.
 
 M4 desktop persistence suite: 9 passed, including v1/v2 migration, paid activity,
 malformed/future/ambiguous save protection, and single-writer ownership.
@@ -554,3 +559,50 @@ merge or Pages deployment is implied by the campaign branch push.
   the glade loop; card placement measured at 375×812 and 844×390.
 - **Known:** stylesheet warning 17.28 kB (20 kB error budget). The glade loop and the
   distant crowd are small at phone scale. No human fun/balance acceptance is claimed.
+
+## M9 evidence — 2026-09-30
+
+- **Playtest 1** (product owner's household, on the published M8 build with the visual
+  overhaul). Enjoyed: the weather and light, the variety of training, handing items to Pip
+  to hold, the tap challenges, and gathering. Wanted better, and the M9 response:
+  1. _Too much on screen; unclear where to find stats or an action's result._ One place for
+     each ([D37](../../DECISIONS.md#d37--one-place-for-each-kind-of-feedback-touch-steering-implemented-2026-09-30)):
+     results appear just above the actions and fade; what changed floats over the rancher
+     or companion; stats live only in the details panel (Needs, Abilities, Learning), where
+     changed values glow, and the phone chip shows energy, hunger and bond. The area's
+     subtitle moved to a title card on arrival; phones fold the brand and area name into
+     one row; dock descriptions clamp to three lines on phones.
+  2. _Arrows unhelpful; wanted press-and-hold movement on mobile._ Holding a finger (or the
+     mouse button) on the world walks toward it; the camera follows, so holding still keeps
+     walking; releasing stops, a tap walks to a spot and a pinch cancels. On-screen arrows
+     are off by default (Help).
+  3. _A drill's start button sat where its tap button had been._ The result now replaces
+     the drill's card for 2.8 s and holds all action input (tap, Space/E, controller A). It
+     cannot be dismissed early, since a dismissal would let the next tap through. This
+     supersedes the visual overhaul's 0.7 s keyboard-only guard.
+- **Multi-day loop:** `campaign.spec.ts` plays a fresh household for three days through
+  ordinary commands, reloading from the saved record every night: care, planting, tilling
+  and watering, hoops, watched gathering, selling, seeds, timber, the sawmill, the lift and
+  rest; a harvest, hauling lessons, the Colosseum exhibition and pacing; turnips to market,
+  the calendar, feeding and stocking the trough, foraging and hauling cues to
+  independence, and the Clover Cup. It ends with one continuous Mallow, three days older
+  and stronger in every trained stat. `e2e/campaign.spec.ts` plays three days on desktop
+  with normal controls: results above the dock, a drill result ignoring taps where its
+  button was, next-day drill reset, a harvest, hold-to-move, and a reload on day three.
+- **Integration finding:** a hungry hauler cued to work goes to the feed trough first and,
+  if it is empty, waits there ("Already helping") until fed. Only the hauling status said
+  so; the host now also notes it once in the journal, so it appears above the actions.
+  The waiting itself is unchanged (designed in M6).
+- **Saves:** every frozen fixture v1–v7 migrates to v8 keeping the world, clock, coins,
+  journal, each companion's identity, age, stats, competitions and history, and the active
+  selection; a second read changes nothing, and the result plays and saves cleanly.
+- **Verification:** 129 unit tests; lint, formatting, `/critterstead/` build (1.06 MB
+  initial) and `check:pwa`.
+  Browser suite: 64 passed, 28 project-scoped skips, 0 failed (17.0 min). The heaviest
+  journeys also pass with frames throttled to ~6.5 fps to emulate CI. GPU screenshots inspected at 390×844 and 1440×900 (drill result,
+  floats, sections, returning dock). No physical-device test is claimed.
+- **Gate recommendation:** the slice is save-safe, spans days with real choices and
+  delegation, and is more legible after playtest 1. Automated checks cannot prove fun:
+  the gate needs the product owner's playtest of this build (protocol in
+  [DEVELOPMENT.md](../../DEVELOPMENT.md#human-playtest-protocol)) and the planned vision
+  sessions, which will shape Stage 2. Stage 2 has not begun.

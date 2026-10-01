@@ -31,6 +31,58 @@ function sidePanelLayout(): boolean {
   return window.matchMedia?.('(min-width: 900px) and (min-height: 561px)').matches ?? true;
 }
 
+// Feedback timing: how long a fresh result stays readable above the actions, and how long a
+// drill's result card holds the actions back (taps meant for the finished drill land on it).
+const NOTE_MS = 6500;
+const RESULT_MS = 2800;
+const ARROWS_KEY = 'critterstead-touch-arrows';
+const ACTIVITY_NAMES: Record<string, string> = {
+  training: 'PRACTICE HOOPS',
+  race: 'THE CLOVER CUP',
+  lift: 'BOULDER LIFT',
+  pace: 'DISTANCE PACING',
+  exhibition: 'THE EXHIBITION',
+};
+const ITEM_NAMES: Record<string, [string, string]> = {
+  berry: ['berry', 'berries'],
+  seed: ['feed seed', 'feed seeds'],
+  'turnip-seed': ['turnip seed', 'turnip seeds'],
+  'wheat-seed': ['wheat seed', 'wheat seeds'],
+  'sunberry-seed': ['sunberry seed', 'sunberry seeds'],
+  turnip: ['turnip', 'turnips'],
+};
+
+/** What an action can visibly change; compared before and after to show its results. */
+interface Snapshot {
+  day: number;
+  area: string;
+  coins: number;
+  playerEnergy: number;
+  items: Record<string, number>;
+  critterEnergy: number;
+  bond: number;
+  hunger: number;
+  stats: Record<string, number>;
+}
+type Tone = 'gain' | 'cost' | 'note';
+
+function readFlag(key: string): boolean {
+  try {
+    return localStorage.getItem(key) === 'on';
+  } catch {
+    return false;
+  }
+}
+
+function writeFlag(key: string, on: boolean): void {
+  try {
+    if (on) localStorage.setItem(key, 'on');
+    else localStorage.removeItem(key);
+  } catch {
+    // Storage can be unavailable (private windows); the choice then lasts for this visit.
+  }
+}
+
 interface InstallPrompt extends Event {
   prompt(): Promise<void>;
 }
@@ -52,7 +104,13 @@ export class App implements AfterViewInit, OnDestroy {
   private previousTime = 0;
   private refreshElapsed = 0;
   private saveElapsed = 0;
-  private trainingEndedAt = -Infinity;
+  // State when the current drill or work began, so its results can be shown when it ends.
+  private activityBaseline: Snapshot | null = null;
+  private activityKind = '';
+  private workBaseline: Snapshot | null = null;
+  private lastNote: string | null = null;
+  private noteTimer = 0;
+  private changedTimer = 0;
   private readonly keys = new Set<string>();
   private gamepadButtons: boolean[] = [];
   private walkTo: Point | null = null;
@@ -156,14 +214,26 @@ export class App implements AfterViewInit, OnDestroy {
   protected readonly quality = signal<Quality>('balanced');
   protected readonly rendererName = signal('');
   protected readonly night = signal(false);
-  // Presentation moments: a fade between areas and a title card each new morning.
-  protected readonly fades = signal<number[]>([]);
+  // Presentation moments: a titled fade between areas and a title card each new morning.
+  protected readonly fades = signal<{ serial: number; name: string; subtitle: string }[]>([]);
   protected readonly morning = signal<{
     serial: number;
     title: string;
     date: string;
     weather: keyof App['weatherIcons'];
   } | null>(null);
+  // Where to look: a drill's result replaces its card; other results appear above the
+  // actions for a moment and float over whoever they changed; changed stats light up.
+  protected readonly result = signal<{
+    serial: number;
+    eyebrow: string;
+    heading: string;
+    detail: string;
+    gains: string[];
+  } | null>(null);
+  protected readonly noteFresh = signal(true);
+  protected readonly changed = signal<ReadonlySet<string>>(new Set());
+  protected readonly touchArrows = signal(readFlag(ARROWS_KEY));
   private momentSerial = 0;
   private lastArea = '';
   private lastDay = 0;
@@ -249,6 +319,7 @@ export class App implements AfterViewInit, OnDestroy {
         this.world = new GameWorld(
           this.worldElement.nativeElement,
           (point) => {
+            // A tap or a held pointer sets the destination; releasing a hold stops (null).
             if (!this.paused() && !this.panel() && !this.host.state.training) this.walkTo = point;
           },
           this.qualityChoice(),
@@ -306,8 +377,10 @@ export class App implements AfterViewInit, OnDestroy {
       const previousJournal = this.host.state.journal;
       const previousDay = this.host.state.day;
       const training = !!this.host.state.training;
+      const working = !!this.host.state.work;
       this.host.update(dt);
-      if (training && !this.host.state.training) this.trainingEndedAt = performance.now();
+      if (training && !this.host.state.training) this.zone.run(() => this.finishActivity());
+      if (working && !this.host.state.work) this.zone.run(() => this.finishWork());
       this.saveElapsed += dt;
       if (
         this.saveElapsed > 8 ||
@@ -341,8 +414,10 @@ export class App implements AfterViewInit, OnDestroy {
     this.hauling.set(this.host.haulingLearning());
     this.state.set(structuredClone(this.host.state));
     const current = this.host.state;
-    if (this.lastArea && current.areaId !== this.lastArea)
-      this.fades.update((list) => [...list, ++this.momentSerial]);
+    if (this.lastArea && current.areaId !== this.lastArea) {
+      const { name, subtitle } = AREAS[current.areaId];
+      this.fades.update((list) => [...list, { serial: ++this.momentSerial, name, subtitle }]);
+    }
     if (this.lastDay && current.day > this.lastDay) {
       const serial = ++this.momentSerial;
       this.morning.set({
@@ -357,6 +432,13 @@ export class App implements AfterViewInit, OnDestroy {
     }
     this.lastArea = current.areaId;
     this.lastDay = current.day;
+    const note = current.journal[0] ?? '';
+    if (note !== this.lastNote) {
+      this.lastNote = note;
+      this.noteFresh.set(true);
+      clearTimeout(this.noteTimer);
+      this.noteTimer = window.setTimeout(() => this.noteFresh.set(false), NOTE_MS);
+    }
     const interaction = this.host.interaction();
     this.nearby.set(interaction);
     this.world?.setTarget(this.host.state.training ? null : (interaction?.id ?? null));
@@ -475,15 +557,117 @@ export class App implements AfterViewInit, OnDestroy {
       this.act();
       return;
     }
-    if (this.tapAfterDrill()) return;
+    if (this.holdAfterDrill()) return;
     const action = this.host
       .interaction()
       ?.actions.find((item) => item.id === this.gamepadAction() && !item.disabled);
     this.act(action?.id);
   }
-  /** Taps meant for a drill that just ended must not start the dock's next (paid) action. */
-  private tapAfterDrill(): boolean {
-    return !this.host.state.training && performance.now() - this.trainingEndedAt < 700;
+  /**
+   * While a drill's result shows, action taps are held back, so taps meant for the drill
+   * cannot start the next (paid) one. It clears by itself; there is nothing to dismiss,
+   * because a dismissal would let the next tap through.
+   */
+  private holdAfterDrill(): boolean {
+    return !!this.result();
+  }
+  /** A drill just ended: its result replaces its card, and its gains float over the pair. */
+  private finishActivity(): void {
+    const baseline = this.activityBaseline;
+    this.activityBaseline = null;
+    const note = this.host.state.journal[0] ?? '';
+    const [heading, ...detail] = note.split(/(?<=[.!?])\s+/);
+    // The card shows this note, so it need not appear above the actions afterward.
+    this.lastNote = note;
+    this.noteFresh.set(false);
+    clearTimeout(this.noteTimer);
+    const changes = baseline ? this.announce(baseline) : [];
+    const serial = ++this.momentSerial;
+    this.result.set({
+      serial,
+      eyebrow: ACTIVITY_NAMES[this.activityKind] ?? 'WELL DONE',
+      heading,
+      detail: detail.join(' '),
+      gains: changes
+        .filter((change) => change.tone === 'gain' && !change.text.endsWith('energy'))
+        .map((change) => change.text),
+    });
+    window.setTimeout(() => {
+      if (this.result()?.serial === serial) this.result.set(null);
+    }, RESULT_MS);
+  }
+  private finishWork(): void {
+    if (this.workBaseline) this.announce(this.workBaseline);
+    this.workBaseline = null;
+  }
+  private snapshot(): Snapshot {
+    const state = this.host.state;
+    const critter = activeCritter(state);
+    const items: Record<string, number> = {};
+    for (const item of backpack(state).items)
+      items[item.itemId] = (items[item.itemId] ?? 0) + item.quantity;
+    return {
+      day: state.day,
+      area: state.areaId,
+      coins: state.player.coins,
+      playerEnergy: state.player.stamina,
+      items,
+      critterEnergy: critter.stamina,
+      bond: critter.bond,
+      hunger: critter.hunger,
+      stats: { ...critter.stats },
+    };
+  }
+  /** Floats what changed since a snapshot over whoever changed, and lights up those stats. */
+  private announce(before: Snapshot): { text: string; tone: Tone }[] {
+    const after = this.snapshot();
+    // A new morning or another area has its own title card instead.
+    if (after.day !== before.day || after.area !== before.area) return [];
+    const critter: { text: string; tone: Tone }[] = [];
+    const player: { text: string; tone: Tone }[] = [];
+    const keys = new Set<string>();
+    const signed = (value: number, digits = 0) =>
+      `${value > 0 ? '+' : '−'}${Math.abs(value).toFixed(digits)}`;
+    const add = (list: typeof critter, key: string, text: string, tone: Tone) => {
+      list.push({ text, tone });
+      keys.add(key);
+    };
+    for (const stat of this.statNames) {
+      const change = after.stats[stat] - before.stats[stat];
+      if (change >= 0.005) add(critter, stat, `${signed(change, 2)} ${stat}`, 'gain');
+    }
+    const bond = Math.round(after.bond - before.bond);
+    if (bond) add(critter, 'bond', `${signed(bond)} ♥`, bond > 0 ? 'gain' : 'cost');
+    const fed = Math.round(before.hunger - after.hunger);
+    if (fed > 0) add(critter, 'hunger', `−${fed} hunger`, 'gain');
+    const energy = Math.round(after.critterEnergy - before.critterEnergy);
+    if (energy)
+      add(critter, 'critter-energy', `${signed(energy)} energy`, energy > 0 ? 'gain' : 'cost');
+    const coins = after.coins - before.coins;
+    if (coins) add(player, 'coins', `${signed(coins)} coins`, coins > 0 ? 'gain' : 'cost');
+    for (const id of new Set([...Object.keys(before.items), ...Object.keys(after.items)])) {
+      const change = (after.items[id] ?? 0) - (before.items[id] ?? 0);
+      if (!change) continue;
+      const [one, many] = ITEM_NAMES[id] ?? [id, id];
+      add(
+        player,
+        'items',
+        `${signed(change)} ${Math.abs(change) === 1 ? one : many}`,
+        change > 0 ? 'gain' : 'note',
+      );
+    }
+    const stamina = Math.round(after.playerEnergy - before.playerEnergy);
+    if (stamina)
+      add(player, 'player-energy', `${signed(stamina)} energy`, stamina > 0 ? 'gain' : 'cost');
+    for (const change of critter.slice(0, 3))
+      this.world?.float(change.text, 'critter', change.tone);
+    for (const change of player.slice(0, 3)) this.world?.float(change.text, 'player', change.tone);
+    if (keys.size) {
+      this.changed.set(keys);
+      clearTimeout(this.changedTimer);
+      this.changedTimer = window.setTimeout(() => this.changed.set(new Set()), 4000);
+    }
+    return [...critter, ...player];
   }
   protected act(action?: string): void {
     if (!this.ready() || this.paused() || this.panel()) return;
@@ -500,9 +684,18 @@ export class App implements AfterViewInit, OnDestroy {
   }
   private command(command: GameCommand): boolean {
     this.walkTo = null;
+    const before = this.snapshot();
     const training = !!this.host.state.training;
+    const working = !!this.host.state.work;
     const done = this.host.dispatch(command);
-    if (training && !this.host.state.training) this.trainingEndedAt = performance.now();
+    const activity = this.host.state.training;
+    if (!training && activity) {
+      this.activityBaseline = this.snapshot();
+      this.activityKind = activity.kind;
+    }
+    if (!working && this.host.state.work) this.workBaseline = this.snapshot();
+    if (training && !activity) this.finishActivity();
+    else if (done) this.announce(before);
     if (done) this.chime();
     // Touch arrows unmount during activities, so a held arrow would never report release.
     if (this.host.state.training) this.keys.clear();
@@ -538,8 +731,10 @@ export class App implements AfterViewInit, OnDestroy {
       if (target.tagName === 'BUTTON' && key === ' ') return;
       event.preventDefault();
       this.keys.add(key);
-      if (!event.repeat && (key === 'e' || key === ' ') && !this.tapAfterDrill())
-        this.zone.run(() => this.act());
+      if (!event.repeat && (key === 'e' || key === ' '))
+        this.zone.run(() => {
+          if (!this.holdAfterDrill()) this.act();
+        });
     }
     if (!event.repeat && key === 'escape')
       this.zone.run(() => {
@@ -578,8 +773,10 @@ export class App implements AfterViewInit, OnDestroy {
     await this.installPrompt?.prompt();
     this.canInstall.set(false);
   }
-  protected endFade(fade: number): void {
-    this.fades.update((list) => list.filter((item) => item !== fade));
+  protected endFade(serial: number, event: AnimationEvent): void {
+    // The veil clears first; the area's title lingers a little longer.
+    if (event.animationName !== 'area-title') return;
+    this.fades.update((list) => list.filter((item) => item.serial !== serial));
   }
   protected toggleRail(): void {
     this.railOpen.update((open) => !open);
@@ -602,16 +799,19 @@ export class App implements AfterViewInit, OnDestroy {
     const height = window.innerHeight;
     const width = window.innerWidth;
     const top = Math.max(box('.masthead')?.bottom ?? 0, box('.day-bar')?.bottom ?? 0);
-    const covering = ['.satchel-bar', '.interaction-dock', '.training-card']
+    const panels = ['.interaction-dock', '.training-card', '.result-card']
       .map((selector) => box(selector))
+      .filter((rect): rect is DOMRect => !!rect && rect.height > 0);
+    const covering = [box('.satchel-bar'), ...panels]
       .filter((rect): rect is DOMRect => !!rect && rect.height > 0)
       .map((rect) => rect.top);
     const bottom = height - Math.min(height, ...covering);
     const rail = box('.side-rail');
     const right =
       this.railOpen() && sidePanelLayout() && rail && rail.width > 0 ? width - rail.left : 0;
-    const dock = box('.interaction-dock');
-    shell.style.setProperty('--dock-h', `${Math.round(dock?.height ?? 0)}px`);
+    // Results and floating controls sit just above whichever bottom panel is showing.
+    const dock = Math.max(0, ...panels.map((rect) => rect.height));
+    shell.style.setProperty('--dock-h', `${Math.round(dock)}px`);
     this.world.setInsets({ top, right, bottom, left: 0 });
   }
   protected togglePause(): void {
@@ -634,6 +834,12 @@ export class App implements AfterViewInit, OnDestroy {
   protected direction(key: string, pressed: boolean): void {
     if (pressed) this.keys.add(key);
     else this.keys.delete(key);
+  }
+  /** On-screen arrows are optional on touch screens; holding a finger on the world steers. */
+  protected toggleTouchArrows(): void {
+    this.touchArrows.update((on) => !on);
+    writeFlag(ARROWS_KEY, this.touchArrows());
+    this.keys.clear();
   }
   protected toggleSound(): void {
     this.sound.update((value) => !value);

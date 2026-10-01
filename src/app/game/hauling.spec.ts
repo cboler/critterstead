@@ -122,6 +122,8 @@ describe('compositional learned hauling', () => {
     addItem(output, 'lumber', 1);
     tick(host, 8);
     expect(host.haulingLearning().status).toContain('trough is empty');
+    // The wait is announced once in the journal, not on every tick.
+    expect(host.state.journal.filter((note) => note.includes('trough is empty'))).toHaveLength(1);
     expect(quantity(output)).toBe(1);
     addItem(trough, 'feed', 1);
     tick(host, 8);

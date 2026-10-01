@@ -37,7 +37,7 @@ For active milestone execution, see [exec-plans/README.md](exec-plans/README.md)
 | Stage                           | Focus & Playable Outcome                                                                                                                                                            | Key Deliverables                                                                      |
 | :------------------------------ | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------ |
 | **0 — Repository memory**       | Shared truth, architecture boundaries, recoverable plans                                                                                                                            | [Completed bootstrap record](exec-plans/completed/000-repository-memory-bootstrap.md) |
-| **1 — The First Living Stead**  | Multi-system vertical slice with one critter: rancher stats, checks, physical logistics, production, multi-crop farming, cottage interior, calendar, and diverse training minigames | Campaign 001 (M1–M9); save v4; proven multi-day loop                                  |
+| **1 — The First Living Stead**  | Multi-system vertical slice with one critter: rancher stats, checks, physical logistics, production, multi-crop farming, cottage interior, calendar, and diverse training minigames | Campaign 001 (M1–M9); save v8; multi-day loop built, gate pending product decision    |
 | **2 — Household and opening**   | Guided childhood prologue: Grandpa, Pip, walk to town, starter acquisition, Grandpa's passing, inheriting the stead                                                                 | Narrative opening; town of Oakhaven; mentor Pip; starter choice                       |
 | **3 — Community and expansion** | Expanded stead, 3-critter active party, town shops, cooking/baking appliances, requests, theatrical Colosseum tournaments                                                           | Roster & barn expansion; town commerce; turn-based combat                             |
 | **4 — Lineages and chimeras**   | Husbrandry, natural breeding, artificial growth technology, authored family spectra, stable lineages                                                                                | Chimera generation; pedigree history; trait inheritance                               |
@@ -69,7 +69,7 @@ staged progression (M1 through M9) that systematically builds the foundational v
   |
 [M8: Diverse Training & Colosseum] (Complete - save v8)
   |
-[M9: Vertical Slice Gate] (Specified)
+[M9: Vertical Slice Gate] (Built - gate pending product decision)
 ```
 
 #### M1 — Establish distinct critter identity and ownership (Complete)
@@ -159,14 +159,20 @@ staged progression (M1 through M9) that systematically builds the foundational v
   3. Open the path to the Colosseum gate: enter the skeletal stadium shell and enter a
      multi-stat athletic exhibition trial with audience fanfare.
 
-#### M9 — Vertical slice integration, multi-day playtesting, and campaign gate
+#### M9 — Vertical slice integration, multi-day playtesting, and campaign gate (Built)
 
+- **Delivered**: a three-day household exercised end to end (rules and browser), every save
+  version v1–v7 migrating intact to v8, the playtest protocol, and fixes from the first
+  human playtest (clear feedback placement, touch steering, no accidental drill restarts).
+  See [campaign evidence](exec-plans/active/001-deepen-one-critter-daily-loop.md#m9-evidence--2026-09-30).
+- **Gate**: pending the product owner's playtest of this build and the vision sessions that
+  shape Stage 2. Stage 2 has not begun.
 - **Player-visible change**:
   1. A cohesive, multi-day experience demonstrating the complete living stead: farming,
      resource gathering, physical hauling, refining lumber, training across varied disciplines,
      resting together, delegating autonomous chores, and competing in exhibitions.
   2. Comprehensive regression verification: full-day automated Playwright runs, PWA offline
-     reloads, and verified v1 $\rightarrow$ v2 $\rightarrow$ v3 $\rightarrow$ v4 save migration.
+     reloads, and verified save migration from every earlier version.
   3. Structured human playtest evaluating attachment, pacing, and daily engagement as the
      formal gate before beginning Stage 2.
 

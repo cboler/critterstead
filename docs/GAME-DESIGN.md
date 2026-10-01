@@ -721,6 +721,13 @@ Critters grow from energetic youths into peak adults and eventually wise elders:
   past its fence as scenery, so spaces read as places rather than floating islands.
 - Time of day, weather and seasons are visible in light, sky tint, precipitation and
   foliage; a gentle miniature focus and warm glows at night support the toy-diorama feel.
+- Each kind of information has one place. An action's result appears just above the
+  actions and fades; what it changed floats briefly over the rancher or companion. Stats
+  live in the details panel (a chip with energy, hunger and bond on phones), where just-
+  changed values glow. A finished drill's result holds its card's place for a moment, so
+  taps meant for the drill never start another.
+- On touch screens, holding a finger on the world walks toward it and releasing stops;
+  a tap walks to a spot. On-screen arrows are optional (Help).
 
 ### Viewport and interaction stability
 

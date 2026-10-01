@@ -7,7 +7,7 @@ Read the relevant active plan, not every historical handoff.
 
 | Plan                                                                              | Status                             | Next action                                                                    |
 | :-------------------------------------------------------------------------------- | :--------------------------------- | :----------------------------------------------------------------------------- |
-| [001 — The First Living Stead](active/001-deepen-one-critter-daily-loop.md)       | M1–M8 complete; M9 authorized      | M9 multi-day integration, quality gates, and human playtest report.            |
+| [001 — The First Living Stead](active/001-deepen-one-critter-daily-loop.md)       | M1–M9 built; gate pending          | Product owner playtests the M9 build, holds vision sessions, decides Stage 2.  |
 | [002 — Living diorama presentation](completed/002-living-diorama-presentation.md) | Completed presentation overhaul    | Historical evidence; human visual review on the published page.                |
 | [000 — Repository memory bootstrap](completed/000-repository-memory-bootstrap.md) | Completed documentation conversion | Historical audit and verification evidence; no further bootstrap work planned. |
 

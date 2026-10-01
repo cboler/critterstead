@@ -1404,7 +1404,13 @@ export class LocalGameHost {
       critter.stamina = Math.max(0, critter.stamina - step * load.drain);
       return false;
     };
-    if (critter.hunger > 70 || (job.phase === 'eat' && critter.hunger > 55)) job.phase = 'eat';
+    const hungry = critter.hunger > 70 || (job.phase === 'eat' && critter.hunger > 55);
+    // Say so once when a hungry worker will find the trough empty; it waits there until fed.
+    if (hungry && job.phase !== 'eat' && !containerQuantity(trough, 'feed'))
+      this.note(
+        `${critter.name} is hungry, but the feed trough is empty. Store feed there so work can resume.`,
+      );
+    if (hungry) job.phase = 'eat';
     else if (job.phase === 'eat') job.phase = 'idle';
     if (job.phase === 'eat') {
       if (walkTo(this.containerPosition(trough)) && containerQuantity(trough, 'feed')) {

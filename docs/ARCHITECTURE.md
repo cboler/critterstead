@@ -131,6 +131,14 @@ headless SwiftShader get `light`: no post-processing or sun shadows, less detail
 resolution); players can override it in Help. Fog starts beyond the camera's 60-unit
 focus distance. None of this reads or writes save data.
 
+Feedback (M9, [D37](DECISIONS.md#d37--one-place-for-each-kind-of-feedback-touch-steering-implemented-2026-09-30)):
+`app.ts` snapshots visible state before each command and when a drill or work begins,
+then compares it afterward; differences float over the rancher or companion
+(`GameWorld.float`) and mark changed stats in the HUD. When a drill ends, a result card
+replaces its card and holds action input for a few seconds. `GameWorld` steers toward a
+held pointer every frame through its walk callback (`null` stops), so a fixed finger keeps
+walking as the camera follows. All of this is presentation over host state.
+
 ## Architectural reality audit (reconciliation baseline before M4)
 
 The following audit records the reconciled pre-M4 baseline. The dated additions

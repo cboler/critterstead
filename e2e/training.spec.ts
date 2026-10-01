@@ -1,59 +1,6 @@
-import { expect, test, type Page } from '@playwright/test';
-import { activeCritter, type GameState } from '../src/app/game/model';
-import { developmentState, PACE, savedState, SPOTS, walk } from './helpers';
-
-interface GameWindow {
-  ng: { getComponent(element: Element): { state(): GameState } };
-}
-
-/**
- * Taps Space on every frame the gauge sits below the target, until the activity ends.
- * Tapping from inside the page keeps pace with the frame rate, however slow rendering is.
- */
-async function holdGauge(page: Page, target: number): Promise<void> {
-  const finished = await page.evaluate(
-    (goal) =>
-      new Promise<boolean>((resolve) => {
-        const game = (window as unknown as GameWindow).ng.getComponent(
-          document.querySelector('app-root')!,
-        );
-        const deadline = performance.now() + 60_000;
-        const frame = (): void => {
-          const training = game.state().training;
-          if (!training) return resolve(true);
-          if (performance.now() > deadline) return resolve(false);
-          if ((training.meter ?? 0) < goal)
-            for (const type of ['keydown', 'keyup'])
-              window.dispatchEvent(new KeyboardEvent(type, { key: ' ', code: 'Space' }));
-          requestAnimationFrame(frame);
-        };
-        requestAnimationFrame(frame);
-      }),
-    target,
-  );
-  if (!finished) throw new Error('The gauge activity did not finish.');
-}
-
-async function sprint(page: Page): Promise<void> {
-  for (let beat = 0; beat < 3; beat++) {
-    await expect
-      .poll(
-        async () => {
-          const training = (await developmentState(page)).training;
-          return (
-            !!training &&
-            training.elapsed - (training.lastHitAt ?? 0) > 0.35 &&
-            training.phase > 0.3 &&
-            training.phase < 0.7
-          );
-        },
-        { timeout: 15_000, intervals: [50] },
-      )
-      .toBe(true);
-    await page.getByRole('button', { name: /Sprint!/ }).click();
-    await page.waitForTimeout(350);
-  }
-}
+import { expect, test } from '@playwright/test';
+import { activeCritter } from '../src/app/game/model';
+import { cues, developmentState, holdGauge, PACE, savedState, SPOTS, walk } from './helpers';
 
 test('trains strength with fading repeat gains, then earns a Colosseum exhibition medal', async ({
   page,
@@ -96,7 +43,7 @@ test('trains strength with fading repeat gains, then earns a Colosseum exhibitio
   await walk(page, -3, 1.9);
   await page.getByRole('button', { name: /^Enter the exhibition/ }).click();
   await expect(page.locator('.training-card')).toContainText('Sprint for the crowd!');
-  await sprint(page);
+  await cues(page, /Sprint!/);
   await expect(page.locator('.training-card')).toContainText('Pull, Mallow, pull!');
   await holdGauge(page, 0.62);
   await expect(page.locator('.recent-note')).toContainText('The crowd roars!');

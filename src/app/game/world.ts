@@ -61,6 +61,12 @@ const INDOOR_ZOOM = 4.6;
 // Narrow phone screens still show a useful width of the world around the rancher.
 const MIN_HALF_WIDTH = 5.4;
 const RELEASE_EVENTS = ['pointerup', 'pointercancel', 'pointerleave'] as const;
+// A press becomes a steering hold after this long or this much travel; a finger this close
+// to the rancher (in world units) stands still rather than jittering around them.
+const STEER_HOLD_MS = 260;
+const STEER_SLOP = 14;
+const STEER_DEADZONE = 0.6;
+const FLOAT_LIFE = 2;
 // Wind by weather: blustery rain, still snow.
 const WIND_BY_WEATHER = { sunny: 1, cloudy: 1.25, rain: 1.8, snow: 0.6 } as const;
 const BUTTERFLY_COLORS = ['#f4e3a1', '#fbf6e8', '#bcd3e6', '#f2c1a8'];
@@ -177,10 +183,24 @@ export class GameWorld {
   private readonly confetti = new THREE.Group();
   private fanfareTime = 0;
   private lastShowings = -1;
+  // A held pointer steers toward itself every frame (the camera follows, so holding still
+  // keeps walking that way); a quick tap walks to the spot.
+  private steer: {
+    id: number;
+    x: number;
+    y: number;
+    startX: number;
+    startY: number;
+    since: number;
+    held: boolean;
+  } | null = null;
+  private readonly floats: { element: HTMLDivElement; who: 'player' | 'critter'; age: number }[] =
+    [];
 
   constructor(
     private readonly container: HTMLElement,
-    private readonly onWalk: (point: Point) => void,
+    // A destination to walk to, or null to stop (a released hold or a pinch).
+    private readonly onWalk: (point: Point | null) => void,
     qualityChoice: QualityChoice = 'auto',
   ) {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
@@ -299,7 +319,7 @@ export class GameWorld {
     this.scene.add(this.butterflies);
     this.permanentGeometryCount = this.geometries.length;
     this.renderer.domElement.addEventListener('pointerdown', this.walk);
-    this.renderer.domElement.addEventListener('pointermove', this.pinch);
+    this.renderer.domElement.addEventListener('pointermove', this.pointerMove);
     for (const type of RELEASE_EVENTS)
       this.renderer.domElement.addEventListener(type, this.release);
     this.renderer.domElement.addEventListener('wheel', this.wheel, { passive: false });
@@ -428,6 +448,7 @@ export class GameWorld {
     }
     // Frame before any label is projected so labels never trail the camera.
     this.frame(state, visualCritterPosition, dt);
+    this.steerTowardPointer(state.player.position);
     this.surroundings?.update(this.clock, this.atmosphere.light, this.atmosphere.haze);
     const critterMoving = this.animateActor(
       this.critter,
@@ -612,6 +633,7 @@ export class GameWorld {
         label.always || (label === closestLabel && distance < 5) ? '1' : '0';
       this.positionLabel(label.element, label.position);
     }
+    this.animateFloats(dt);
     if (this.finish) {
       // Keep the rancher inside the sharp band of the miniature focus.
       const focus = this.projection
@@ -653,7 +675,7 @@ export class GameWorld {
   dispose(): void {
     this.observer.disconnect();
     this.renderer.domElement.removeEventListener('pointerdown', this.walk);
-    this.renderer.domElement.removeEventListener('pointermove', this.pinch);
+    this.renderer.domElement.removeEventListener('pointermove', this.pointerMove);
     for (const type of RELEASE_EVENTS)
       this.renderer.domElement.removeEventListener(type, this.release);
     this.renderer.domElement.removeEventListener('wheel', this.wheel);
@@ -678,9 +700,18 @@ export class GameWorld {
     this.zoomBy(Math.exp(THREE.MathUtils.clamp(event.deltaY, -120, 120) * 0.0016));
   };
 
-  private readonly pinch = (event: PointerEvent): void => {
+  private readonly pointerMove = (event: PointerEvent): void => {
     if (!this.pointers.has(event.pointerId)) return;
     this.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (this.steer?.id === event.pointerId) {
+      this.steer.x = event.clientX;
+      this.steer.y = event.clientY;
+      const travel = Math.hypot(
+        event.clientX - this.steer.startX,
+        event.clientY - this.steer.startY,
+      );
+      if (travel > STEER_SLOP) this.steer.held = true;
+    }
     if (this.pointers.size !== 2) return;
     const [a, b] = [...this.pointers.values()];
     const distance = Math.hypot(a.x - b.x, a.y - b.y);
@@ -691,30 +722,103 @@ export class GameWorld {
   private readonly release = (event: PointerEvent): void => {
     this.pointers.delete(event.pointerId);
     if (this.pointers.size < 2) this.pinchDistance = 0;
+    if (this.steer?.id !== event.pointerId) return;
+    // Letting go of a hold stops; a quick tap keeps walking to where it landed.
+    if (this.steer.held) this.onWalk(null);
+    this.steer = null;
   };
 
   private readonly walk = (event: PointerEvent): void => {
     this.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
     // A second finger starts a pinch rather than a walk.
-    if (event.button !== 0 || this.pointers.size > 1) return;
+    if (this.pointers.size > 1) {
+      if (this.steer) this.onWalk(null);
+      this.steer = null;
+      return;
+    }
+    if (event.button !== 0) return;
+    const destination = this.groundPoint(event.clientX, event.clientY);
+    if (!destination) return;
+    this.renderer.domElement.setPointerCapture?.(event.pointerId);
+    this.steer = {
+      id: event.pointerId,
+      x: event.clientX,
+      y: event.clientY,
+      startX: event.clientX,
+      startY: event.clientY,
+      since: performance.now(),
+      held: false,
+    };
+    this.walkMarker.position.set(destination.x, 0.075, destination.z);
+    this.markerTime = 1.3;
+    this.walkMarker.visible = true;
+    this.onWalk(destination);
+  };
+
+  /** The walkable ground point under a screen position, kept inside the area's edge. */
+  private groundPoint(clientX: number, clientY: number): Point | null {
     const rect = this.renderer.domElement.getBoundingClientRect();
     this.pointer.set(
-      ((event.clientX - rect.left) / rect.width) * 2 - 1,
-      -((event.clientY - rect.top) / rect.height) * 2 + 1,
+      ((clientX - rect.left) / rect.width) * 2 - 1,
+      -((clientY - rect.top) / rect.height) * 2 + 1,
     );
     this.raycaster.setFromCamera(this.pointer, this.camera);
-    if (this.raycaster.ray.intersectPlane(this.ground, this.intersection)) {
-      const edge = (AREAS[this.area as AreaId]?.halfSize ?? 10) - 1.2;
-      const destination = {
-        x: THREE.MathUtils.clamp(this.intersection.x, -edge, edge),
-        z: THREE.MathUtils.clamp(this.intersection.z, -edge, edge),
-      };
-      this.walkMarker.position.set(destination.x, 0.075, destination.z);
-      this.markerTime = 1.3;
-      this.walkMarker.visible = true;
-      this.onWalk(destination);
+    if (!this.raycaster.ray.intersectPlane(this.ground, this.intersection)) return null;
+    const edge = (AREAS[this.area as AreaId]?.halfSize ?? 10) - 1.2;
+    return {
+      x: THREE.MathUtils.clamp(this.intersection.x, -edge, edge),
+      z: THREE.MathUtils.clamp(this.intersection.z, -edge, edge),
+    };
+  }
+
+  /** While a pointer is held, walk toward the ground under it; near the rancher, stand still. */
+  private steerTowardPointer(player: Point): void {
+    if (!this.steer) return;
+    if (!this.steer.held && performance.now() - this.steer.since > STEER_HOLD_MS)
+      this.steer.held = true;
+    if (!this.steer.held) return;
+    const target = this.groundPoint(this.steer.x, this.steer.y);
+    if (!target) return;
+    const near = Math.hypot(target.x - player.x, target.z - player.z) < STEER_DEADZONE;
+    this.onWalk(near ? null : target);
+    this.walkMarker.position.set(target.x, 0.075, target.z);
+    this.markerTime = near ? 0 : 0.5;
+  }
+
+  /** Floats a short note (such as "+5 ♥") up from the rancher or the companion. */
+  float(text: string, who: 'player' | 'critter', tone: 'gain' | 'cost' | 'note' = 'note'): void {
+    const element = document.createElement('div');
+    element.textContent = text;
+    element.className = `world-float ${tone}`;
+    element.style.cssText = 'position:absolute;left:0;top:0;will-change:transform,opacity;';
+    this.labelLayer.appendChild(element);
+    this.floats.push({ element, who, age: 0 });
+  }
+
+  private animateFloats(dt: number): void {
+    const stacks = { player: 0, critter: 0 };
+    for (const note of this.floats) {
+      note.age += dt;
+      const anchor = note.who === 'player' ? this.farmer.position : this.critter.position;
+      const rise = this.reducedMotion ? 0 : note.age * 26;
+      // The companion's notes start just above its name tag, which sits at the same height.
+      const clearance = note.who === 'critter' ? 32 : 0;
+      this.projection.set(anchor.x, note.who === 'player' ? 2 : 1.9, anchor.z).project(this.camera);
+      const x = (this.projection.x * 0.5 + 0.5) * this.width;
+      const y =
+        (-this.projection.y * 0.5 + 0.5) * this.height - clearance - rise - stacks[note.who] * 22;
+      stacks[note.who]++;
+      note.element.style.transform = `translate(${x}px, ${y}px) translate(-50%, -100%)`;
+      note.element.style.opacity = String(
+        1 - THREE.MathUtils.smoothstep(note.age, 1.4, FLOAT_LIFE),
+      );
     }
-  };
+    for (let index = this.floats.length - 1; index >= 0; index--)
+      if (this.floats[index].age >= FLOAT_LIFE) {
+        this.floats[index].element.remove();
+        this.floats.splice(index, 1);
+      }
+  }
 
   private resize(): void {
     this.width = Math.max(this.container.clientWidth, 1);

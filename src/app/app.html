@@ -2,6 +2,7 @@
 <div
   class="game-shell"
   [class.rail-open]="railOpen()"
+  [class.arrows-on]="touchArrows()"
   [class.quality-light]="quality() === 'light'"
   [class.is-night]="night()"
   [attr.inert]="panel() ? '' : null"
@@ -15,10 +16,7 @@
       >
       <div class="location-tag">
         <span class="location-dot"></span>
-        <div>
-          <h1>{{ areas[state().areaId].name }}</h1>
-          <p>{{ areas[state().areaId].subtitle }}</p>
-        </div>
+        <h1>{{ areas[state().areaId].name }}</h1>
       </div>
     </div>
     <nav class="header-actions" aria-label="Game menus">
@@ -63,7 +61,7 @@
         {{ paused() ? '▶' : 'Ⅱ' }}
       </button>
     </div>
-    <div class="purse">
+    <div class="purse" [class.changed]="changed().has('coins')">
       <span aria-hidden="true">◉</span><strong>{{ state().player.coins }}</strong
       ><span>leaf coins</span>
     </div>
@@ -147,7 +145,22 @@
               </button>
             </div>
           </div>
-        } @else if (!nearby()) {
+        } @else if (result(); as card) {
+          <!-- The drill's result holds its card's place for a moment, so taps meant for the
+               drill land here instead of on the next action. -->
+          <div class="result-card" id="game-controls" role="status">
+            <span class="eyebrow">{{ card.eyebrow }}</span>
+            <h2>{{ card.heading }}</h2>
+            @if (card.gains.length) {
+              <p class="result-gains">
+                @for (gain of card.gains; track gain) {
+                  <strong>{{ gain }}</strong>
+                }
+              </p>
+            }
+            <p>{{ card.detail }}</p>
+          </div>
+        } @else if (!nearby() && !noteFresh()) {
           <div class="walk-prompt" id="game-controls">
             <span class="footsteps" aria-hidden="true">⌁</span> A good day starts with a little
             exploring.<small>Walk close to a place or {{ companion().name }} to interact.</small>
@@ -162,7 +175,7 @@
             ><span>Click to walk · scroll or <kbd>+</kbd><kbd>−</kbd> to zoom</span>
           }
         </div>
-        @if (!state().training) {
+        @if (!state().training && touchArrows()) {
           <div class="touch-controls" aria-label="Movement controls">
             <button
               aria-label="Move up"
@@ -207,11 +220,12 @@
           <button class="icon-button" (click)="zoom(1)" aria-label="Zoom out">−</button>
         </div>
       </div>
-      @if (!state().training && nearby(); as target) {
+      @if (!state().training && !result() && nearby(); as target) {
         <div class="interaction-dock" id="game-controls">
           <div class="interaction-copy">
             <h2>{{ target.title }}</h2>
-            <p>{{ target.description }}</p>
+            <!-- Small screens show the first lines; the whole text stays readable to assistive tech. -->
+            <p [title]="target.description">{{ target.description }}</p>
           </div>
           <div class="interaction-actions">
             @for (action of target.actions; track action.id) {
@@ -278,15 +292,18 @@
             <span class="temperament">{{ companion().personality }}</span>
           </div>
         </div>
-        <div class="meter-label">
+        <h3 class="rail-section">Needs</h3>
+        <div class="meter-label" [class.changed]="changed().has('critter-energy')">
           <span>Energy</span><strong>{{ round(companion().stamina) }}<small> / 100</small></strong>
         </div>
         <div class="meter"><i [style.width.%]="companion().stamina"></i></div>
+        <div class="need-label" [class.changed]="changed().has('hunger')">
+          <span>Hunger</span><strong>{{ round(companion().hunger) }}<small> / 100</small></strong>
+        </div>
+        <div class="meter hunger"><i [style.width.%]="companion().hunger"></i></div>
         <div class="care-row">
-          <span
+          <span [class.changed]="changed().has('bond')"
             ><i class="heart">♥</i> Bond <strong>{{ round(companion().bond) }}</strong></span
-          ><span
-            >Hunger <strong>{{ round(companion().hunger) }}</strong></span
           ><span>{{
             companion().happiness > 70
               ? '✿ Feeling lovely'
@@ -295,14 +312,16 @@
                 : '♡ Needs some care'
           }}</span>
         </div>
+        <h3 class="rail-section">Abilities</h3>
         <div class="stats-grid">
           @for (stat of statNames; track stat) {
-            <div>
+            <div [class.changed]="changed().has(stat)">
               <span>{{ stat }}</span
               ><strong>{{ companion().stats[stat].toFixed(1) }}</strong>
             </div>
           }
         </div>
+        <h3 class="rail-section">Learning</h3>
         <div class="learning">
           <div>
             <span aria-hidden="true">❧</span><strong>{{ learning().label }}</strong>
@@ -375,16 +394,34 @@
     class="companion-chip"
     (click)="toggleRail()"
     [attr.aria-expanded]="railOpen()"
-    [attr.aria-label]="'Show details for ' + companion().name + ' and you'"
+    [attr.aria-label]="
+      'Show details for ' +
+      companion().name +
+      ' and you. Energy ' +
+      round(companion().stamina) +
+      ', hunger ' +
+      round(companion().hunger) +
+      ', bond ' +
+      round(companion().bond)
+    "
   >
     <img src="icons/critterstead.svg" alt="" />
     <span
       ><strong>{{ companion().name }}</strong
-      ><i class="chip-meter"><b [style.width.%]="companion().stamina"></b></i
-    ></span>
+      ><span class="chip-needs"
+        ><i class="chip-meter" title="Energy"><b [style.width.%]="companion().stamina"></b></i
+        ><i class="chip-meter hunger" title="Hunger"><b [style.width.%]="companion().hunger"></b></i
+        ><i class="chip-meter bond" title="Bond"><b [style.width.%]="companion().bond"></b></i
+      ></span>
+    </span>
   </button>
-  @for (fade of fades(); track fade) {
-    <div class="area-fade" (animationend)="endFade(fade)" aria-hidden="true"></div>
+  @for (fade of fades(); track fade.serial) {
+    <div class="area-fade" (animationend)="endFade(fade.serial, $event)" aria-hidden="true">
+      <div class="area-title">
+        <strong>{{ fade.name }}</strong
+        ><span>{{ fade.subtitle }}</span>
+      </div>
+    </div>
   }
   @if (morning(); as card) {
     <div class="morning-card" aria-hidden="true">
@@ -393,7 +430,8 @@
       <span>{{ card.date }}</span>
     </div>
   }
-  <div class="recent-note" aria-live="polite">
+  <!-- The latest result appears just above the actions for a moment, then fades. -->
+  <div class="recent-note" [class.fresh]="noteFresh() && !result()" aria-live="polite">
     <span aria-hidden="true">✧</span>
     <p>
       {{
@@ -403,7 +441,7 @@
   </div>
   <footer class="satchel-bar">
     <div class="satchel-label"><span aria-hidden="true">▱</span><strong>Backpack</strong></div>
-    <div class="inventory-items">
+    <div class="inventory-items" [class.changed]="changed().has('items')">
       <div title="Sunberries · quality affects their selling price">
         <span class="item-icon berries">●</span><span>Sunberries</span
         ><strong>{{ count('berry') }}</strong>
@@ -433,7 +471,7 @@
         ><strong>{{ count('turnip') + count('wheat') }}</strong>
       </div>
     </div>
-    <div class="player-energy">
+    <div class="player-energy" [class.changed]="changed().has('player-energy')">
       <span>Your energy</span>
       <div class="meter"><i [style.width.%]="state().player.stamina"></i></div>
       <strong>{{ round(state().player.stamina) }}</strong>
@@ -475,8 +513,10 @@
           <article>
             <h3>01 · Make yourself at home</h3>
             <p>
-              Use <kbd>WASD</kbd> or the arrow keys to walk. You can also click the ground or use
-              the touch arrows. Walk close to a place, then press <kbd>E</kbd> or choose an action.
+              Use <kbd>WASD</kbd> or the arrow keys to walk. On a touch screen, hold a finger on the
+              world and your rancher walks toward it; tap to walk to a spot (the mouse works the
+              same way). Walk close to a place, then press <kbd>E</kbd> or choose an action. Results
+              appear just above the actions; stats live in {{ companion().name }}’s details panel.
               Scroll, pinch, or press <kbd>+</kbd> and <kbd>−</kbd> to zoom the camera.
             </p>
           </article>
@@ -531,6 +571,16 @@
               {{ option.label }}
             </button>
           }
+        </div>
+        <div class="quality-setting">
+          <span>On-screen arrows (touch)</span>
+          <button
+            [class.primary]="touchArrows()"
+            [attr.aria-pressed]="touchArrows()"
+            (click)="toggleTouchArrows()"
+          >
+            {{ touchArrows() ? 'Shown' : 'Hidden' }}
+          </button>
         </div>
       } @else if (currentPanel === 'calendar') {
         @let view = calendar();

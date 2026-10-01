@@ -1,4 +1,4 @@
-import { type Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 import { type GameState } from '../src/app/game/model';
 interface DebugGameWindow extends Window {
   ng?: {
@@ -15,6 +15,56 @@ export async function developmentState(page: Page): Promise<GameState> {
     if (!game) throw new Error('Angular development diagnostics are unavailable.');
     return game.state();
   });
+}
+
+/** Three cues on an activity's button (hoops, the Clover Cup, the sprint), each on the beat. */
+export async function cues(page: Page, name: RegExp): Promise<void> {
+  for (let beat = 0; beat < 3; beat++) {
+    await expect
+      .poll(
+        async () => {
+          const training = (await developmentState(page)).training;
+          return (
+            !!training &&
+            training.elapsed - (training.lastHitAt ?? 0) > 0.35 &&
+            training.phase > 0.3 &&
+            training.phase < 0.7
+          );
+        },
+        { timeout: 15_000, intervals: [50] },
+      )
+      .toBe(true);
+    await page.getByRole('button', { name }).click();
+    await page.waitForTimeout(350);
+  }
+}
+
+/**
+ * Taps Space on every frame the gauge sits below the target, until the activity ends.
+ * Tapping from inside the page keeps pace with the frame rate, however slow rendering is.
+ */
+export async function holdGauge(page: Page, target: number): Promise<void> {
+  const finished = await page.evaluate(
+    (goal) =>
+      new Promise<boolean>((resolve) => {
+        const game = (window as DebugGameWindow).ng!.getComponent(
+          document.querySelector('app-root')!,
+        );
+        const deadline = performance.now() + 60_000;
+        const frame = (): void => {
+          const training = game.state().training;
+          if (!training) return resolve(true);
+          if (performance.now() > deadline) return resolve(false);
+          if ((training.meter ?? 0) < goal)
+            for (const type of ['keydown', 'keyup'])
+              window.dispatchEvent(new KeyboardEvent(type, { key: ' ', code: 'Space' }));
+          requestAnimationFrame(frame);
+        };
+        requestAnimationFrame(frame);
+      }),
+    target,
+  );
+  if (!finished) throw new Error('The gauge activity did not finish.');
 }
 
 // A rendered action result can precede the asynchronous IndexedDB commit.

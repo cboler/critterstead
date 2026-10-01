@@ -47,10 +47,11 @@ npm start
 
 Open `http://localhost:4200/`. WASD or arrow keys move; **E** interacts; **Space**
 cues the companion during training and racing; **J** opens the journal; **Esc**
-pauses or closes a menu. Click/tap the ground to walk. Scroll, pinch, **+**/**−** or the
-on-screen buttons zoom the camera. Small screens expose touch movement buttons and a
-details chip. Help has a visual quality setting (Auto picks one for the device). Backtick
-opens developer save tools, including deliberate reset.
+pauses or closes a menu. Click/tap the ground to walk there, or hold a finger (or the
+mouse button) on the world to walk toward it; releasing stops. Scroll, pinch, **+**/**−**
+or the on-screen buttons zoom the camera. Small screens show a details chip; Help has
+optional on-screen arrows and a visual quality setting (Auto picks one for the device).
+Backtick opens developer save tools, including deliberate reset.
 
 A standard gamepad uses the left stick to move, **A** to interact/cue, the D-pad to
 select actions/menu buttons, **B** to close, **X** for help, **Y** for the journal,

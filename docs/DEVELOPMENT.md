@@ -94,6 +94,22 @@ testing from migration testing:
 - **Migration testing**: Evaluates how an existing legacy save (such as a v1 homestead with
   Pip) loads and behaves without being overwritten.
 
+### Human playtest protocol
+
+Playtests use the published page on the tester's own device. A session spans at least two
+in-game days (about an hour), played freely; afterward the tester answers:
+
+1. **Care**: does looking after the companion feel meaningful?
+2. **Learning**: did foraging and hauling feel earned and visible as the companion learned?
+3. **Logistics**: did gathering, carrying, storing and milling satisfy, or feel like chores?
+4. **Days**: did the second and third days offer new reasons to play?
+5. **Clarity**: was it clear where to find stats, where an action's result appears, and
+   what to do next?
+6. **Controls**: what felt awkward on this device?
+
+Record what they enjoyed and what they want better, with the device, in the active plan's
+evidence; turn concrete problems into fixes or backlog items.
+
 ## Presentation and platform constraints
 
 - Use original geometry, artwork, and character identity. Commercial games may

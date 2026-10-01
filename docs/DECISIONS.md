@@ -51,6 +51,7 @@ For sequencing, see [ROADMAP.md](ROADMAP.md) and [exec-plans/README.md](exec-pla
 | **D31** | Monster Rancher training minigames family               | Accepted    | [Training](GAME-DESIGN.md#training-system)                                                                                  |
 | **D32** | Viewport decoupling from interaction dock UI            | Accepted    | [Architecture](ARCHITECTURE.md#1-viewport--canvas-decoupling)                                                               |
 | **D33** | Restructured Campaign 001 vertical slice runway         | Accepted    | [Roadmap](ROADMAP.md)                                                                                                       |
+| **D37** | One place for each kind of feedback; touch steering     | Implemented | [Plan 001 M9](exec-plans/active/001-deepen-one-critter-daily-loop.md#m9-evidence--2026-09-30)                               |
 | **D36** | Full-screen living diorama with a following camera      | Implemented | [Plan 002](exec-plans/completed/002-living-diorama-presentation.md)                                                         |
 | **D35** | Per-discipline same-day training curve; gauge drills    | Implemented | [Plan 001 M8](exec-plans/active/001-deepen-one-critter-daily-loop.md#m8-evidence--2026-09-29)                               |
 | **D34** | Moisture-gated growth, dawn boundary, hashed weather    | Implemented | [Plan 001 M7](exec-plans/active/001-deepen-one-critter-daily-loop.md#m7-evidence--2026-09-29)                               |
@@ -236,6 +237,16 @@ rancher at a fixed angle and frames the area the HUD leaves uncovered, so the do
 hides the rancher and the canvas never resizes (D32 holds). Areas continue past the fence
 as non-walkable scenery; time of day, weather and season are visible. Rendering tiers keep
 software renderers and phones fast. Presentation only: rules and saves are unchanged.
+
+### D37 — One place for each kind of feedback; touch steering (implemented 2026-09-30)
+
+From the first human playtest: players could not tell where to look for stats or for an
+action's result, and a drill's start button sat where its tap button had been. Results now
+appear just above the actions and fade, with what changed floating over whoever changed;
+stats live only in the details panel, where changed values glow; a finished drill's result
+holds its card's place until stray taps have passed. On touch screens a held finger steers
+the rancher and on-screen arrows are optional. Results are derived from state snapshots in
+the presentation layer; the host still owns every rule.
 
 ---
 

@@ -110,24 +110,20 @@
   box-shadow: 0 0 0 5px #54785b26;
 }
 .location-tag h1 {
+  min-width: 0;
   margin: 0;
   font:
-    600 28px Georgia,
+    600 26px Georgia,
     serif;
   color: #2c4232;
   letter-spacing: -0.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   text-shadow:
     0 1px 0 #ffffffb3,
     0 0 18px #f8f5e6f2,
     0 0 4px #f8f5e6;
-}
-.location-tag p {
-  margin: 3px 0 0;
-  font-size: 12px;
-  color: #37503f;
-  text-shadow:
-    0 0 10px #f8f5e6,
-    0 0 3px #f8f5e6;
 }
 .header-actions {
   @extend %panel;
@@ -306,12 +302,18 @@
     600 16px Georgia,
     serif;
 }
+// Energy, hunger and bond at a glance; the details panel explains them.
+.chip-needs {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-top: 4px;
+}
 .chip-meter {
   display: block;
   width: 88px;
-  height: 6px;
-  margin-top: 4px;
-  border-radius: 6px;
+  height: 4px;
+  border-radius: 4px;
   overflow: hidden;
   background: #e4e3d4;
 }
@@ -319,6 +321,13 @@
   display: block;
   height: 100%;
   background: #76956c;
+}
+.chip-meter.hunger b,
+.meter.hunger i {
+  background: linear-gradient(90deg, #e2bd6f, #cf8f55);
+}
+.chip-meter.bond b {
+  background: #c98e86;
 }
 .rail-open .companion-chip {
   display: none;
@@ -362,15 +371,50 @@
   padding: 4px 8px;
   border-radius: 6px;
 }
-.meter-label {
+.rail-section {
+  margin: 14px 0 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  font: 700 10px var(--sans);
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: #7c8a6d;
+}
+.companion-heading + .rail-section {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+.meter-label,
+.need-label {
   display: flex;
   justify-content: space-between;
   font-size: 11px;
   margin-bottom: 6px;
 }
-.meter-label small {
+.need-label {
+  margin-top: 10px;
+}
+.meter-label small,
+.need-label small {
   font-weight: 400;
   color: var(--muted);
+}
+// Whatever an action just changed glows for a moment, so results point to where stats live.
+.changed {
+  border-radius: 6px;
+  animation: stat-changed 1.6s ease-out;
+}
+@keyframes stat-changed {
+  0%,
+  30% {
+    background: #f3dc9a;
+    box-shadow: 0 0 0 4px #f3dc9a;
+  }
+  100% {
+    background: transparent;
+    box-shadow: 0 0 0 4px transparent;
+  }
 }
 .meter {
   height: 7px;
@@ -391,7 +435,7 @@
   gap: 6px;
   align-items: center;
   justify-content: space-between;
-  margin: 10px 0 14px;
+  margin: 12px 0 4px;
   font-size: 11px;
   color: var(--muted);
 }
@@ -408,6 +452,9 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 9px 18px;
+}
+// The rancher panel has no section heading above its stats.
+.rancher-card .stats-grid {
   border-top: 1px solid var(--line);
   padding-top: 12px;
 }
@@ -424,9 +471,7 @@
   font-weight: 600;
 }
 .learning {
-  margin-top: 14px;
-  padding-top: 12px;
-  border-top: 1px solid var(--line);
+  margin-top: 4px;
 }
 .learning > div:first-child {
   display: flex;
@@ -490,18 +535,32 @@
   color: var(--muted);
 }
 
-// Journal line.
+// The latest result: just above whichever bottom panel shows, briefly, where the eye
+// already is after choosing an action. The journal keeps every entry.
 .recent-note {
   @extend %panel;
   position: absolute;
   z-index: 10;
-  left: var(--edge);
-  top: calc(var(--top) + 122px);
-  max-width: 340px;
+  left: var(--free-left);
+  right: var(--free-right);
+  bottom: calc(var(--bottom) + var(--hotbar-h) + 20px + var(--dock-h));
+  margin: 0 auto;
+  width: fit-content;
+  max-width: min(560px, calc(100vw - var(--free-left) - var(--free-right)));
   display: flex;
   gap: 9px;
-  padding: 10px 14px;
+  padding: 9px 14px;
   border-radius: 14px;
+  opacity: 0;
+  transform: translateY(8px);
+  transition:
+    opacity 0.35s,
+    transform 0.35s;
+  pointer-events: none;
+}
+.recent-note.fresh {
+  opacity: 1;
+  transform: none;
 }
 .recent-note > span {
   color: #b39356;
@@ -682,6 +741,71 @@
   color: var(--muted);
   margin: 0 0 12px;
   line-height: 1.55;
+}
+// A finished drill's result, in the same place as its card.
+.result-card {
+  @extend %panel;
+  position: absolute;
+  z-index: 9;
+  left: var(--free-left);
+  right: var(--free-right);
+  bottom: calc(var(--bottom) + var(--hotbar-h) + 12px);
+  margin: 0 auto;
+  max-width: 540px;
+  padding: 16px 22px;
+  border-radius: 22px;
+  background: var(--hud-bg-strong);
+  text-align: center;
+  animation: result-in 0.35s ease-out;
+}
+.result-card h2 {
+  font:
+    600 24px Georgia,
+    serif;
+  margin: 4px 0 8px;
+}
+.result-card p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.result-gains {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin-bottom: 8px !important;
+}
+.result-gains strong {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: #e5eed7;
+  color: #3f6444;
+  font-size: 13px;
+}
+@keyframes result-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+}
+// Short notes that float up from the rancher or companion when an action changes them.
+.world-float {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #fffdf5e6;
+  box-shadow: 0 2px 8px #24342626;
+  font: 700 12px var(--sans);
+  color: #4d5645;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.world-float.gain {
+  color: #3f7447;
+}
+.world-float.cost {
+  color: #a0603f;
 }
 .timing-track {
   height: 30px;
@@ -1018,13 +1142,23 @@
   .game-shell.rail-open {
     --free-right: var(--edge-right);
   }
-  .brand {
+  // One top row: the brand shrinks to its mark and the area name sits beside it.
+  .masthead-start {
+    flex-direction: row;
+    align-items: center;
     gap: 8px;
-    padding: 4px 13px 4px 4px;
-    font-size: 17px;
+    min-width: 0;
   }
-  .brand small {
-    display: none;
+  .brand {
+    padding: 4px;
+  }
+  .brand > span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
   .brand-mark {
     width: 34px;
@@ -1064,20 +1198,15 @@
     display: none;
   }
   .location-tag {
-    margin-top: 50px;
-    max-width: calc(100vw - var(--edge) - var(--edge-right) - 170px);
-  }
-  .location-tag > div {
     min-width: 0;
+    padding-left: 2px;
+    max-width: calc(100vw - var(--edge) - var(--edge-right) - 200px);
+  }
+  .location-dot {
+    display: none;
   }
   .location-tag h1 {
-    font-size: 19px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .location-tag p {
-    font-size: 11px;
+    font-size: 18px;
   }
   .companion-chip {
     top: calc(var(--top) + 106px);
@@ -1096,9 +1225,9 @@
     background: var(--hud-bg-strong);
   }
   .recent-note {
-    top: calc(var(--top) + 164px);
-    right: calc(var(--edge-right) + 150px);
-    max-width: none;
+    left: var(--edge);
+    right: var(--edge-right);
+    bottom: calc(var(--bottom) + var(--hotbar-h) + 14px + var(--dock-h));
     padding: 8px 12px;
   }
   .recent-note p {
@@ -1139,7 +1268,8 @@
     font-size: 0;
   }
   .interaction-dock,
-  .training-card {
+  .training-card,
+  .result-card {
     left: var(--edge);
     right: var(--edge-right);
     max-width: none;
@@ -1153,6 +1283,10 @@
     font-size: 17px;
   }
   .interaction-copy p {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    overflow: hidden;
     font-size: 11px;
     margin-bottom: 8px;
   }
@@ -1201,9 +1335,12 @@
     bottom: calc(var(--bottom) + var(--hotbar-h) + var(--dock-h) + 16px);
   }
   .walk-prompt {
-    left: calc(var(--edge) + 160px);
+    left: calc(var(--edge) + 58px);
     right: calc(var(--edge-right) + 58px);
     font-size: 14px;
+  }
+  .arrows-on .walk-prompt {
+    left: calc(var(--edge) + 160px);
   }
   .walk-prompt small {
     font-size: 11px;
@@ -1237,15 +1374,11 @@
     width: 30px;
     height: 30px;
   }
-  .brand small,
-  .location-tag p {
+  .brand small {
     display: none;
   }
   .masthead-start {
     gap: 6px;
-  }
-  .location-tag {
-    margin-top: 0;
   }
   .location-tag h1 {
     font-size: 17px;
@@ -1265,12 +1398,11 @@
     width: 300px;
   }
   .recent-note {
-    top: calc(var(--top) + 84px);
-    right: auto;
-    max-width: 280px;
+    left: var(--edge);
+    right: calc(var(--edge-right) + 58px);
+    bottom: calc(var(--bottom) + var(--hotbar-h) + 14px + var(--dock-h));
   }
-  .recent-note p,
-  .interaction-copy p {
+  .recent-note p {
     display: -webkit-box;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
@@ -1280,10 +1412,18 @@
     -webkit-line-clamp: 1;
   }
   .interaction-dock,
-  .training-card {
-    left: calc(var(--edge) + 160px);
+  .training-card,
+  .result-card {
+    left: var(--edge);
     right: calc(var(--edge-right) + 58px);
     max-height: 60vh;
+  }
+  // Optional on-screen arrows take the left corner beside the dock.
+  .arrows-on .interaction-dock,
+  .arrows-on .training-card,
+  .arrows-on .result-card,
+  .arrows-on .recent-note {
+    left: calc(var(--edge) + 160px);
   }
   // One scrolling row of actions keeps the world visible above a short screen's dock.
   .interaction-actions {
@@ -1327,7 +1467,6 @@
 
 // After dark, text drawn straight on the world switches to light type with a soft shadow.
 .is-night .location-tag h1,
-.is-night .location-tag p,
 .is-night .walk-prompt,
 .is-night .movement-hint {
   color: #f7f1dc;
@@ -1340,16 +1479,21 @@
   box-shadow: 0 0 0 5px #f0cf8233;
 }
 
-// Moments: a soft fade when changing areas, and a title card for each new morning.
+// Moments: a soft, titled fade when changing areas, and a title card for each new morning.
 .area-fade {
   position: absolute;
   inset: 0;
   z-index: 15;
   pointer-events: none;
+}
+.area-fade::before {
+  content: '';
+  position: absolute;
+  inset: 0;
   background: #f4eedb;
   animation: area-fade 0.8s ease-out forwards;
 }
-.is-night .area-fade {
+.is-night .area-fade::before {
   background: #121a28;
 }
 @keyframes area-fade {
@@ -1357,6 +1501,49 @@
     opacity: 1;
   }
   to {
+    opacity: 0;
+  }
+}
+.area-title {
+  position: absolute;
+  left: 50%;
+  top: 30%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  color: #2c4232;
+  text-shadow:
+    0 0 24px #f8f5e6,
+    0 0 6px #f8f5e6;
+  animation: area-title 2.4s ease forwards;
+}
+.area-title strong {
+  display: block;
+  font:
+    600 40px Georgia,
+    serif;
+  letter-spacing: -0.8px;
+}
+.area-title span {
+  display: block;
+  margin-top: 4px;
+  font-size: 14px;
+  font-style: italic;
+}
+.is-night .area-title {
+  color: #f7f1dc;
+  text-shadow:
+    0 1px 2px #0b1220a6,
+    0 0 16px #0b122080;
+}
+@keyframes area-title {
+  0% {
+    opacity: 0;
+  }
+  15%,
+  70% {
+    opacity: 1;
+  }
+  100% {
     opacity: 0;
   }
 }
