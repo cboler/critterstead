@@ -139,6 +139,13 @@ replaces its card and holds action input for a few seconds. `GameWorld` steers t
 held pointer every frame through its walk callback (`null` stops), so a fixed finger keeps
 walking as the camera follows. All of this is presentation over host state.
 
+[D38](DECISIONS.md#d38--quests-read-from-the-save-growth-is-visible-and-counts-implemented-2026-10-01):
+`objectives.ts` derives the journal's quests from the save as a pure function; nothing
+about them is stored. The dock groups `transfer:` actions into one row per item while
+their ids and labels stay the host's. `GameWorld.react` plays companion reactions the app
+requests; idle fidgets are chosen in the view from energy and hunger. `forageYield` and
+`haulingPace` (host) are the single source for both the rule and the text that explains it.
+
 ## Architectural reality audit (reconciliation baseline before M4)
 
 The following audit records the reconciled pre-M4 baseline. The dated additions

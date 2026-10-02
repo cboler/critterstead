@@ -690,6 +690,16 @@
   color: var(--muted);
   margin: 0 0 10px;
 }
+.interaction-copy .quest-hint {
+  color: #5d7354;
+}
+.quest-hint span {
+  margin-right: 5px;
+}
+.quest-hint strong {
+  font-weight: 600;
+  color: #3f6444;
+}
 .interaction-actions {
   display: flex;
   flex-wrap: wrap;
@@ -900,9 +910,6 @@
   @extend %panel;
   font-size: 22px;
   font-weight: 600;
-}
-.touch-controls {
-  display: none;
 }
 // Messages dim the world but sit beneath the HUD, which stays usable (resume, menus).
 .world-message {
@@ -1130,6 +1137,198 @@
   overflow-wrap: anywhere;
 }
 
+// Storage: one row per item with its counts and compact moves, however many kinds exist.
+.cargo {
+  display: grid;
+  gap: 2px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+.interaction-copy + .cargo {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+.cargo-head,
+.cargo-row {
+  display: grid;
+  grid-template-columns: minmax(84px, 1.1fr) 44px 86px 3fr;
+  align-items: center;
+  gap: 8px;
+}
+.cargo-head {
+  font: 700 10px var(--sans);
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  color: #7c8a6d;
+}
+.cargo-head span:nth-child(n + 2),
+.cargo-count {
+  text-align: center;
+}
+.cargo-row {
+  font-size: 12px;
+}
+.cargo-count {
+  font-weight: 600;
+}
+.cargo-moves {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px;
+}
+.cargo-moves button {
+  min-height: 36px;
+  padding: 4px 12px;
+  font-size: 12px;
+  border-radius: 10px;
+  background: #fffdf5d9;
+}
+.cargo-moves button.primary {
+  background: #486c50;
+  border-color: #486c50;
+  color: #fffdf0;
+}
+
+// The companion's lessons: stage, progress, and what its growth now earns.
+.learning-card {
+  padding-top: 10px;
+}
+.learning-card .rail-section:first-of-type {
+  margin-top: 8px;
+  padding-top: 0;
+  border-top: 0;
+}
+.hauling-status {
+  margin: 0 0 8px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.hauling-status strong {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.lesson-effect {
+  margin: 8px 0 0 !important;
+  font-size: 11px;
+  line-height: 1.45;
+  color: #5d7354;
+}
+
+// A learning stage reached: a banner that celebrates without blocking play.
+.milestone-card {
+  @extend %panel;
+  position: absolute;
+  z-index: 16;
+  left: 50%;
+  top: calc(var(--top) + 70px);
+  width: max-content;
+  max-width: min(460px, calc(100vw - 32px));
+  transform: translateX(-50%);
+  padding: 14px 24px;
+  border-radius: 20px;
+  background: var(--hud-bg-strong);
+  text-align: center;
+  pointer-events: none;
+  animation: milestone 5.2s ease forwards;
+}
+.milestone-card strong {
+  display: block;
+  margin: 4px 0;
+  font:
+    600 26px Georgia,
+    serif;
+  color: #3f6444;
+}
+.milestone-card span:last-child {
+  display: block;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+@keyframes milestone {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, 10px);
+  }
+  8%,
+  86% {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, 0);
+  }
+}
+
+// The journal: quests, history by day, supplies.
+.journal-tabs {
+  display: flex;
+  gap: 6px;
+  margin: 4px 0 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--line);
+}
+.journal-tabs [role='tab'] {
+  flex: 1;
+  min-height: 44px;
+  border-radius: 999px;
+  background: transparent;
+  border-color: transparent;
+  font-weight: 600;
+}
+.journal-tabs [role='tab'][aria-selected='true'] {
+  background: #486c50;
+  color: #fffdf0;
+}
+.quest-list {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 18px;
+  padding: 0;
+  list-style: none;
+}
+.quest-list li {
+  padding: 9px 12px;
+  border-radius: 12px;
+  background: #fffdf5b8;
+  border: 1px solid var(--line);
+}
+.quest-list strong {
+  display: block;
+  font-size: 13px;
+}
+.quest-list span {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+.quest-list li.done {
+  opacity: 0.62;
+}
+.quest-list li.done strong::before {
+  content: '✓ ';
+  color: #5f8a5f;
+}
+.quest-progress {
+  display: block;
+  height: 5px;
+  margin-top: 7px;
+  border-radius: 5px;
+  overflow: hidden;
+  background: #e5e6da;
+}
+.quest-progress b {
+  display: block;
+  height: 100%;
+  background: #b5a36e;
+}
+
 // Phones and narrow tablets: details open as a sheet; controls gather near the thumbs.
 @media (max-width: 899px) {
   .game-shell {
@@ -1298,6 +1497,22 @@
   .training-footer kbd {
     display: none;
   }
+  .milestone-card {
+    top: calc(var(--top) + 166px);
+  }
+  .cargo-head,
+  .cargo-row {
+    grid-template-columns: minmax(64px, 1fr) 30px 64px 2.6fr;
+    gap: 6px;
+  }
+  .cargo-row {
+    font-size: 11px;
+  }
+  .cargo-moves button {
+    min-height: 44px;
+    padding: 4px 10px;
+    font-size: 11px;
+  }
   .training-card {
     padding: 13px 14px;
   }
@@ -1307,29 +1522,6 @@
   .training-card p {
     font-size: 11px;
   }
-  .touch-controls {
-    display: block;
-    position: absolute;
-    z-index: 10;
-    left: var(--edge);
-    bottom: calc(var(--bottom) + var(--hotbar-h) + var(--dock-h) + 16px);
-    text-align: center;
-  }
-  .touch-controls > div {
-    display: flex;
-    gap: 3px;
-    margin-top: 3px;
-  }
-  .touch-controls button {
-    width: 48px;
-    height: 48px;
-    padding: 0;
-    border-radius: 14px;
-    font-size: 18px;
-    background: #fcf9f0b8;
-    border-color: #ffffffcc;
-    box-shadow: 0 4px 12px #24342620;
-  }
   .view-tools {
     right: var(--edge-right);
     bottom: calc(var(--bottom) + var(--hotbar-h) + var(--dock-h) + 16px);
@@ -1338,9 +1530,6 @@
     left: calc(var(--edge) + 58px);
     right: calc(var(--edge-right) + 58px);
     font-size: 14px;
-  }
-  .arrows-on .walk-prompt {
-    left: calc(var(--edge) + 160px);
   }
   .walk-prompt small {
     font-size: 11px;
@@ -1418,12 +1607,18 @@
     right: calc(var(--edge-right) + 58px);
     max-height: 60vh;
   }
-  // Optional on-screen arrows take the left corner beside the dock.
-  .arrows-on .interaction-dock,
-  .arrows-on .training-card,
-  .arrows-on .result-card,
-  .arrows-on .recent-note {
-    left: calc(var(--edge) + 160px);
+  // Actions and storage sit side by side so a short screen's dock stays low.
+  .dock-body {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: 12px;
+    align-items: start;
+  }
+  .dock-body .cargo {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: 0;
   }
   // One scrolling row of actions keeps the world visible above a short screen's dock.
   .interaction-actions {
@@ -1434,9 +1629,6 @@
   .interaction-actions button {
     flex: 0 0 auto;
     white-space: nowrap;
-  }
-  .touch-controls {
-    bottom: calc(var(--bottom) + var(--hotbar-h) + 10px);
   }
   .view-tools {
     bottom: calc(var(--bottom) + var(--hotbar-h) + 10px);

@@ -51,6 +51,7 @@ For sequencing, see [ROADMAP.md](ROADMAP.md) and [exec-plans/README.md](exec-pla
 | **D31** | Monster Rancher training minigames family               | Accepted    | [Training](GAME-DESIGN.md#training-system)                                                                                  |
 | **D32** | Viewport decoupling from interaction dock UI            | Accepted    | [Architecture](ARCHITECTURE.md#1-viewport--canvas-decoupling)                                                               |
 | **D33** | Restructured Campaign 001 vertical slice runway         | Accepted    | [Roadmap](ROADMAP.md)                                                                                                       |
+| **D38** | Quests read from the save; growth is visible and counts | Implemented | [Plan 001 playtest 2](exec-plans/active/001-deepen-one-critter-daily-loop.md#playtest-2-follow-up--2026-10-01)              |
 | **D37** | One place for each kind of feedback; touch steering     | Implemented | [Plan 001 M9](exec-plans/active/001-deepen-one-critter-daily-loop.md#m9-evidence--2026-09-30)                               |
 | **D36** | Full-screen living diorama with a following camera      | Implemented | [Plan 002](exec-plans/completed/002-living-diorama-presentation.md)                                                         |
 | **D35** | Per-discipline same-day training curve; gauge drills    | Implemented | [Plan 001 M8](exec-plans/active/001-deepen-one-critter-daily-loop.md#m8-evidence--2026-09-29)                               |
@@ -247,6 +248,16 @@ stats live only in the details panel, where changed values glow; a finished dril
 holds its card's place until stray taps have passed. On touch screens a held finger steers
 the rancher and on-screen arrows are optional. Results are derived from state snapshots in
 the presentation layer; the host still owns every rule.
+
+### D38 — Quests read from the save; growth is visible and counts (implemented 2026-10-01)
+
+From the second playtest. The journal's quests ("today" and "your journey") are a pure
+reading of the save (`objectives.ts`), never stored, so no migration or duplicate truth
+exists. A companion's growth must be both real and shown: foraging already improved with
+practice, intelligence and bond, and hauling pace now rises with speed above 4 and hauling
+practice (+3% per point of speed, +2% per practice level, capped at +50%, provisional).
+Both appear as plain "what this earns" lines in a Learning tab, and each new stage is
+announced. On-screen arrows are removed; touch steering replaces them.
 
 ---
 

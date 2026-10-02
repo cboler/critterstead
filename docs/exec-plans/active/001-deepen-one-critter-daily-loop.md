@@ -399,10 +399,10 @@ The outstanding human comparison between M3 routines has been conducted on the d
 
 ## Current handoff
 
-M1–M9 built and published on `main`; playtest 1's findings are fixed in M9. Next: the
-product owner plays the M9 build (protocol in DEVELOPMENT.md) and holds the planned
-vision sessions; record that playtest, then take the gate decision on Stage 2. Do not
-begin Stage 2 before that decision.
+M1–M9 built and published on `main`; playtests 1 and 2 are recorded and their findings
+fixed. Next: collect the remaining testers' feedback (protocol in DEVELOPMENT.md) and
+hold the planned vision sessions; then the product owner decides the Stage 2 gate. Do
+not begin Stage 2 before that decision.
 
 M4 desktop persistence suite: 9 passed, including v1/v2 migration, paid activity,
 malformed/future/ambiguous save protection, and single-writer ownership.
@@ -606,3 +606,39 @@ merge or Pages deployment is implied by the campaign branch push.
   the gate needs the product owner's playtest of this build (protocol in
   [DEVELOPMENT.md](../../DEVELOPMENT.md#human-playtest-protocol)) and the planned vision
   sessions, which will shape Stage 2. Stage 2 has not begun.
+
+## Playtest 2 follow-up — 2026-10-01
+
+Second session with the same tester on the M9 build, answering the protocol's questions.
+
+- **Care** — _meaningful, but could be better: idle animations, reactions when fed or
+  petted._ The companion now fidgets when idle (looks around, stretches, sniffs, hops),
+  yawns when tired and begs when hungry, and reacts to a scritch (eyes closed, leaning
+  in, the rancher's hand out), a meal (bites, then a hop), a drill's result and a new
+  lesson. Reactions are requested by the action itself, not by journal wording.
+- **Learning** — _"I didn't notice a difference based on the critter level; not sure what
+  was earned."_ Growth already changed foraging but nothing showed it; hauling practice
+  changed nothing. Now ([D38](../../DECISIONS.md#d38--quests-read-from-the-save-growth-is-visible-and-counts-implemented-2026-10-01)):
+  hauling pace rises with speed and practice; a Learning tab shows each lesson's stage,
+  progress and a plain "what this earns" line, plus practice levels; reaching a stage
+  shows a banner; practice gains and work the companion does alone float over it.
+- **Logistics** — _liked the cycle, especially milling; menus will need rework as items
+  grow._ Storage moves are grouped into one row per item (counts for you and the place,
+  compact Store/Take/companion moves) instead of one long button per move. The host's
+  action ids and labels are unchanged.
+- **Days** — _"yes, the farm life never ends."_ No change.
+- **Clarity** — _stats and results clear; "the quest log is buried"; wants a journal for
+  history and quests._ The journal opens on Quests ("Today" and "Your journey", derived
+  from the save), with History grouped by day and Supplies as tabs; when nothing is
+  nearby the HUD names the journey's next step.
+- **Controls** — _drop the on-screen arrows; touch to move is enough._ Removed, with their
+  Help toggle.
+- **Verification:** 135 unit tests; lint, formatting, `/critterstead/` build (1.08 MB
+  initial, nearing the 1.1 MB warning budget) and `check:pwa`. Browser suite: 64 passed, 28 project-scoped skips, 0 failed; the heavy
+  journeys also pass with frames throttled to ~6.5 fps. That run exposed the result note
+  overlapping the dock for a moment after load (its position used a height measured only
+  every 0.2 s); the HUD now re-measures whenever the bottom panel or the note changes.
+  GPU screenshots inspected at 390×844, 844×390, 1280×800 and 1440×900 (storage rows,
+  Learning tab, milestone banner, journal quests, petting reaction).
+- **Still open for the gate:** feedback from other testers and the product owner's vision
+  sessions. Stage 2 has not begun.

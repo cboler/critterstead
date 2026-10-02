@@ -2,7 +2,6 @@
 <div
   class="game-shell"
   [class.rail-open]="railOpen()"
-  [class.arrows-on]="touchArrows()"
   [class.quality-light]="quality() === 'light'"
   [class.is-night]="night()"
   [attr.inert]="panel() ? '' : null"
@@ -162,8 +161,13 @@
           </div>
         } @else if (!nearby() && !noteFresh()) {
           <div class="walk-prompt" id="game-controls">
-            <span class="footsteps" aria-hidden="true">⌁</span> A good day starts with a little
-            exploring.<small>Walk close to a place or {{ companion().name }} to interact.</small>
+            @if (nextQuest(); as quest) {
+              <span class="footsteps" aria-hidden="true">✦</span> {{ quest.title
+              }}<small>{{ quest.detail }}</small>
+            } @else {
+              <span class="footsteps" aria-hidden="true">⌁</span> A good day starts with a little
+              exploring.<small>Walk close to a place or {{ companion().name }} to interact.</small>
+            }
           </div>
         }
         <div class="movement-hint">
@@ -175,46 +179,6 @@
             ><span>Click to walk · scroll or <kbd>+</kbd><kbd>−</kbd> to zoom</span>
           }
         </div>
-        @if (!state().training && touchArrows()) {
-          <div class="touch-controls" aria-label="Movement controls">
-            <button
-              aria-label="Move up"
-              (pointerdown)="direction('w', true)"
-              (pointerup)="direction('w', false)"
-              (pointerleave)="direction('w', false)"
-              (pointercancel)="direction('w', false)"
-            >
-              ↑
-            </button>
-            <div>
-              <button
-                aria-label="Move left"
-                (pointerdown)="direction('a', true)"
-                (pointerup)="direction('a', false)"
-                (pointerleave)="direction('a', false)"
-                (pointercancel)="direction('a', false)"
-              >
-                ←</button
-              ><button
-                aria-label="Move down"
-                (pointerdown)="direction('s', true)"
-                (pointerup)="direction('s', false)"
-                (pointerleave)="direction('s', false)"
-                (pointercancel)="direction('s', false)"
-              >
-                ↓</button
-              ><button
-                aria-label="Move right"
-                (pointerdown)="direction('d', true)"
-                (pointerup)="direction('d', false)"
-                (pointerleave)="direction('d', false)"
-                (pointercancel)="direction('d', false)"
-              >
-                →
-              </button>
-            </div>
-          </div>
-        }
         <div class="view-tools" aria-label="Camera">
           <button class="icon-button" (click)="zoom(-1)" aria-label="Zoom in">+</button>
           <button class="icon-button" (click)="zoom(1)" aria-label="Zoom out">−</button>
@@ -226,21 +190,63 @@
             <h2>{{ target.title }}</h2>
             <!-- Small screens show the first lines; the whole text stays readable to assistive tech. -->
             <p [title]="target.description">{{ target.description }}</p>
+            <!-- The companion's dock is the resting state, so the journey's next step lives here. -->
+            @if (target.id === companion().id && nextQuest(); as quest) {
+              <p class="quest-hint">
+                <span aria-hidden="true">✦</span> <strong>Next: {{ quest.title }}</strong> ·
+                {{ quest.detail }}
+              </p>
+            }
           </div>
-          <div class="interaction-actions">
-            @for (action of target.actions; track action.id) {
-              <button
-                [class.primary]="primaryAction(action.id)"
-                [class.pad-selected]="gamepadAction() === action.id"
-                [disabled]="action.disabled || paused()"
-                [title]="action.reason || action.label"
-                (click)="act(action.id)"
-              >
-                {{ action.label }}
-                @if (primaryAction(action.id)) {
-                  <kbd>{{ controllerConnected() ? 'A' : 'E' }}</kbd>
+          <div class="dock-body">
+            @if (plainActions().length) {
+              <div class="interaction-actions">
+                @for (action of plainActions(); track action.id) {
+                  <button
+                    [attr.data-action]="action.id"
+                    [class.primary]="primaryAction(action.id)"
+                    [class.pad-selected]="gamepadAction() === action.id"
+                    [disabled]="action.disabled || paused()"
+                    [title]="action.reason || action.label"
+                    (click)="act(action.id)"
+                  >
+                    {{ action.label }}
+                    @if (primaryAction(action.id)) {
+                      <kbd>{{ controllerConnected() ? 'A' : 'E' }}</kbd>
+                    }
+                  </button>
                 }
-              </button>
+              </div>
+            }
+            @if (cargo().length) {
+              <!-- One row per item keeps storage readable however many kinds of things there are. -->
+              <div class="cargo" role="group" aria-label="Storage">
+                <div class="cargo-head" aria-hidden="true">
+                  <span>Item</span><span>You</span><span>{{ placeName() }}</span>
+                </div>
+                @for (row of cargo(); track row.itemId) {
+                  <div class="cargo-row">
+                    <strong>{{ row.name }}</strong>
+                    <span class="cargo-count">{{ row.mine }}</span>
+                    <span class="cargo-count">{{ row.here }}</span>
+                    <div class="cargo-moves">
+                      @for (move of moves(row); track move.action.id) {
+                        <button
+                          [attr.data-action]="move.action.id"
+                          [attr.aria-label]="move.action.label"
+                          [class.primary]="primaryAction(move.action.id)"
+                          [class.pad-selected]="gamepadAction() === move.action.id"
+                          [disabled]="move.action.disabled || paused()"
+                          [title]="move.action.reason || move.action.label"
+                          (click)="act(move.action.id)"
+                        >
+                          {{ move.text }}
+                        </button>
+                      }
+                    </div>
+                  </div>
+                }
+              </div>
             }
           </div>
           @if (blockedReason()) {
@@ -259,6 +265,15 @@
           (click)="railTab.set('companion')"
         >
           {{ companion().name }}
+        </button>
+        <button
+          role="tab"
+          id="tab-learning"
+          aria-controls="panel-learning"
+          [attr.aria-selected]="railTab() === 'learning'"
+          (click)="railTab.set('learning')"
+        >
+          Learning
         </button>
         <button
           role="tab"
@@ -321,7 +336,16 @@
             </div>
           }
         </div>
-        <h3 class="rail-section">Learning</h3>
+      </section>
+      <section
+        class="learning-card"
+        id="panel-learning"
+        role="tabpanel"
+        aria-labelledby="tab-learning"
+        [hidden]="railTab() !== 'learning'"
+      >
+        <span class="eyebrow">What {{ companion().name }} has learned</span>
+        <h3 class="rail-section">{{ learning().name }}</h3>
         <div class="learning">
           <div>
             <span aria-hidden="true">❧</span><strong>{{ learning().label }}</strong>
@@ -344,7 +368,36 @@
               <i [class.learned]="learning().progress >= step"></i>
             }
           </div>
+          <p class="lesson-effect">{{ learning().effect }}</p>
         </div>
+        <h3 class="rail-section">{{ hauling().name }}</h3>
+        <div class="lesson">
+          <p class="hauling-status">
+            <strong
+              >{{ hauling().label }} ·
+              {{ hauling().progress > hauling().goal ? hauling().goal : hauling().progress }}/{{
+                hauling().goal
+              }}</strong
+            ><br />{{ hauling().status }}
+          </p>
+          <div class="knowledge-track" aria-hidden="true">
+            @for (step of haulingSteps; track step) {
+              <i [class.learned]="hauling().progress >= step"></i>
+            }
+          </div>
+          <p class="lesson-effect">{{ hauling().effect }}</p>
+        </div>
+        @if (companionSkills().length) {
+          <h3 class="rail-section">Practice</h3>
+          <div class="stats-grid">
+            @for (skill of companionSkills(); track skill.name) {
+              <div [class.changed]="changed().has('skill:' + skill.name)">
+                <span>{{ skill.name }}</span
+                ><strong>{{ skill.value }}</strong>
+              </div>
+            }
+          </div>
+        }
       </section>
       <section
         class="rancher-card"
@@ -371,14 +424,6 @@
             Timber {{ count('timber') }} · Stone {{ count('stone') }} · Lumber {{ count('lumber') }}
           </p>
         }
-        <p class="hauling-status">
-          <strong
-            >{{ hauling().label }} ·
-            {{ hauling().progress > hauling().goal ? hauling().goal : hauling().progress }}/{{
-              hauling().goal
-            }}</strong
-          ><br />{{ hauling().status }}
-        </p>
         <div class="skill-list">
           @for (skill of rancherSkills; track skill) {
             <p>
@@ -421,6 +466,13 @@
         <strong>{{ fade.name }}</strong
         ><span>{{ fade.subtitle }}</span>
       </div>
+    </div>
+  }
+  @if (milestone(); as learned) {
+    <div class="milestone-card" role="status">
+      <span class="eyebrow">{{ companion().name }} learned something · {{ learned.lesson }}</span>
+      <strong>{{ learned.stage }}</strong>
+      <span>{{ learned.detail }}</span>
     </div>
   }
   @if (morning(); as card) {
@@ -572,16 +624,6 @@
             </button>
           }
         </div>
-        <div class="quality-setting">
-          <span>On-screen arrows (touch)</span>
-          <button
-            [class.primary]="touchArrows()"
-            [attr.aria-pressed]="touchArrows()"
-            (click)="toggleTouchArrows()"
-          >
-            {{ touchArrows() ? 'Shown' : 'Hidden' }}
-          </button>
-        </div>
       } @else if (currentPanel === 'calendar') {
         @let view = calendar();
         <p class="calendar-today">
@@ -632,56 +674,109 @@
         </ul>
         <button class="primary" (click)="openPanel(null)">Back to the cottage</button>
       } @else if (currentPanel === 'journal') {
-        <div class="journal-summary">
-          <span>Day {{ state().day }}</span
-          ><span>{{ companion().name }} · {{ learning().label }}</span
-          ><span>Shed level {{ state().shedLevel }}</span>
-        </div>
-        <ol class="journal-entries">
-          @for (entry of state().journal; track $index) {
-            <li>{{ entry }}</li>
-          } @empty {
-            <li>Your story is just beginning.</li>
-          }
-        </ol>
-        <h3>In your backpack</h3>
-        <div class="quality-items">
-          @for (item of bag().items; track item.id) {
-            <span
-              >{{ item.itemId }} × {{ item.quantity }}
-              <small>quality {{ item.quality }}</small></span
+        <div class="journal-tabs" role="tablist" aria-label="Journal">
+          @for (tab of journalTabs; track tab.id) {
+            <button
+              role="tab"
+              [attr.aria-selected]="journalTab() === tab.id"
+              (click)="journalTab.set(tab.id)"
             >
+              {{ tab.label }}
+            </button>
           }
         </div>
-        <h3>Supplies have a place</h3>
-        <div class="quality-items">
-          @for (container of state().containers; track container.id) {
-            <span
-              >{{ container.kind }}:
-              @for (item of container.items; track item.id) {
-                {{ item.itemId }} × {{ item.quantity }}
-              } @empty {
-                empty
-              }
-            </span>
-          }
-        </div>
-        @if (companion().competitions.length) {
-          <h3>Competition memories</h3>
-          <ul>
-            @for (race of companion().competitions; track $index) {
+        <div role="tabpanel" aria-label="Quests" [hidden]="journalTab() !== 'quests'">
+          <h3>Today</h3>
+          <ul class="quest-list">
+            @for (quest of todayQuests(); track quest.id) {
               <li>
-                Day {{ race.day }} ·
-                {{
-                  race.event === 'exhibition'
-                    ? 'Colosseum exhibition · ' + race.time + ' points'
-                    : 'Clover Cup · ' + race.time + 's'
-                }}
-                · {{ race.medal }}
+                <strong>{{ quest.title }}</strong
+                ><span>{{ quest.detail }}</span>
               </li>
+            } @empty {
+              <li><span>Nothing pressing. Enjoy the day.</span></li>
             }
           </ul>
-        }
+          <h3>Your journey</h3>
+          <ol class="quest-list journey">
+            @for (quest of journeyQuests(); track quest.id) {
+              <li [class.done]="quest.done">
+                <strong>{{ quest.title }}</strong
+                ><span>{{ quest.detail }}</span>
+                @if (quest.progress; as progress) {
+                  <i
+                    class="quest-progress"
+                    role="meter"
+                    [attr.aria-label]="quest.title"
+                    aria-valuemin="0"
+                    [attr.aria-valuemax]="progress.goal"
+                    [attr.aria-valuenow]="progress.value"
+                    ><b [style.width.%]="(progress.value / progress.goal) * 100"></b
+                  ></i>
+                }
+              </li>
+            }
+          </ol>
+        </div>
+        <div role="tabpanel" aria-label="History" [hidden]="journalTab() !== 'history'">
+          <div class="journal-summary">
+            <span>Day {{ state().day }}</span
+            ><span>{{ companion().name }} · {{ learning().label }}</span
+            ><span>Shed level {{ state().shedLevel }}</span>
+          </div>
+          @for (day of history(); track $index) {
+            <h3>{{ day.title }}</h3>
+            <ol class="journal-entries">
+              @for (entry of day.entries; track $index) {
+                <li>{{ entry }}</li>
+              }
+            </ol>
+          } @empty {
+            <p>Your story is just beginning.</p>
+          }
+          @if (companion().competitions.length) {
+            <h3>Competition memories</h3>
+            <ul>
+              @for (race of companion().competitions; track $index) {
+                <li>
+                  Day {{ race.day }} ·
+                  {{
+                    race.event === 'exhibition'
+                      ? 'Colosseum exhibition · ' + race.time + ' points'
+                      : 'Clover Cup · ' + race.time + 's'
+                  }}
+                  · {{ race.medal }}
+                </li>
+              }
+            </ul>
+          }
+        </div>
+        <div role="tabpanel" aria-label="Supplies" [hidden]="journalTab() !== 'supplies'">
+          <h3>In your backpack</h3>
+          <div class="quality-items">
+            @for (item of bag().items; track item.id) {
+              <span
+                >{{ item.itemId }} × {{ item.quantity }}
+                <small>quality {{ item.quality }}</small></span
+              >
+            } @empty {
+              <span>Empty</span>
+            }
+          </div>
+          <h3>Supplies have a place</h3>
+          <div class="quality-items">
+            @for (container of state().containers; track container.id) {
+              <span
+                >{{ container.kind }}:
+                @for (item of container.items; track item.id) {
+                  {{ item.itemId }} × {{ item.quantity }}
+                } @empty {
+                  empty
+                }
+              </span>
+            }
+          </div>
+        </div>
       } @else {
         <p>
           Development shortcuts change your saved game. Start a new homestead only when you want to

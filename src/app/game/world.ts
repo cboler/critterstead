@@ -67,6 +67,35 @@ const STEER_HOLD_MS = 260;
 const STEER_SLOP = 14;
 const STEER_DEADZONE = 0.6;
 const FLOAT_LIFE = 2;
+// The companion's expressions: reactions the app asks for, and idle fidgets in between.
+export type Reaction = 'pet' | 'eat' | 'cheer' | 'try' | 'learned';
+type Emote = Reaction | 'look' | 'hop' | 'stretch' | 'sniff' | 'yawn' | 'beg';
+const EMOTE_SECONDS: Record<Emote, number> = {
+  pet: 1.8,
+  eat: 2.2,
+  cheer: 1.6,
+  try: 1.3,
+  learned: 2.2,
+  look: 2.2,
+  hop: 0.9,
+  stretch: 1.8,
+  sniff: 2,
+  yawn: 2.4,
+  beg: 1.6,
+};
+const IDLE_EMOTES = ['look', 'hop', 'stretch', 'sniff'] as const;
+const RESTING_POSE = {
+  hop: 0,
+  pitch: 0,
+  yaw: 0,
+  roll: 0,
+  tall: 0,
+  long: 0,
+  squint: 1,
+  ears: 0,
+  wag: 1,
+  reach: 0,
+};
 // Wind by weather: blustery rain, still snow.
 const WIND_BY_WEATHER = { sunny: 1, cloudy: 1.25, rain: 1.8, snow: 0.6 } as const;
 const BUTTERFLY_COLORS = ['#f4e3a1', '#fbf6e8', '#bcd3e6', '#f2c1a8'];
@@ -196,6 +225,8 @@ export class GameWorld {
   } | null = null;
   private readonly floats: { element: HTMLDivElement; who: 'player' | 'critter'; age: number }[] =
     [];
+  private emote: { kind: Emote; time: number; requested: boolean } | null = null;
+  private idleTimer = 3;
 
   constructor(
     private readonly container: HTMLElement,
@@ -783,6 +814,110 @@ export class GameWorld {
     this.onWalk(near ? null : target);
     this.walkMarker.position.set(target.x, 0.075, target.z);
     this.markerTime = near ? 0 : 0.5;
+  }
+
+  /** Plays a brief reaction on the companion (a view of an outcome, never a rule). */
+  react(kind: Reaction): void {
+    this.emote = { kind, time: 0, requested: true };
+  }
+
+  /** Advances the companion's current expression and returns how it changes the pose. */
+  private express(state: GameState, dt: number, busy: boolean): typeof RESTING_POSE {
+    const pose = { ...RESTING_POSE };
+    if (this.reducedMotion) {
+      this.emote = null;
+      return pose;
+    }
+    // Walking or a drill ends idle fidgets; a requested reaction still plays.
+    if (busy && !this.emote?.requested) {
+      this.emote = null;
+      this.idleTimer = 2 + Math.random() * 3;
+      return pose;
+    }
+    if (!this.emote) {
+      this.idleTimer -= dt;
+      if (this.idleTimer > 0) return pose;
+      const companion = activeCritter(state);
+      const chance = Math.random();
+      // Needs show in the body: a tired yawn, or a hopeful little dance when hungry.
+      const kind: Emote =
+        companion.stamina < 25 && chance < 0.6
+          ? 'yawn'
+          : companion.hunger > 70 && chance < 0.6
+            ? 'beg'
+            : IDLE_EMOTES[Math.floor(Math.random() * IDLE_EMOTES.length)];
+      this.emote = { kind, time: 0, requested: false };
+      this.idleTimer = 3.5 + Math.random() * 5;
+    }
+    this.emote.time += dt;
+    const t = Math.min(1, this.emote.time / EMOTE_SECONDS[this.emote.kind]);
+    const arc = Math.sin(t * Math.PI);
+    const bounce = (count: number) => Math.abs(Math.sin(t * Math.PI * count));
+    switch (this.emote.kind) {
+      case 'pet':
+        // Eyes closed, leaning into the hand with a happy wriggle.
+        Object.assign(pose, {
+          squint: 0.18,
+          roll: Math.sin(t * Math.PI * 6) * 0.07,
+          pitch: -0.1 * arc,
+          hop: bounce(3) * 0.06,
+          wag: 3,
+          ears: -0.12 * arc,
+          reach: arc,
+        });
+        break;
+      case 'eat':
+        // Head down for a few bites, then a pleased hop.
+        Object.assign(pose, {
+          pitch: t < 0.8 ? 0.32 * bounce(5) : 0,
+          hop: t > 0.8 ? Math.sin(((t - 0.8) / 0.2) * Math.PI) * 0.22 : 0,
+          wag: 2,
+          reach: t < 0.4 ? Math.sin((t / 0.4) * Math.PI) : 0,
+        });
+        break;
+      case 'cheer':
+      case 'learned':
+        Object.assign(pose, {
+          hop: bounce(this.emote.kind === 'learned' ? 3 : 2) * 0.42,
+          yaw: t * Math.PI * 2,
+          wag: 3,
+          ears: -0.16,
+        });
+        break;
+      case 'try':
+        // A small, determined shake-off after a hard attempt.
+        Object.assign(pose, { tall: -0.08 * arc, ears: 0.26 * arc, pitch: 0.12 * arc });
+        break;
+      case 'look':
+        Object.assign(pose, { yaw: Math.sin(t * Math.PI * 2) * 0.7, ears: -0.08 * arc });
+        break;
+      case 'hop':
+        Object.assign(pose, { hop: bounce(2) * 0.2, wag: 2 });
+        break;
+      case 'stretch':
+        Object.assign(pose, { long: 0.16 * arc, tall: -0.1 * arc, pitch: -0.14 * arc });
+        break;
+      case 'sniff':
+        Object.assign(pose, { pitch: 0.3 * arc + Math.sin(t * 40) * 0.025 * arc });
+        break;
+      case 'yawn':
+        Object.assign(pose, {
+          squint: 0.15,
+          tall: 0.07 * arc,
+          pitch: -0.2 * arc,
+          ears: 0.25 * arc,
+        });
+        break;
+      case 'beg':
+        Object.assign(pose, {
+          hop: bounce(3) * 0.1,
+          roll: Math.sin(t * Math.PI * 2) * 0.16,
+          ears: -0.15 * arc,
+        });
+        break;
+    }
+    if (t >= 1) this.emote = null;
+    return pose;
   }
 
   /** Floats a short note (such as "+5 ♥") up from the rancher or the companion. */
@@ -2180,14 +2315,24 @@ export class GameWorld {
 
     // Mallow wags harder when happy, breathes when resting and squashes into each hop.
     const cheer = companion.happiness / 100;
-    this.tail.rotation.z = Math.sin(this.clock * (2.4 + cheer * 4)) * (0.08 + cheer * 0.12);
+    const pose = this.express(state, dt, critterMoving || !!state.training);
+    this.tail.rotation.z =
+      Math.sin(this.clock * (2.4 + cheer * 4) * pose.wag) *
+      (0.08 + cheer * 0.12) *
+      Math.min(2, pose.wag);
     this.tail.rotation.x = Math.sin(this.clock * 2.1) * 0.07;
     const squash = still
       ? 0
       : critterMoving || state.training
         ? Math.sin(this.clock * 24) * 0.05
         : Math.sin(this.clock * 2.4) * 0.014;
-    this.critterBody.scale.set(1 - squash * 0.5, 1 + squash, 1 - squash * 0.5);
+    this.critterBody.scale.set(
+      1 - squash * 0.5,
+      (1 + squash) * (1 + pose.tall),
+      (1 - squash * 0.5) * (1 + pose.long),
+    );
+    this.critterBody.rotation.set(pose.pitch, pose.yaw, pose.roll);
+    this.critter.position.y += pose.hop;
     const player = state.player.position;
     const gap = Math.hypot(player.x - companionView.x, player.z - companionView.z);
     if (!critterMoving && !state.training && gap < 3.6 && gap > 0.2) {
@@ -2203,18 +2348,25 @@ export class GameWorld {
     this.blink.twitch -= dt;
     const shut = (timer: number) => timer < 0 && timer > -0.13;
     for (const eye of this.critterEyes)
-      eye.scale.y = (eye.userData['open'] as number) * (shut(this.blink.critter) ? 0.12 : 1);
+      eye.scale.y =
+        (eye.userData['open'] as number) * (shut(this.blink.critter) ? 0.12 : pose.squint);
     for (const eye of this.farmerEyes) eye.scale.y = shut(this.blink.farmer) ? 0.004 : 0.025;
     if (this.blink.critter < -0.13) this.blink.critter = 2 + Math.random() * 3.2;
     if (this.blink.farmer < -0.13) this.blink.farmer = 2.6 + Math.random() * 3.5;
     const twitch = this.blink.twitch < 0 && this.blink.twitch > -0.3 && !still;
     this.critterEars.forEach((ear, index) => {
       const side = index < 2 ? -1 : 1;
-      ear.rotation.z = -side * 0.28 + (twitch ? Math.sin(this.clock * 38) * 0.18 : 0);
+      ear.rotation.z = -side * (0.28 + pose.ears) + (twitch ? Math.sin(this.clock * 38) * 0.18 : 0);
     });
     if (this.blink.twitch < -0.3) this.blink.twitch = 3 + Math.random() * 5;
     this.farmerArms.forEach((arm, index) => {
-      const swing = playerMoving && !still ? Math.sin(this.clock * 11 + index * Math.PI) * 0.55 : 0;
+      // One arm reaches out when petting or offering food.
+      const swing =
+        playerMoving && !still
+          ? Math.sin(this.clock * 11 + index * Math.PI) * 0.55
+          : index === 0
+            ? -1.15 * pose.reach
+            : 0;
       arm.rotation.x += (swing - arm.rotation.x) * Math.min(1, dt * 12);
     });
 
@@ -2404,9 +2556,6 @@ export class GameWorld {
         ).material.opacity = Math.min(1, this.feedbackTime / 0.6);
       });
     }
-    if (this.affection.visible && !this.reducedMotion && !state.training) {
-      this.critterBody.rotation.z = Math.sin(elapsed * 8) * 0.065;
-    } else this.critterBody.rotation.z = 0;
     this.markerTime = Math.max(0, this.markerTime - dt);
     this.walkMarker.visible = this.markerTime > 0;
     this.material('#fff3c5').opacity = Math.min(1, this.markerTime / 0.6);

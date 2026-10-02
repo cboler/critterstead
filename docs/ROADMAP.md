@@ -165,8 +165,8 @@ staged progression (M1 through M9) that systematically builds the foundational v
   version v1–v7 migrating intact to v8, the playtest protocol, and fixes from the first
   human playtest (clear feedback placement, touch steering, no accidental drill restarts).
   See [campaign evidence](exec-plans/active/001-deepen-one-critter-daily-loop.md#m9-evidence--2026-09-30).
-- **Gate**: pending the product owner's playtest of this build and the vision sessions that
-  shape Stage 2. Stage 2 has not begun.
+- **Gate**: two playtests are recorded and acted on; pending the remaining testers and the
+  vision sessions that shape Stage 2. Stage 2 has not begun.
 - **Player-visible change**:
   1. A cohesive, multi-day experience demonstrating the complete living stead: farming,
      resource gathering, physical hauling, refining lumber, training across varied disciplines,

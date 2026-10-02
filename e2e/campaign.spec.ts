@@ -45,11 +45,43 @@ test('plays three days in a row with results where you act and drills that reset
   const note = page.locator('.recent-note');
   await expect(note).toContainText('bond grows');
   await expect(note).toHaveClass(/fresh/);
-  const noteBox = (await note.boundingBox())!;
-  const dockBox = (await page.locator('.interaction-dock').boundingBox())!;
-  expect(noteBox.y + noteBox.height).toBeLessThanOrEqual(dockBox.y + 1);
+  await expect
+    .poll(async () => {
+      const noteBox = (await note.boundingBox())!;
+      const dockBox = (await page.locator('.interaction-dock').boundingBox())!;
+      return noteBox.y + noteBox.height <= dockBox.y + 1;
+    })
+    .toBe(true);
   await expect(page.locator('.world-float').filter({ hasText: '♥' })).toHaveCount(1);
   await expect(page.locator('.companion-card .care-row .changed')).toContainText('Bond');
+
+  // The journal opens on quests; the first step of the journey is now done.
+  await page.getByRole('button', { name: /Field journal/ }).click();
+  const journal = page.getByRole('dialog');
+  await expect(journal.getByRole('tab', { name: 'Quests' })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  await expect(journal.locator('.quest-list.journey li.done')).toContainText('Say hello to Mallow');
+  await expect(journal.locator('.quest-list').first()).not.toContainText('today’s scritch');
+  await journal.getByRole('tab', { name: 'History' }).click();
+  await expect(journal.getByRole('tabpanel', { name: 'History' })).toContainText('bond grows');
+  await journal.getByRole('button', { name: 'Close panel' }).click();
+
+  // Storage is one row per item: hand Mallow a feed to hold, and the counts follow.
+  const feed = page.locator('.cargo-row').filter({ hasText: 'Feed' }).first();
+  await expect(feed.locator('.cargo-count')).toHaveText(['4', '0']);
+  await page.getByRole('button', { name: 'Store 1 feed', exact: true }).click();
+  await expect(feed.locator('.cargo-count')).toHaveText(['3', '1']);
+  await expect(page.getByRole('button', { name: 'Take 1 feed', exact: true })).toBeEnabled();
+
+  // Learning has its own tab, with what each lesson earns.
+  await page.getByRole('tab', { name: 'Learning' }).click();
+  await expect(page.locator('.learning-card')).toContainText('Sunberry foraging');
+  await expect(page.locator('.learning-card .lesson-effect').first()).toContainText(
+    'raise the yield',
+  );
+  await page.getByRole('tab', { name: 'Mallow', exact: true }).click();
   await walk(page, ...SPOTS.firstBed);
   await page.getByRole('button', { name: /Plant feed seeds/ }).click();
   await page.getByRole('button', { name: /Water the garden bed/ }).click();
@@ -103,8 +135,8 @@ test('plays three days in a row with results where you act and drills that reset
   await expect.poll(async () => (await savedState(page)).day).toBe(3);
   await page.reload();
   await expect(page.locator('.day-bar')).toContainText('Day 3');
-  const journal = (await developmentState(page)).journal.join('\n');
-  expect(journal).toContain('Day 2 ·');
-  expect(journal).toContain('Day 3 ·');
+  const entries = (await developmentState(page)).journal.join('\n');
+  expect(entries).toContain('Day 2 ·');
+  expect(entries).toContain('Day 3 ·');
   expect(errors).toEqual([]);
 });

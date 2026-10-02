@@ -13,7 +13,15 @@ import {
 import { AREAS } from './game/content';
 import { calendarDate, calendarView, capitalize, formatDate, weatherFor } from './game/calendar';
 import { LocalGameHost } from './game/host';
-import { activeCritter, GameCommand, GameState, Interaction, Point } from './game/model';
+import {
+  activeCritter,
+  GameCommand,
+  GameState,
+  Interaction,
+  InteractionAction,
+  Point,
+} from './game/model';
+import { nextObjective, objectives } from './game/objectives';
 import { IndexedDbStorage } from './game/storage';
 import { encumbrance } from './game/checks';
 import { GameWorld } from './game/world';
@@ -25,6 +33,7 @@ import {
 } from './game/render/quality';
 
 type Panel = 'journal' | 'help' | 'developer' | 'calendar';
+type JournalTab = 'quests' | 'history' | 'supplies';
 
 /** Whether the details panel sits beside the world rather than over it. */
 function sidePanelLayout(): boolean {
@@ -35,7 +44,7 @@ function sidePanelLayout(): boolean {
 // drill's result card holds the actions back (taps meant for the finished drill land on it).
 const NOTE_MS = 6500;
 const RESULT_MS = 2800;
-const ARROWS_KEY = 'critterstead-touch-arrows';
+const MILESTONE_MS = 5200;
 const ACTIVITY_NAMES: Record<string, string> = {
   training: 'PRACTICE HOOPS',
   race: 'THE CLOVER CUP',
@@ -63,24 +72,20 @@ interface Snapshot {
   bond: number;
   hunger: number;
   stats: Record<string, number>;
+  skills: Record<string, number>;
 }
 type Tone = 'gain' | 'cost' | 'note';
 
-function readFlag(key: string): boolean {
-  try {
-    return localStorage.getItem(key) === 'on';
-  } catch {
-    return false;
-  }
-}
-
-function writeFlag(key: string, on: boolean): void {
-  try {
-    if (on) localStorage.setItem(key, 'on');
-    else localStorage.removeItem(key);
-  } catch {
-    // Storage can be unavailable (private windows); the choice then lasts for this visit.
-  }
+/** One item's moves between the backpack, the place at hand and the companion's satchel. */
+interface CargoRow {
+  itemId: string;
+  name: string;
+  mine: number;
+  here: number;
+  store?: InteractionAction;
+  take?: InteractionAction;
+  carry?: InteractionAction;
+  deposit?: InteractionAction;
 }
 
 interface InstallPrompt extends Event {
@@ -108,6 +113,11 @@ export class App implements AfterViewInit, OnDestroy {
   private activityBaseline: Snapshot | null = null;
   private activityKind = '';
   private workBaseline: Snapshot | null = null;
+  // State as of the last announcement, so work the companion does alone is announced too.
+  private baseline: Snapshot | null = null;
+  private lessonLabels: string[] = [];
+  private layoutKey = '';
+  private milestoneTimer = 0;
   private lastNote: string | null = null;
   private noteTimer = 0;
   private changedTimer = 0;
@@ -136,6 +146,12 @@ export class App implements AfterViewInit, OnDestroy {
   protected readonly learning = signal(this.host.learning());
   protected readonly hauling = signal(this.host.haulingLearning());
   protected readonly learningSteps = Array.from({ length: this.learning().goal }, (_, i) => i + 1);
+  protected readonly haulingSteps = Array.from({ length: this.hauling().goal }, (_, i) => i + 1);
+  protected readonly journalTabs: { id: JournalTab; label: string }[] = [
+    { id: 'quests', label: 'Quests' },
+    { id: 'history', label: 'History' },
+    { id: 'supplies', label: 'Supplies' },
+  ];
   protected readonly bag = computed(() => backpack(this.state()));
   protected readonly companionBag = computed(() => satchel(this.state()));
   protected readonly load = computed(() =>
@@ -209,7 +225,7 @@ export class App implements AfterViewInit, OnDestroy {
   protected readonly areas = AREAS;
   // Wide screens open the details panel beside the world; phones start with a compact chip.
   protected readonly railOpen = signal(sidePanelLayout());
-  protected readonly railTab = signal<'companion' | 'rancher'>('companion');
+  protected readonly railTab = signal<'companion' | 'learning' | 'rancher'>('companion');
   protected readonly qualityChoice = signal<QualityChoice>(storedQualityChoice());
   protected readonly quality = signal<Quality>('balanced');
   protected readonly rendererName = signal('');
@@ -231,9 +247,85 @@ export class App implements AfterViewInit, OnDestroy {
     detail: string;
     gains: string[];
   } | null>(null);
+  // A learning stage reached: a brief banner, separate from results, that blocks nothing.
+  protected readonly milestone = signal<{ lesson: string; stage: string; detail: string } | null>(
+    null,
+  );
+  protected readonly journalTab = signal<JournalTab>('quests');
+  protected readonly quests = computed(() => objectives(this.state()));
+  protected readonly todayQuests = computed(() =>
+    this.quests().filter((quest) => quest.group === 'today'),
+  );
+  protected readonly journeyQuests = computed(() =>
+    this.quests().filter((quest) => quest.group === 'journey'),
+  );
+  protected readonly nextQuest = computed(() => nextObjective(this.state()));
+  /** The journal's entries, newest first, gathered under the morning that began each day. */
+  protected readonly history = computed(() => {
+    const days: { title: string; entries: string[] }[] = [];
+    let entries: string[] = [];
+    for (const entry of this.state().journal) {
+      const morning = /^Day (\d+) · /.exec(entry);
+      entries.push(entry);
+      if (morning) {
+        days.push({ title: `Day ${morning[1]}`, entries });
+        entries = [];
+      }
+    }
+    if (entries.length) days.push({ title: 'Day 1', entries });
+    return days;
+  });
+  /** Storage moves grouped by item, so a full chest reads as rows rather than a wall of buttons. */
+  protected readonly cargo = computed<CargoRow[]>(() => {
+    const target = this.nearby();
+    if (!target) return [];
+    const state = this.state();
+    const bag = backpack(state);
+    const helper = satchel(state);
+    const place = state.containers.find((item) => item.id === target.id) ?? helper;
+    const count = (items: { itemId: string; quantity: number }[], itemId: string) =>
+      items.filter((item) => item.itemId === itemId).reduce((sum, item) => sum + item.quantity, 0);
+    const rows = new Map<string, CargoRow>();
+    for (const action of target.actions) {
+      const [kind, source, destination, itemId] = action.id.split(':');
+      if (kind !== 'transfer') continue;
+      const row =
+        rows.get(itemId) ??
+        rows
+          .set(itemId, {
+            itemId,
+            name: (ITEM_NAMES[itemId]?.[1] ?? itemId).replace(/^./, (letter) =>
+              letter.toUpperCase(),
+            ),
+            mine: count(bag.items, itemId),
+            here: count(place.items, itemId),
+          })
+          .get(itemId)!;
+      if (source === bag.id) row.store = action;
+      else if (destination === bag.id) row.take = action;
+      else if (destination === helper.id) row.carry = action;
+      else row.deposit = action;
+    }
+    return [...rows.values()];
+  });
+  /** Dock actions that are not storage moves keep their full buttons. */
+  protected readonly plainActions = computed(
+    () => this.nearby()?.actions.filter((action) => !action.id.startsWith('transfer:')) ?? [],
+  );
+  protected readonly placeName = computed(() => {
+    const target = this.nearby();
+    return target?.id === this.companion().id ? this.companion().name : 'Here';
+  });
+  protected readonly companionSkills = computed(() =>
+    Object.entries(this.companion().skills)
+      .filter(([, value]) => value > 0)
+      .map(([name, value]) => ({
+        name,
+        value: Number.isInteger(value) ? `${value}` : value.toFixed(1),
+      })),
+  );
   protected readonly noteFresh = signal(true);
   protected readonly changed = signal<ReadonlySet<string>>(new Set());
-  protected readonly touchArrows = signal(readFlag(ARROWS_KEY));
   private momentSerial = 0;
   private lastArea = '';
   private lastDay = 0;
@@ -438,10 +530,37 @@ export class App implements AfterViewInit, OnDestroy {
       this.noteFresh.set(true);
       clearTimeout(this.noteTimer);
       this.noteTimer = window.setTimeout(() => this.noteFresh.set(false), NOTE_MS);
+      // Commands announce their own results; this catches what happens without one.
+      if (this.baseline) this.announce(this.baseline);
     }
+    this.baseline ??= this.snapshot();
+    const lessons = [this.learning(), this.hauling()];
+    lessons.forEach((lesson, index) => {
+      const known = this.lessonLabels[index];
+      if (known !== undefined && known !== lesson.label && lesson.progress > 0) {
+        this.milestone.set({ lesson: lesson.name, stage: lesson.label, detail: lesson.effect });
+        this.world?.react('learned');
+        clearTimeout(this.milestoneTimer);
+        this.milestoneTimer = window.setTimeout(() => this.milestone.set(null), MILESTONE_MS);
+      }
+    });
+    this.lessonLabels = lessons.map((lesson) => lesson.label);
     const interaction = this.host.interaction();
     this.nearby.set(interaction);
     this.world?.setTarget(this.host.state.training ? null : (interaction?.id ?? null));
+    // Whatever sits above the bottom panel is placed from its measured height, so measure as
+    // soon as the panel or the note changes instead of waiting for the periodic check.
+    const layout = [
+      interaction?.id,
+      interaction?.actions.length,
+      current.training?.kind,
+      this.result()?.serial,
+      this.lastNote,
+    ].join('|');
+    if (layout !== this.layoutKey) {
+      this.layoutKey = layout;
+      window.setTimeout(() => this.measureInsets());
+    }
     if (
       !interaction?.actions.some((action) => action.id === this.gamepadAction() && !action.disabled)
     )
@@ -532,11 +651,9 @@ export class App implements AfterViewInit, OnDestroy {
           : (selected + step + actions.length) % actions.length
       ];
     this.gamepadAction.set(next.id);
-    const all = this.host.interaction()?.actions ?? [];
-    const buttons = this.element.nativeElement.querySelectorAll<HTMLButtonElement>(
-      '.interaction-actions button',
-    );
-    buttons[all.findIndex((action) => action.id === next.id)]?.focus();
+    this.element.nativeElement
+      .querySelector<HTMLButtonElement>(`.interaction-dock button[data-action="${next.id}"]`)
+      ?.focus();
   }
 
   private activateGamepad(): void {
@@ -582,6 +699,7 @@ export class App implements AfterViewInit, OnDestroy {
     this.noteFresh.set(false);
     clearTimeout(this.noteTimer);
     const changes = baseline ? this.announce(baseline) : [];
+    this.world?.react(/brave try|every little/i.test(heading) ? 'try' : 'cheer');
     const serial = ++this.momentSerial;
     this.result.set({
       serial,
@@ -616,11 +734,13 @@ export class App implements AfterViewInit, OnDestroy {
       bond: critter.bond,
       hunger: critter.hunger,
       stats: { ...critter.stats },
+      skills: { ...critter.skills },
     };
   }
   /** Floats what changed since a snapshot over whoever changed, and lights up those stats. */
   private announce(before: Snapshot): { text: string; tone: Tone }[] {
     const after = this.snapshot();
+    this.baseline = after;
     // A new morning or another area has its own title card instead.
     if (after.day !== before.day || after.area !== before.area) return [];
     const critter: { text: string; tone: Tone }[] = [];
@@ -635,6 +755,11 @@ export class App implements AfterViewInit, OnDestroy {
     for (const stat of this.statNames) {
       const change = after.stats[stat] - before.stats[stat];
       if (change >= 0.005) add(critter, stat, `${signed(change, 2)} ${stat}`, 'gain');
+    }
+    for (const [skill, value] of Object.entries(after.skills)) {
+      const change = value - (before.skills[skill] ?? 0);
+      if (change >= 0.05)
+        add(critter, `skill:${skill}`, `${signed(change, change % 1 ? 1 : 0)} ${skill}`, 'gain');
     }
     const bond = Math.round(after.bond - before.bond);
     if (bond) add(critter, 'bond', `${signed(bond)} ♥`, bond > 0 ? 'gain' : 'cost');
@@ -669,6 +794,18 @@ export class App implements AfterViewInit, OnDestroy {
     }
     return [...critter, ...player];
   }
+  /** The storage moves offered for one item, in a fixed order with short visible labels. */
+  protected moves(row: CargoRow): { action: InteractionAction; text: string }[] {
+    const name = this.companion().name;
+    // Handing things to the companion reads as giving, not storing.
+    const holding = this.nearby()?.id === this.companion().id;
+    return [
+      { action: row.store, text: holding ? 'Give' : 'Store' },
+      { action: row.take, text: holding ? 'Take back' : 'Take' },
+      { action: row.carry, text: `${name} carries` },
+      { action: row.deposit, text: `${name} stores` },
+    ].filter((move): move is { action: InteractionAction; text: string } => !!move.action);
+  }
   protected act(action?: string): void {
     if (!this.ready() || this.paused() || this.panel()) return;
     if (this.host.state.training) {
@@ -696,8 +833,11 @@ export class App implements AfterViewInit, OnDestroy {
     if (!working && this.host.state.work) this.workBaseline = this.snapshot();
     if (training && !activity) this.finishActivity();
     else if (done) this.announce(before);
+    if (done && command.type === 'interact') {
+      if (command.action === 'pet') this.world?.react('pet');
+      else if (command.action === 'feed' || command.action === 'treat') this.world?.react('eat');
+    }
     if (done) this.chime();
-    // Touch arrows unmount during activities, so a held arrow would never report release.
     if (this.host.state.training) this.keys.clear();
     this.refresh();
     void this.save();
@@ -821,6 +961,7 @@ export class App implements AfterViewInit, OnDestroy {
   }
   protected openPanel(panel: Panel | null): void {
     this.panel.set(panel);
+    if (panel === 'journal') this.journalTab.set('quests');
     this.resetArmed.set(false);
     this.blur();
     this.clearGamepadSelection();
@@ -830,16 +971,6 @@ export class App implements AfterViewInit, OnDestroy {
           .querySelector<HTMLButtonElement>('.journal-modal button')
           ?.focus(),
       );
-  }
-  protected direction(key: string, pressed: boolean): void {
-    if (pressed) this.keys.add(key);
-    else this.keys.delete(key);
-  }
-  /** On-screen arrows are optional on touch screens; holding a finger on the world steers. */
-  protected toggleTouchArrows(): void {
-    this.touchArrows.update((on) => !on);
-    writeFlag(ARROWS_KEY, this.touchArrows());
-    this.keys.clear();
   }
   protected toggleSound(): void {
     this.sound.update((value) => !value);

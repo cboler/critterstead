@@ -727,7 +727,18 @@ Critters grow from energetic youths into peak adults and eventually wise elders:
   changed values glow. A finished drill's result holds its card's place for a moment, so
   taps meant for the drill never start another.
 - On touch screens, holding a finger on the world walks toward it and releasing stops;
-  a tap walks to a spot. On-screen arrows are optional (Help).
+  a tap walks to a spot. There are no on-screen arrows.
+- The journal opens on quests: what is worth doing today and the longer journey, each a
+  reading of the save rather than stored state; history is grouped by day. When nothing
+  is nearby, the HUD names the journey's next step.
+- Learning has its own tab: each lesson's stage, progress and what the companion's growth
+  now earns (a likelier third berry, finer berries, quicker hauling), plus practice levels.
+  Reaching a stage shows a brief banner. Practice and autonomous work float over the
+  companion like any other result.
+- The companion fidgets when idle (looking around, stretching, sniffing, hopping), yawns
+  when tired, begs when hungry, and reacts to a scritch, a meal and a drill's result.
+- Storage shows one row per item with counts and compact moves, so it scales as item
+  kinds grow.
 
 ### Viewport and interaction stability
 

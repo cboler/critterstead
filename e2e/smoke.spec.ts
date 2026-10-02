@@ -180,6 +180,8 @@ test('plays a complete day and keeps the improved homestead after reload', async
     );
     if (observations === 1) {
       await expect(page.locator('.learning')).toContainText('Learning by watching');
+      // A new stage is announced where the player is looking, not only in the panel.
+      await expect(page.locator('.milestone-card')).toContainText('Learning by watching');
       await page.screenshot({
         path: testInfo.outputPath('learning-by-watching.png'),
         fullPage: true,
@@ -248,6 +250,7 @@ test('plays a complete day and keeps the improved homestead after reload', async
   await expect(page.locator('.season')).toContainText('Day 2');
   await expect(page.locator('.learning')).toContainText('Independent forager');
   await page.getByRole('button', { name: /Field journal/ }).click();
+  await page.getByRole('tab', { name: 'History' }).click();
   await expect(page.locator('.journal-summary')).toContainText('Shed level 1');
   await expect(page.getByText('Competition memories', { exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Close panel', exact: true }).click();

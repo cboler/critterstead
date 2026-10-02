@@ -174,6 +174,31 @@ export function createInitialState(): GameState {
   };
 }
 
+/** How practice, intelligence and bond shape a companion's own sunberry harvests. */
+export function forageYield(critter: Critter): { bonusChance: number; quality: number } {
+  return {
+    bonusChance: Math.min(0.75, critter.skills.harvesting / 20 + critter.stats.intelligence / 40),
+    quality: Math.min(
+      3,
+      1 +
+        Math.floor(
+          (critter.skills.harvesting + critter.stats.intelligence * 0.5 + critter.bond / 20) / 8,
+        ),
+    ),
+  };
+}
+
+/** Speed above the starting 4 and hauling practice quicken a working companion, up to +50%. */
+export function haulingPace(critter: Critter): number {
+  return (
+    1 +
+    Math.min(
+      0.5,
+      Math.max(0, critter.stats.speed - 4) * 0.03 + (critter.skills['hauling'] ?? 0) * 0.02,
+    )
+  );
+}
+
 /** The sole owner of game rules. Rendering and persistence consume its state. */
 export class LocalGameHost {
   private readonly current: GameState;
@@ -202,9 +227,14 @@ export class LocalGameHost {
           distance(b.position, this.state.player.position),
       )[0];
     const reason = this.berryWorkReason('autonomous');
+    const earned = forageYield(critter);
     return {
       name: foraging.name,
       label: stage.label,
+      effect:
+        stage.id === 'cued' || stage.id === 'autonomous'
+          ? `Finds a third berry ${Math.round(earned.bonusChance * 100)}% of the time; berry quality ${earned.quality} of 3. Practice, intelligence and bond raise both.`
+          : `Once ${critter.name} gathers, practice, intelligence and bond raise the yield and quality.`,
       progress: critter.learnedBehaviors[foraging.id] ?? 0,
       goal: foraging.stages[foraging.stages.length - 1].threshold,
       hint: stage.hint.replaceAll('{name}', critter.name),
@@ -264,8 +294,14 @@ export class LocalGameHost {
                       : stage.id === 'autonomous'
                         ? 'Following you. Enable hauling at the mill or chest.'
                         : stage.hint.replaceAll('{name}', critter.name);
+    const pace = Math.round((haulingPace(critter) - 1) * 100);
     return {
+      name: hauling.name,
       label: stage.label,
+      effect:
+        stage.id === 'cued' || stage.id === 'autonomous'
+          ? `Hauls ${pace}% faster than at first. Speed and hauling practice quicken the route; strength lightens the load.`
+          : `Once ${critter.name} hauls, speed and practice quicken the route.`,
       progress: critter.learnedBehaviors[hauling.id] ?? 0,
       goal: 6,
       status,
@@ -1313,25 +1349,9 @@ export class LocalGameHost {
   private gather(node: ResourceNode, actor: 'player' | 'command' | 'autonomous'): void {
     const state = this.state;
     const critter = activeCritter(state);
-    const quality =
-      actor === 'player'
-        ? 1
-        : Math.min(
-            3,
-            1 +
-              Math.floor(
-                (critter.skills.harvesting + critter.stats.intelligence * 0.5 + critter.bond / 20) /
-                  8,
-              ),
-          );
-    const amount =
-      actor === 'player'
-        ? 2
-        : 2 +
-          (this.random() <
-          Math.min(0.75, critter.skills.harvesting / 20 + critter.stats.intelligence / 40)
-            ? 1
-            : 0);
+    const earned = forageYield(critter);
+    const quality = actor === 'player' ? 1 : earned.quality;
+    const amount = actor === 'player' ? 2 : 2 + (this.random() < earned.bonusChance ? 1 : 0);
     if (actor === 'player') this.add('berry', amount, quality);
     else addItem(satchel(state), 'berry', amount, quality);
     node.available = false;
@@ -1396,7 +1416,7 @@ export class LocalGameHost {
       const gap = distance(critter.position, target);
       if (gap <= 0.75) return true;
       const load = encumbrance(critter, bag.items);
-      const step = Math.min(gap - 0.6, seconds * 3.6 * load.speed);
+      const step = Math.min(gap - 0.6, seconds * 3.6 * load.speed * haulingPace(critter));
       critter.position = {
         x: critter.position.x + ((target.x - critter.position.x) / gap) * step,
         z: critter.position.z + ((target.z - critter.position.z) / gap) * step,
