@@ -1,7 +1,7 @@
 # 003 — Household and Opening (Stage 2)
 
-**Status:** authorized 2026-10-02 ([D43](../../DECISIONS.md#d43--stage-2-begins-accepted-2026-10-02)). M1 and M2 built and locally
-verified 2026-10-02 ([M1](#m1-evidence--2026-10-02), [M2](#m2-evidence--2026-10-02)); M3 next.
+**Status:** authorized 2026-10-02 ([D43](../../DECISIONS.md#d43--stage-2-begins-accepted-2026-10-02)). M1–M3 built and locally
+verified ([M1](#m1-evidence--2026-10-02), [M2](#m2-evidence--2026-10-02), [M3](#m3-evidence--2026-10-03)); M4 needs story beats.
 
 ## Purpose
 
@@ -54,10 +54,15 @@ before they start.
 
 ### M3 — The walk to town
 
-The scripted opening for fresh games ([Opening](../../GAME-DESIGN.md#opening-and-acquisition)):
-Pip picks berries, Gemothy and the bin, Grandpa's ways of partnering, the offer in town,
-the walk home and the first guided day. Needs a product-owner choice on how existing saves
-meet the prologue.
+- [x] Fresh games open on the walk to Oakhaven ([Opening](../../GAME-DESIGN.md#opening-and-acquisition)):
+      leaving the yard with Grandpa and Pip, Pip picking from the hedge unasked, Gemothy and
+      the tavern bin, Grandpa's ways of partnering, Mallow, then the choice in the square.
+- [x] Continue by button, Enter, Space or A; skip to the choice by button, Escape or Start.
+- [x] Choosing sends the critter home with Grandpa's farewell; the household begins the
+      next morning with Grandpa's greeting as its first journal line.
+- [x] Existing saves skip the prologue (product owner, 2026-10-03); nothing is saved during it.
+- [x] Verification: unit tests for the script, a browser test walking every beat, the
+      browser suite skipping the walk, controller skip, PWA check, inspected screenshots.
 
 ### M4 — The years with Grandpa
 
@@ -114,7 +119,20 @@ Fixed, scripted passing; Pip's after-routines; inheriting the stead. Needs story
 - Known: Grandpa is not yet a saved entity (M5 will need that for his passing); town shops
   are facades until Stage 3.
 
+## M3 evidence — 2026-10-03
+
+- `opening.ts` (ten beats, `stageOpening`, Grandpa's farewell); `GameWorld.setScene` with
+  Gemothy's figure, the hedge and the tavern bin; the opening card in `app.ts`. Unit tests:
+  158 passed. Browser: the full walk on desktop and phone (`e2e/opening.spec.ts`), and the
+  controller skip. Screenshots: [Gemothy](../evidence/003-m3/gemothy.png),
+  [the choice](../evidence/003-m3/the-choice.png).
+- Gates: lint, production build, PWA check (now skipping the walk first), and the browser
+  suite (66 passed, 30 skipped by project).
+- Routine decisions: the walk is a sequence of staged beats you advance, not free
+  movement; the starter offer moved into Oakhaven's square. Provisional: every line and
+  mark in the script.
+
 ## Current handoff
 
-M2 complete pending publication. Next: M3 — the walk to town. Before starting, the product
-owner chooses how existing saves meet the prologue.
+M3 complete pending publication. Next: M4 — the years with Grandpa. It needs the product
+owner's story beats for the spring-and-summer years before it starts.

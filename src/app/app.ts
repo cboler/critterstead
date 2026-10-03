@@ -13,6 +13,7 @@ import {
 import { AREAS } from './game/content';
 import { calendarDate, calendarView, capitalize, formatDate, weatherFor } from './game/calendar';
 import { createInitialState, LocalGameHost } from './game/host';
+import { OFFER_BEAT, OPENING, openingFarewell, stageOpening } from './game/opening';
 import {
   FAMILIES,
   kindName,
@@ -165,6 +166,15 @@ export class App implements AfterViewInit, OnDestroy {
     { key: 'intelligence', label: 'INT' },
   ] as const;
   private offerSeed = 0;
+  // The walk to Oakhaven: the current beat, or null once the household has begun.
+  protected readonly beat = signal<number | null>(null);
+  protected readonly openingBeat = computed(() => {
+    const beat = this.beat();
+    return beat === null ? null : OPENING[beat];
+  });
+  protected readonly farewell = signal<string | null>(null);
+  private offerCandidates: StarterCandidate[] = [];
+  private farewellTimer = 0;
   protected readonly sessionBusy = signal(false);
   protected readonly controllerConnected = signal(false);
   protected readonly gamepadAction = signal<string | null>(null);
@@ -421,7 +431,7 @@ export class App implements AfterViewInit, OnDestroy {
       const saved = await this.storage.load();
       if (this.destroyed) return;
       if (saved) this.host = new LocalGameHost(saved);
-      else this.beginOffer();
+      else this.beginOpening();
       this.saveStatus.set(saved ? 'Your homestead is saved' : 'A new beginning');
     } catch (error) {
       this.saveBlocked = true;
@@ -442,8 +452,7 @@ export class App implements AfterViewInit, OnDestroy {
           },
           this.qualityChoice(),
         );
-        this.world.setGuests(this.offer());
-        this.world.setGuestFocus(this.offerFocus());
+        this.stageWorld();
         this.frame = requestAnimationFrame(this.animate);
       });
       this.quality.set(this.world!.quality);
@@ -462,7 +471,8 @@ export class App implements AfterViewInit, OnDestroy {
     const dt = this.previousTime ? Math.min((time - this.previousTime) / 1000, 0.1) : 0;
     this.previousTime = time;
     const stick = document.hidden ? { x: 0, z: 0 } : this.pollGamepad();
-    if (!this.paused() && !this.panel() && !document.hidden && !this.offer()) {
+    if (this.beat() !== null) this.walkOpening(dt);
+    else if (!this.paused() && !this.panel() && !document.hidden) {
       let x = 0;
       let z = 0;
       if (this.keys.has('w') || this.keys.has('arrowup')) {
@@ -617,6 +627,12 @@ export class App implements AfterViewInit, OnDestroy {
       if (edge(12) || edge(14)) this.zone.run(() => this.moveOfferFocus(-1));
       if (edge(13) || edge(15)) this.zone.run(() => this.moveOfferFocus(1));
       if (edge(0)) this.zone.run(() => this.chooseStarter());
+      return { x: 0, z: 0 };
+    }
+    if (this.beat() !== null) {
+      // A continues the walk; Start skips to the choice.
+      if (edge(0)) this.zone.run(() => this.continueOpening());
+      if (edge(9)) this.zone.run(() => this.skipOpening());
       return { x: 0, z: 0 };
     }
     if (edge(9))
@@ -905,6 +921,15 @@ export class App implements AfterViewInit, OnDestroy {
       }
       return;
     }
+    if (this.beat() !== null) {
+      if (target.tagName === 'BUTTON') return;
+      if (!event.repeat && ['enter', ' ', 'e'].includes(key)) {
+        event.preventDefault();
+        this.zone.run(() => this.continueOpening());
+      }
+      if (!event.repeat && key === 'escape') this.zone.run(() => this.skipOpening());
+      return;
+    }
     if (
       ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' ', 'e'].includes(
         key,
@@ -1057,7 +1082,7 @@ export class App implements AfterViewInit, OnDestroy {
     return actions.every((action) => action.disabled) ? (actions[0]?.reason ?? '') : '';
   }
   protected async save(): Promise<void> {
-    if (this.saveBlocked || this.offer()) return;
+    if (this.saveBlocked || this.beat() !== null) return;
     try {
       await this.storage.save(this.host.state);
       if (!this.destroyed) this.saveStatus.set('Your homestead is saved');
@@ -1065,13 +1090,51 @@ export class App implements AfterViewInit, OnDestroy {
       this.saveStatus.set('Could not save — keep this tab open');
     }
   }
-  /** Draws a fresh game's seed once and shows the critters it offers. */
-  private beginOffer(): void {
+  /** A fresh game: draw its seed once, then walk to Oakhaven with Grandpa and Pip. */
+  private beginOpening(): void {
     this.offerSeed = crypto.getRandomValues(new Uint32Array(1))[0];
-    const offer = starterOffer(this.offerSeed);
-    this.offer.set(offer);
-    this.focusCandidate(offer[0].id);
-    this.world?.setGuests(offer);
+    this.offerCandidates = starterOffer(this.offerSeed);
+    // A throwaway state to draw the scene; nothing is saved until a critter is chosen.
+    this.host = new LocalGameHost();
+    this.showBeat(0);
+  }
+  private showBeat(index: number): void {
+    const beat = OPENING[index];
+    this.beat.set(index);
+    stageOpening(this.host.state, beat);
+    if (beat.guests === 'offer') {
+      this.offer.set(this.offerCandidates);
+      this.focusCandidate(this.offerFocus() || this.offerCandidates[0].id);
+    } else this.offer.set(null);
+    this.stageWorld();
+    this.refresh();
+  }
+  /** Shows the current beat's staging and candidates in the world, if the walk is on. */
+  private stageWorld(): void {
+    const beat = this.openingBeat();
+    const offer = this.offerCandidates;
+    this.world?.setScene(beat?.stage ?? null);
+    this.world?.setGuests(
+      beat?.guests === 'offer' ? offer : beat?.guests === 'mallow' ? [offer[0]] : null,
+    );
+    this.world?.setGuestFocus(beat?.guests === 'offer' ? this.offerFocus() : null);
+  }
+  protected continueOpening(): void {
+    const beat = this.beat();
+    if (beat !== null && beat < OFFER_BEAT) this.showBeat(beat + 1);
+  }
+  protected skipOpening(): void {
+    if (this.beat() !== null && this.beat()! < OFFER_BEAT) this.showBeat(OFFER_BEAT);
+  }
+  /** Walks the rancher toward where the current beat stands them. */
+  private walkOpening(dt: number): void {
+    const target = OPENING[this.beat()!].player;
+    const at = this.host.state.player.position;
+    const gap = Math.hypot(target.x - at.x, target.z - at.z);
+    if (gap < 0.02) return;
+    const step = Math.min(gap, dt * 2.8);
+    at.x += ((target.x - at.x) / gap) * step;
+    at.z += ((target.z - at.z) / gap) * step;
   }
   protected focusCandidate(id: string): void {
     const candidate = this.offer()?.find((item) => item.id === id);
@@ -1102,8 +1165,13 @@ export class App implements AfterViewInit, OnDestroy {
     }
     this.host = new LocalGameHost(createInitialState({ ...candidate, name }, this.offerSeed));
     this.offer.set(null);
+    this.beat.set(null);
+    this.world?.setScene(null);
     this.world?.setGuests(null);
     this.world?.setGuestFocus(null);
+    this.farewell.set(openingFarewell(name));
+    clearTimeout(this.farewellTimer);
+    this.farewellTimer = window.setTimeout(() => this.farewell.set(null), 9000);
     this.baseline = null;
     this.refresh();
     await this.save();
@@ -1123,7 +1191,7 @@ export class App implements AfterViewInit, OnDestroy {
       this.saveBlocked = false;
       this.error.set('');
       this.openPanel(null);
-      this.beginOffer();
+      this.beginOpening();
       this.refresh();
     } catch {
       this.error.set('Could not reset the save. Please check browser storage permissions.');

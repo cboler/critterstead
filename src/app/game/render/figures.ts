@@ -502,6 +502,43 @@ const brindlekin: Build = (f) => {
   f.parts.height = 1.7;
 };
 
+// Gemothy: a raccoon-like chimera (bear and cat, crossed with dog) who belongs to nobody.
+const gemothy: Build = (f) => {
+  const fur = '#8e8f96';
+  const pale = '#e4e2dc';
+  const dark = '#3b3c42';
+  f.ball(fur, [0, 0.62, -0.04], [0.46, 0.44, 0.52]);
+  f.ball(pale, [0, 0.6, 0.3], [0.32, 0.34, 0.24]);
+  f.ball(fur, [0, 1.06, 0.3], [0.36, 0.31, 0.31]);
+  f.ball(pale, [0, 0.98, 0.52], [0.24, 0.14, 0.16]);
+  f.ball(dark, [0, 1.0, 0.66], [0.05, 0.04, 0.03]);
+  // The mask, and pale brows above it.
+  f.ball(dark, [0, 1.1, 0.48], [0.31, 0.09, 0.12]);
+  for (const side of [-1, 1]) {
+    f.ball(pale, [side * 0.15, 1.2, 0.52], [0.09, 0.03, 0.03]);
+    const ear = f.ball(fur, [side * 0.24, 1.36, 0.24], [0.11, 0.12, 0.06]);
+    ear.rotation.z = -side * 0.25;
+    f.ear(ear, side);
+    const inner = f.ball(dark, [side * 0.24, 1.35, 0.28], [0.06, 0.07, 0.02]);
+    inner.rotation.z = -side * 0.25;
+    f.ear(inner, side);
+    // Little dark hands held up in front, as if caught in the act.
+    f.ball(dark, [side * 0.2, 0.72, 0.42], [0.07, 0.07, 0.07]);
+    for (const front of [-1, 1]) f.leg(dark, [side * 0.27, 0.16, front * 0.28], [0.12, 0.16, 0.15]);
+  }
+  f.eyes(0.14, 1.1, 0.56, 0.75, '#1f1f24');
+  f.parts.tail.position.set(0, 0.55, -0.48);
+  for (let ring = 0; ring < 6; ring++)
+    f.ball(
+      ring % 2 ? dark : fur,
+      [0, 0.06 * ring, -0.12 * ring],
+      [0.15 - ring * 0.008, 0.15 - ring * 0.008, 0.1],
+      f.parts.tail,
+    );
+  f.parts.back = 1;
+  f.parts.height = 1.65;
+};
+
 const BUILDS: Record<FamilyId, Build> = {
   avian,
   reptile,
@@ -526,12 +563,15 @@ export function buildFigure(
   kerchief: boolean,
 ): FigureParts {
   const family = (speciesId in BUILDS ? speciesId : 'canine') as FamilyId;
-  const lineage = speciesId === 'brindlekin';
+  // Authored individuals and lineages outside the nine families have their own plans.
+  const special: Build | undefined = ({ brindlekin, gemothy } as Partial<Record<string, Build>>)[
+    speciesId
+  ];
   const frame = new THREE.Group();
-  frame.scale.setScalar((lineage ? 0.95 : FAMILY_SCALE[family]) * appearance.size);
+  frame.scale.setScalar((special ? 0.95 : FAMILY_SCALE[family]) * appearance.size);
   root.add(frame);
   const figure = new FigureBuilder(kit, frame, appearance);
-  (lineage ? brindlekin : BUILDS[family])(figure, kerchief);
+  (special ?? BUILDS[family])(figure, kerchief);
   const scale = frame.scale.x;
   figure.parts.height *= scale;
   return figure.parts;

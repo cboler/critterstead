@@ -20,6 +20,7 @@ import {
 } from './model';
 import { type Appearance } from './families';
 import { GRANDPA, grandpaWhereabouts, PIP_ID, pipWhereabouts } from './household';
+import { type SceneStage } from './opening';
 import { appearanceKey, buildFigure, type FigureKit, type FigureParts } from './render/figures';
 import {
   detectQuality,
@@ -214,6 +215,12 @@ export class GameWorld {
   private readonly grandpaLegs: THREE.Mesh[] = [];
   private readonly pip = new THREE.Group();
   private pipParts?: FigureParts;
+  private readonly gemothy = new THREE.Group();
+  private gemothyParts?: FigureParts;
+  // The opening walk stages Grandpa, Pip and Gemothy by hand; null in ordinary play.
+  private staging: SceneStage | null = null;
+  private townHedge: THREE.Group[] = [];
+  private townBin: THREE.Group | null = null;
   private readonly residentViews = new Map<
     string,
     {
@@ -369,10 +376,11 @@ export class GameWorld {
       this.scene.add(shadow);
     }
     this.buildGrandpa();
-    this.scene.add(this.grandpa, this.pip);
+    this.scene.add(this.grandpa, this.pip, this.gemothy);
     for (const [id, name] of [
       [GRANDPA.id, GRANDPA.name],
       [PIP_ID, 'Pip'],
+      ['gemothy', 'Gemothy'],
     ]) {
       const shadow = this.contactShadows[1].clone();
       shadow.visible = false;
@@ -597,9 +605,19 @@ export class GameWorld {
     this.animateLife(state, dt, visualCritterPosition, playerMoving, critterMoving, jumpHeight);
     // A companion working in the yard is not drawn inside the cottage, nor before it is chosen.
     this.critter.visible =
-      (state.areaId !== 'cottage' || state.companionIndoors) && this.guests.length === 0;
+      (state.areaId !== 'cottage' || state.companionIndoors) &&
+      this.guests.length === 0 &&
+      !this.staging;
     this.animateGuests(state, dt);
     this.animateResidents(state, dt);
+    // The opening walk tips the tavern bin and empties one bush of the hedge.
+    this.townHedge[0]?.traverse((part) => (part.visible = !this.staging?.berriesPicked));
+    if (this.townBin) {
+      const [can, spill] = this.townBin.children;
+      can.rotation.z = this.staging?.binTipped ? -Math.PI / 2 : 0;
+      can.position.set(this.staging?.binTipped ? 0.45 : 0, this.staging?.binTipped ? 0.38 : 0, 0);
+      spill.visible = !!this.staging?.binTipped;
+    }
     this.critterLabel.style.display = this.critter.visible ? '' : 'none';
     this.critterLabel.textContent = companion.name;
     this.positionLabel(
@@ -1154,6 +1172,8 @@ export class GameWorld {
   }
 
   private buildArea(state: GameState): void {
+    this.townHedge = [];
+    this.townBin = null;
     this.surroundings?.dispose();
     this.surroundings = undefined;
     this.atmosphere.resetLamps();
@@ -2017,6 +2037,49 @@ export class GameWorld {
       board.add(this.mesh(this.box, color, [x, y, 0.05], [0.42, 0.3, 0.02]));
     this.scenery.add(board);
     this.pennants(-3.2, -2.8, 3.2, -2.8, 3);
+    // A sunberry hedge along the lane into town, and the tavern's bin.
+    this.townHedge = [];
+    for (const [x, z] of [
+      [5.9, -1.5],
+      [6.9, -1.9],
+      [4.9, -1.8],
+    ]) {
+      const bush = new THREE.Group();
+      bush.position.set(x, 0, z);
+      bush.add(this.mesh(this.sphere, '#6f9a5c', [0, 0.45, 0], [0.62, 0.48, 0.5]));
+      bush.add(this.mesh(this.sphere, '#7fa868', [0.3, 0.55, 0.12], [0.4, 0.36, 0.36]));
+      const berries = new THREE.Group();
+      for (let berry = 0; berry < 6; berry++) {
+        const angle = berry * 1.1;
+        berries.add(
+          this.mesh(
+            this.sphere,
+            '#d8604f',
+            [Math.cos(angle) * 0.5, 0.45 + (berry % 3) * 0.13, 0.25 + Math.sin(angle) * 0.18],
+            [0.07, 0.07, 0.07],
+          ),
+        );
+      }
+      bush.add(berries);
+      this.townHedge.push(berries);
+      this.scenery.add(bush);
+    }
+    const bin = new THREE.Group();
+    bin.position.set(3.3, 0, -3.3);
+    const can = new THREE.Group();
+    can.add(this.mesh(this.cylinder, '#7d8a86', [0, 0.42, 0], [0.38, 0.84, 0.38]));
+    can.add(this.mesh(this.cylinder, '#6a7672', [0, 0.87, 0], [0.42, 0.06, 0.42]));
+    const spill = new THREE.Group();
+    for (const [x, z, color] of [
+      [0.5, 0.6, '#d9c38e'],
+      [0.9, 0.2, '#c8866a'],
+      [0.2, 0.95, '#e8e2d0'],
+    ] as [number, number, string][])
+      spill.add(this.mesh(this.box, color, [x, 0.06, z], [0.22, 0.08, 0.16]));
+    spill.visible = false;
+    bin.add(can, spill);
+    this.townBin = bin;
+    this.scenery.add(bin);
     // Benches, planters and a low hedge keep the south side of the square lived-in.
     for (const [x, z, turn] of [
       [-2.6, 3.9, 0.3],
@@ -2553,28 +2616,51 @@ export class GameWorld {
       this.pipParts = buildFigure(this.figureKit, this.pip, pip.speciesId, pip.visualTraits, false);
       this.glaze(this.pip);
     }
+    if (!this.gemothyParts) {
+      this.gemothyParts = buildFigure(
+        this.figureKit,
+        this.gemothy,
+        'gemothy',
+        { coat: 'smoke', accent: 'beetle', size: 0.9 },
+        false,
+      );
+      this.glaze(this.gemothy);
+    }
+    const staged = (point: Point | null | undefined) =>
+      point ? { areaId: state.areaId, position: point, activity: '' } : null;
+    const scene = this.staging;
     const residents = [
       {
         id: GRANDPA.id,
         group: this.grandpa,
-        where: grandpaWhereabouts(state),
+        where: scene ? staged(scene.grandpa) : grandpaWhereabouts(state),
         legs: this.grandpaLegs,
-        speed: 1.6,
+        speed: scene ? 2.6 : 1.6,
         height: 2.05,
       },
       {
         id: PIP_ID,
         group: this.pip,
-        where: pip ? pipWhereabouts(state, companion.position) : null,
+        where: scene ? staged(scene.pip) : pip ? pipWhereabouts(state, companion.position) : null,
         legs: this.pipParts?.legs ?? [],
-        speed: 2.4,
+        speed: scene ? 3 : 2.4,
         height: (this.pipParts?.height ?? 1.6) + 0.1,
+      },
+      {
+        id: 'gemothy',
+        group: this.gemothy,
+        where: staged(scene?.gemothy),
+        legs: this.gemothyParts.legs,
+        speed: 3.4,
+        height: this.gemothyParts.height + 0.1,
       },
     ];
     for (const resident of residents) {
       const view = this.residentViews.get(resident.id)!;
       const here =
-        !!resident.where && resident.where.areaId === state.areaId && this.guests.length === 0;
+        !!resident.where &&
+        resident.where.areaId === state.areaId &&
+        (this.guests.length === 0 || !!scene);
       resident.group.visible = here;
       view.label.style.display = here ? '' : 'none';
       view.shadow.visible = here;
@@ -2731,6 +2817,11 @@ export class GameWorld {
         ),
       );
     }
+  }
+
+  /** Stages a beat of the opening walk, or returns Grandpa and Pip to their routines. */
+  setScene(stage: SceneStage | null): void {
+    this.staging = stage;
   }
 
   setGuestFocus(id: string | null): void {

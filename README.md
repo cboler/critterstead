@@ -24,8 +24,9 @@ companion to haul lumber. Grandpa keeps his own day around the stead, and his ol
 forages the glade each fair morning. There are five areas (yard, glade, cottage, Oakhaven,
 and the Colosseum beyond it), four crops, and six berry bushes.
 
-Fresh games begin by choosing a first companion: **Mallow** (Canine) and two critters
-of other families, drawn at random. Older saves keep their companion, now Canine, and
+Fresh games begin with a walk to Oakhaven beside Grandpa and Pip (skippable), ending in
+the choice of a first companion: **Mallow** (Canine) and two critters of other families,
+drawn at random. Older saves keep their companion, now Canine, and
 all existing progress; version-1 saves keep their individual named Pip. The model
 now distinguishes identity, ownership, and the selected companion; play still
 uses just one companion.

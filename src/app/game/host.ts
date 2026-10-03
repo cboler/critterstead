@@ -194,7 +194,7 @@ export function createInitialState(starter: StarterCandidate = MALLOW, seed = 24
     shedLevel: 0,
     flags: [],
     journal: [
-      `Welcome to Bramblewick. ${starter.name} is waiting to meet you. Walk close, then offer a little care.`,
+      `Morning at Bramblewick. Grandpa is already up: “${starter.name} will be hungry after yesterday. Say good morning, then see about some feed.”`,
     ],
     training: null,
   };

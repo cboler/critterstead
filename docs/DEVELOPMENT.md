@@ -89,8 +89,9 @@ testing from migration testing:
 - **IndexedDB persistence**: A browser hard refresh (such as `Shift+F5`) does **not** create
   a fresh homestead save because save state is stored in IndexedDB.
 - **Developer reset**: Open the developer field kit using the backtick key (`` ` ``), select
-  **Reset saved game**, and confirm. The homestead reinitializes and opens on the starter
-  offer; nothing is saved until a critter is taken home.
+  **Reset saved game**, and confirm. The homestead reinitializes and opens on the
+  walk to Oakhaven (skippable) and the starter offer; nothing is saved until a critter is
+  taken home.
 - **Migration testing**: Evaluates how an existing legacy save (such as a v1 homestead with
   Pip) loads and behaves without being overwritten.
 

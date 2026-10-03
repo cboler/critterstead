@@ -1944,3 +1944,80 @@
   font-weight: 700;
   transform-origin: center;
 }
+
+// The walk to Oakhaven: one line at a time, with a way to skip to the choice.
+.opening-card {
+  @extend %panel;
+  position: absolute;
+  z-index: 9;
+  left: var(--free-left);
+  right: var(--free-right);
+  bottom: calc(var(--bottom) + 12px);
+  margin: 0 auto;
+  max-width: 600px;
+  padding: 14px 16px 16px;
+  border-radius: 20px;
+  background: var(--hud-bg-strong);
+}
+.opening-line {
+  font:
+    500 16px/1.5 Georgia,
+    serif;
+  color: var(--ink);
+  margin: 4px 0 12px;
+}
+.starter-offer .opening-line {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 2px 0 6px;
+}
+.opening-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+.opening-actions button {
+  flex: 0 1 160px;
+  border-radius: 12px;
+}
+.opening-actions button.primary {
+  background: #486c50;
+  border-color: #486c50;
+  color: #fffdf0;
+}
+.opening-actions button.primary:hover {
+  background: #37573e;
+}
+.farewell-card {
+  @extend %panel;
+  position: absolute;
+  z-index: 12;
+  top: calc(var(--top) + 64px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  width: min(520px, calc(100% - 32px));
+  padding: 12px 10px 12px 16px;
+  border-radius: 16px;
+  background: var(--hud-bg-strong);
+  animation: farewell-in 0.6s ease-out;
+}
+.farewell-card p {
+  margin: 0;
+  font:
+    500 14px/1.5 Georgia,
+    serif;
+}
+@keyframes farewell-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -8px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .farewell-card {
+    animation: none;
+  }
+}

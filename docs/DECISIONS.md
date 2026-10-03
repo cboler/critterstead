@@ -16,53 +16,54 @@ For sequencing, see [ROADMAP.md](ROADMAP.md) and [exec-plans/README.md](exec-pla
 
 ## Decision index
 
-| ID      | Title                                                   | Status         | Rationale / Owning Reference                                                                                                   |
-| :------ | :------------------------------------------------------ | :------------- | :----------------------------------------------------------------------------------------------------------------------------- |
-| **D01** | Prove one-critter daily loop before full prologue       | Accepted       | [Roadmap](ROADMAP.md)                                                                                                          |
-| **D02** | Grandpa owns ancient Pip; Pip outlives Grandpa          | Accepted       | [Household](GAME-DESIGN.md#narrative-canon-and-household-history)                                                              |
-| **D03** | Childhood start; Grandpa's unavoidable death            | Accepted       | [Household](GAME-DESIGN.md#narrative-canon-and-household-history)                                                              |
-| **D04** | Choose exactly one starter at acquisition               | Accepted       | [Acquisition](GAME-DESIGN.md#opening-and-acquisition)                                                                          |
-| **D05** | Three visible active critters in party                  | Accepted       | [Ownership](GAME-DESIGN.md#exploration-adventuring-and-party-structure)                                                        |
-| **D06** | Generalized observation-to-autonomy learning            | Accepted       | [Learning](GAME-DESIGN.md#learned-behavior-jobs-and-delegation)                                                                |
-| **D07** | Nine foundational families; Brindlekin as lineage       | Accepted       | [Families](GAME-DESIGN.md#genetics-lineages-breeding-and-chimeras)                                                             |
-| **D08** | Gene technology combines any two critters               | Accepted       | [Gene Tech](GAME-DESIGN.md#genetics-lineages-breeding-and-chimeras)                                                            |
-| **D09** | Authored family-pairing morphology                      | Accepted       | [Morphology](GAME-DESIGN.md#morphology-body-simulation-and-encumbrance)                                                        |
-| **D10** | Natural aging; nonlethal Colosseum combat               | Accepted       | [Life Cycle](GAME-DESIGN.md#critter-care-health-aging-and-mortality)                                                           |
-| **D11** | Multi-purpose Colosseum venue                           | Accepted       | [Colosseum](GAME-DESIGN.md#the-colosseum)                                                                                      |
-| **D12** | Friendly competitive cousin; scripted protagonist       | Reopened (D39) | [Household](GAME-DESIGN.md#narrative-canon-and-household-history)                                                              |
-| **D13** | Local host authority, deterministic seed, safe saves    | Accepted       | [Architecture](ARCHITECTURE.md#boundaries-and-invariants)                                                                      |
-| **D14** | Shared docs, thin entrypoints, bounded plans            | Accepted       | [Conventions](exec-plans/README.md)                                                                                            |
-| **D15** | Individual value is independent of usefulness           | Accepted       | [Core Promise](GAME-DESIGN.md#core-values-and-critter-philosophy)                                                              |
-| **D16** | Multi-critter array, ownerId, save v2                   | Implemented    | [Architecture](ARCHITECTURE.md#save-contract-and-evolution-rules)                                                              |
-| **D17** | Authored behaviors table, behavior IDs, save v3         | Implemented    | [Architecture](ARCHITECTURE.md#save-contract-and-evolution-rules)                                                              |
-| **D18** | Player-visible milestone rule after foundation          | Accepted       | [Roadmap](ROADMAP.md)                                                                                                          |
-| **D19** | Grandpa Colosseum champion & Pip creation cost          | Accepted       | [Household](GAME-DESIGN.md#narrative-canon-and-household-history)                                                              |
-| **D20** | Distinction: owner, party, active companion             | Accepted       | [Architecture](ARCHITECTURE.md#boundaries-and-invariants)                                                                      |
-| **D21** | M3 daily choice: Rest together, dock UI, retuned energy | Accepted       | [Plan 001](exec-plans/completed/001-deepen-one-critter-daily-loop.md#m3--make-care-effort-and-recovery-produce-a-daily-choice) |
-| **D22** | Testing fresh-start reset vs save migration             | Accepted       | [Development](DEVELOPMENT.md#human-testing-fresh-start-vs-migration-instructions)                                              |
-| **D23** | Local verification gates; non-blocking remote CI        | Accepted       | [Development](DEVELOPMENT.md#verification-workflow-and-remote-ci)                                                              |
-| **D24** | Design references as shorthand, original expression     | Accepted       | [Disclaimer](GAME-DESIGN.md#design-reference-disclaimer)                                                                       |
-| **D25** | Unified 4-stat system and separate skill taxonomy       | Accepted       | [Stats & Skills](GAME-DESIGN.md#core-capability-stats)                                                                         |
-| **D26** | Physical logistics and localized storage                | Accepted       | [Logistics](GAME-DESIGN.md#physical-logistics-and-storage)                                                                     |
-| **D27** | Extensible simulation checks with failure degrees       | Accepted       | [Checks](GAME-DESIGN.md#checks-and-simulation)                                                                                 |
-| **D28** | Distinct dual combat models (adventure vs Colosseum)    | Accepted       | [Combat](GAME-DESIGN.md#exploration-adventuring-and-party-structure)                                                           |
-| **D29** | Authored macro-spaces, player micro-spaces              | Accepted       | [Layout](GAME-DESIGN.md#construction-and-spatial-layout)                                                                       |
-| **D30** | Fixed 120-day calendar and cottage wall calendar        | Accepted       | [Calendar](GAME-DESIGN.md#calendar-time-and-seasons)                                                                           |
-| **D31** | Monster Rancher training minigames family               | Accepted       | [Training](GAME-DESIGN.md#training-system)                                                                                     |
-| **D32** | Viewport decoupling from interaction dock UI            | Accepted       | [Architecture](ARCHITECTURE.md#1-viewport--canvas-decoupling)                                                                  |
-| **D33** | Restructured Campaign 001 vertical slice runway         | Accepted       | [Roadmap](ROADMAP.md)                                                                                                          |
-| **D45** | Grandpa, Pip and Oakhaven in every household (save v10) | Implemented    | [Plan 003](exec-plans/active/003-household-and-opening.md)                                                                     |
-| **D44** | Pip is the one Brindlekin                               | Accepted       | [Household](GAME-DESIGN.md#narrative-canon-and-household-history)                                                              |
-| **D43** | Stage 2 begins; Campaign 001 gate closed                | Accepted       | [Plan 003](exec-plans/active/003-household-and-opening.md)                                                                     |
-| **D42** | Chimera breed names join the parents' names             | Accepted       | [Families](GAME-DESIGN.md#genetics-lineages-breeding-and-chimeras)                                                             |
-| **D41** | Offline game first; sharing critters is a later wish    | Accepted       | [Identity](GAME-DESIGN.md#high-level-game-identity)                                                                            |
-| **D40** | Opening walk; starter offer of three primary families   | Accepted       | [Opening](GAME-DESIGN.md#opening-and-acquisition)                                                                              |
-| **D39** | Childhood centers on Grandpa; cousin reopened           | Accepted       | [Years with Grandpa](GAME-DESIGN.md#the-years-with-grandpa)                                                                    |
-| **D38** | Quests read from the save; growth is visible and counts | Implemented    | [Plan 001 playtest 2](exec-plans/completed/001-deepen-one-critter-daily-loop.md#playtest-2-follow-up--2026-10-01)              |
-| **D37** | One place for each kind of feedback; touch steering     | Implemented    | [Plan 001 M9](exec-plans/completed/001-deepen-one-critter-daily-loop.md#m9-evidence--2026-09-30)                               |
-| **D36** | Full-screen living diorama with a following camera      | Implemented    | [Plan 002](exec-plans/completed/002-living-diorama-presentation.md)                                                            |
-| **D35** | Per-discipline same-day training curve; gauge drills    | Implemented    | [Plan 001 M8](exec-plans/completed/001-deepen-one-critter-daily-loop.md#m8-evidence--2026-09-29)                               |
-| **D34** | Moisture-gated growth, dawn boundary, hashed weather    | Implemented    | [Plan 001 M7](exec-plans/completed/001-deepen-one-critter-daily-loop.md#m7-evidence--2026-09-29)                               |
+| ID      | Title                                                     | Status         | Rationale / Owning Reference                                                                                                   |
+| :------ | :-------------------------------------------------------- | :------------- | :----------------------------------------------------------------------------------------------------------------------------- |
+| **D01** | Prove one-critter daily loop before full prologue         | Accepted       | [Roadmap](ROADMAP.md)                                                                                                          |
+| **D02** | Grandpa owns ancient Pip; Pip outlives Grandpa            | Accepted       | [Household](GAME-DESIGN.md#narrative-canon-and-household-history)                                                              |
+| **D03** | Childhood start; Grandpa's unavoidable death              | Accepted       | [Household](GAME-DESIGN.md#narrative-canon-and-household-history)                                                              |
+| **D04** | Choose exactly one starter at acquisition                 | Accepted       | [Acquisition](GAME-DESIGN.md#opening-and-acquisition)                                                                          |
+| **D05** | Three visible active critters in party                    | Accepted       | [Ownership](GAME-DESIGN.md#exploration-adventuring-and-party-structure)                                                        |
+| **D06** | Generalized observation-to-autonomy learning              | Accepted       | [Learning](GAME-DESIGN.md#learned-behavior-jobs-and-delegation)                                                                |
+| **D07** | Nine foundational families; Brindlekin as lineage         | Accepted       | [Families](GAME-DESIGN.md#genetics-lineages-breeding-and-chimeras)                                                             |
+| **D08** | Gene technology combines any two critters                 | Accepted       | [Gene Tech](GAME-DESIGN.md#genetics-lineages-breeding-and-chimeras)                                                            |
+| **D09** | Authored family-pairing morphology                        | Accepted       | [Morphology](GAME-DESIGN.md#morphology-body-simulation-and-encumbrance)                                                        |
+| **D10** | Natural aging; nonlethal Colosseum combat                 | Accepted       | [Life Cycle](GAME-DESIGN.md#critter-care-health-aging-and-mortality)                                                           |
+| **D11** | Multi-purpose Colosseum venue                             | Accepted       | [Colosseum](GAME-DESIGN.md#the-colosseum)                                                                                      |
+| **D12** | Friendly competitive cousin; scripted protagonist         | Reopened (D39) | [Household](GAME-DESIGN.md#narrative-canon-and-household-history)                                                              |
+| **D13** | Local host authority, deterministic seed, safe saves      | Accepted       | [Architecture](ARCHITECTURE.md#boundaries-and-invariants)                                                                      |
+| **D14** | Shared docs, thin entrypoints, bounded plans              | Accepted       | [Conventions](exec-plans/README.md)                                                                                            |
+| **D15** | Individual value is independent of usefulness             | Accepted       | [Core Promise](GAME-DESIGN.md#core-values-and-critter-philosophy)                                                              |
+| **D16** | Multi-critter array, ownerId, save v2                     | Implemented    | [Architecture](ARCHITECTURE.md#save-contract-and-evolution-rules)                                                              |
+| **D17** | Authored behaviors table, behavior IDs, save v3           | Implemented    | [Architecture](ARCHITECTURE.md#save-contract-and-evolution-rules)                                                              |
+| **D18** | Player-visible milestone rule after foundation            | Accepted       | [Roadmap](ROADMAP.md)                                                                                                          |
+| **D19** | Grandpa Colosseum champion & Pip creation cost            | Accepted       | [Household](GAME-DESIGN.md#narrative-canon-and-household-history)                                                              |
+| **D20** | Distinction: owner, party, active companion               | Accepted       | [Architecture](ARCHITECTURE.md#boundaries-and-invariants)                                                                      |
+| **D21** | M3 daily choice: Rest together, dock UI, retuned energy   | Accepted       | [Plan 001](exec-plans/completed/001-deepen-one-critter-daily-loop.md#m3--make-care-effort-and-recovery-produce-a-daily-choice) |
+| **D22** | Testing fresh-start reset vs save migration               | Accepted       | [Development](DEVELOPMENT.md#human-testing-fresh-start-vs-migration-instructions)                                              |
+| **D23** | Local verification gates; non-blocking remote CI          | Accepted       | [Development](DEVELOPMENT.md#verification-workflow-and-remote-ci)                                                              |
+| **D24** | Design references as shorthand, original expression       | Accepted       | [Disclaimer](GAME-DESIGN.md#design-reference-disclaimer)                                                                       |
+| **D25** | Unified 4-stat system and separate skill taxonomy         | Accepted       | [Stats & Skills](GAME-DESIGN.md#core-capability-stats)                                                                         |
+| **D26** | Physical logistics and localized storage                  | Accepted       | [Logistics](GAME-DESIGN.md#physical-logistics-and-storage)                                                                     |
+| **D27** | Extensible simulation checks with failure degrees         | Accepted       | [Checks](GAME-DESIGN.md#checks-and-simulation)                                                                                 |
+| **D28** | Distinct dual combat models (adventure vs Colosseum)      | Accepted       | [Combat](GAME-DESIGN.md#exploration-adventuring-and-party-structure)                                                           |
+| **D29** | Authored macro-spaces, player micro-spaces                | Accepted       | [Layout](GAME-DESIGN.md#construction-and-spatial-layout)                                                                       |
+| **D30** | Fixed 120-day calendar and cottage wall calendar          | Accepted       | [Calendar](GAME-DESIGN.md#calendar-time-and-seasons)                                                                           |
+| **D31** | Monster Rancher training minigames family                 | Accepted       | [Training](GAME-DESIGN.md#training-system)                                                                                     |
+| **D32** | Viewport decoupling from interaction dock UI              | Accepted       | [Architecture](ARCHITECTURE.md#1-viewport--canvas-decoupling)                                                                  |
+| **D33** | Restructured Campaign 001 vertical slice runway           | Accepted       | [Roadmap](ROADMAP.md)                                                                                                          |
+| **D46** | The opening walk plays before any save; old saves skip it | Implemented    | [Plan 003](exec-plans/active/003-household-and-opening.md)                                                                     |
+| **D45** | Grandpa, Pip and Oakhaven in every household (save v10)   | Implemented    | [Plan 003](exec-plans/active/003-household-and-opening.md)                                                                     |
+| **D44** | Pip is the one Brindlekin                                 | Accepted       | [Household](GAME-DESIGN.md#narrative-canon-and-household-history)                                                              |
+| **D43** | Stage 2 begins; Campaign 001 gate closed                  | Accepted       | [Plan 003](exec-plans/active/003-household-and-opening.md)                                                                     |
+| **D42** | Chimera breed names join the parents' names               | Accepted       | [Families](GAME-DESIGN.md#genetics-lineages-breeding-and-chimeras)                                                             |
+| **D41** | Offline game first; sharing critters is a later wish      | Accepted       | [Identity](GAME-DESIGN.md#high-level-game-identity)                                                                            |
+| **D40** | Opening walk; starter offer of three primary families     | Accepted       | [Opening](GAME-DESIGN.md#opening-and-acquisition)                                                                              |
+| **D39** | Childhood centers on Grandpa; cousin reopened             | Accepted       | [Years with Grandpa](GAME-DESIGN.md#the-years-with-grandpa)                                                                    |
+| **D38** | Quests read from the save; growth is visible and counts   | Implemented    | [Plan 001 playtest 2](exec-plans/completed/001-deepen-one-critter-daily-loop.md#playtest-2-follow-up--2026-10-01)              |
+| **D37** | One place for each kind of feedback; touch steering       | Implemented    | [Plan 001 M9](exec-plans/completed/001-deepen-one-critter-daily-loop.md#m9-evidence--2026-09-30)                               |
+| **D36** | Full-screen living diorama with a following camera        | Implemented    | [Plan 002](exec-plans/completed/002-living-diorama-presentation.md)                                                            |
+| **D35** | Per-discipline same-day training curve; gauge drills      | Implemented    | [Plan 001 M8](exec-plans/completed/001-deepen-one-critter-daily-loop.md#m8-evidence--2026-09-29)                               |
+| **D34** | Moisture-gated growth, dawn boundary, hashed weather      | Implemented    | [Plan 001 M7](exec-plans/completed/001-deepen-one-critter-daily-loop.md#m7-evidence--2026-09-29)                               |
 
 ---
 
@@ -317,6 +318,15 @@ picks, so their positions are not saved. Pip's picks go to the yard chest, and a
 within sight learns from watching him as it would from you. Everyone now ages overnight.
 The Colosseum is reached through Oakhaven rather than the glade.
 [Plan 003 M2](exec-plans/active/003-household-and-opening.md#m2-evidence--2026-10-02).
+
+### D46 — The opening walk plays before any save (implemented 2026-10-03)
+
+New games open on the walk to Oakhaven: authored beats staged on a throwaway state (Pip at
+the hedge, Gemothy and the tavern bin, Grandpa's ways of partnering, Mallow, then the
+choice in the square). It can be skipped to the choice, and nothing is saved until a critter
+is taken home; the household then starts the next morning, as before. Existing saves skip
+the prologue (product owner, 2026-10-03).
+[Plan 003 M3](exec-plans/active/003-household-and-opening.md#m3-evidence--2026-10-03).
 
 ---
 

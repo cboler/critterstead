@@ -5,7 +5,7 @@
   [class.quality-light]="quality() === 'light'"
   [class.is-night]="night()"
   [attr.inert]="panel() ? '' : null"
-  [class.choosing]="!!offer()"
+  [class.choosing]="beat() !== null"
 >
   <header class="masthead">
     <div class="masthead-start">
@@ -185,9 +185,28 @@
           <button class="icon-button" (click)="zoom(1)" aria-label="Zoom out">−</button>
         </div>
       </div>
+      @if (openingBeat(); as scene) {
+        @if (!offer()) {
+          <section class="opening-card" id="game-controls" aria-labelledby="opening-speaker">
+            <p class="offer-eyebrow" id="opening-speaker">
+              {{ scene.speaker ?? 'The walk to Oakhaven' }}
+            </p>
+            <p class="opening-line" aria-live="polite">
+              {{ scene.speaker ? '“' + scene.line + '”' : scene.line }}
+            </p>
+            <div class="opening-actions">
+              <button type="button" (click)="skipOpening()">Skip the walk</button>
+              <button class="primary" type="button" (click)="continueOpening()">Continue</button>
+            </div>
+          </section>
+        }
+      }
       @if (offer(); as candidates) {
         <section class="starter-offer" id="game-controls" aria-labelledby="offer-heading">
           <p class="offer-eyebrow">A first companion</p>
+          @if (openingBeat(); as scene) {
+            <p class="opening-line">“{{ scene.line }}”</p>
+          }
           <h2 id="offer-heading">Who will you take home?</h2>
           <div class="offer-cards" role="radiogroup" aria-label="Critters you can choose">
             @for (candidate of candidates; track candidate.id) {
@@ -247,7 +266,7 @@
           }
         </section>
       }
-      @if (!offer() && !state().training && !result() && nearby(); as target) {
+      @if (beat() === null && !state().training && !result() && nearby(); as target) {
         <div class="interaction-dock" id="game-controls">
           <div class="interaction-copy">
             <h2>{{ target.title }}</h2>
@@ -536,6 +555,14 @@
       <span class="eyebrow">{{ companion().name }} learned something · {{ learned.lesson }}</span>
       <strong>{{ learned.stage }}</strong>
       <span>{{ learned.detail }}</span>
+    </div>
+  }
+  @if (farewell(); as text) {
+    <div class="farewell-card" role="status">
+      <p>{{ text }}</p>
+      <button class="icon-button" type="button" aria-label="Close" (click)="farewell.set(null)">
+        ×
+      </button>
     </div>
   }
   @if (morning(); as card) {

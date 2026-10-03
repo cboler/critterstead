@@ -141,13 +141,13 @@ export const MALLOW: StarterCandidate = {
   stats: { strength: 3, endurance: 5, speed: 4, intelligence: 6 },
   visualTraits: { coat: 'peach', accent: 'moss', size: 1 },
   genetics: { coat: 'peach/peach', crest: 'fern/fern' },
-  position: { x: -2.8, z: -0.7 },
+  position: { x: -1.9, z: 1.5 },
 };
 
-// The three wait in a row just up-screen of the rancher, clear of the offer sheet.
+// The three wait in a row in Oakhaven's square, up-screen of the rancher and the offer sheet.
 const OFFER_POSITIONS: Point[] = [
-  { x: -0.8, z: -2.1 },
-  { x: 1.6, z: -2.9 },
+  { x: 0, z: 2 },
+  { x: 1.9, z: 1.5 },
 ];
 
 /** Mallow plus two other families, drawn from the new game's seed without duplicates. */

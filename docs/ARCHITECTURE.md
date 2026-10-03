@@ -181,6 +181,16 @@ companion in sight learns as from the player. Residents join the dock's candidat
 1.4 units, so a companion following you keeps the dock until you walk up to them. All
 critters now age overnight.
 
+## Current implementation additions — Stage 2 M3 (2026-10-03)
+
+`opening.ts` holds the walk to Oakhaven as authored beats: an area, a time, where the
+rancher, Grandpa, Pip and Gemothy stand, and a line. A fresh game in `app.ts` stages each
+beat on a throwaway host state (`stageOpening`), hands the staging to
+`GameWorld.setScene` (which overrides Grandpa's and Pip's routines, draws Gemothy, tips the
+tavern bin and empties a hedge bush) and eases the rancher between marks. Nothing runs the
+simulation or saves until the choice; the offer beat shows the M1 offer in the square, and
+choosing creates the household exactly as before (day 1, 08:00). Saved games never see it.
+
 ## Architectural reality audit (reconciliation baseline before M4)
 
 The following audit records the reconciled pre-M4 baseline. The dated additions
