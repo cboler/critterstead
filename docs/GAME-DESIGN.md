@@ -15,7 +15,7 @@ For sequencing and milestone planning, see [ROADMAP.md](ROADMAP.md) and [active 
 
 References throughout this documentation to external games—including _Rune Factory 4_,
 _Monster Rancher_, _Graveyard Keeper_, _Palworld_, _Mewgenics_, _Stardew Valley_,
-_Dragon's Dogma_, _RimWorld_, and similar titles—are comparative design shorthand.
+_Dragon's Dogma_, _RimWorld_, _Ni no Kuni_, and similar titles—are comparative design shorthand.
 They are used solely to communicate system depth, interaction style, pacing, or
 mechanical intent between designers and engineers.
 
@@ -63,6 +63,9 @@ interlocking gameplay fantasies:
 7. **Mewgenics-like generational individuality**: inheritance, surprising trait
    combinations, persistent life history, and deliberate breeding choices produce
    distinct individuals over generations.
+
+The emotional heart beneath these systems is Grandpa: growing up with him, losing him,
+and carrying his name forward ([The years with Grandpa](#the-years-with-grandpa)).
 
 These systems are not disconnected minigames; they form mutually reinforcing loops:
 
@@ -349,7 +352,9 @@ Inspired in design spirit by _Dragon's Dogma_, carrying weight affects character
 9. **Insect** (exoskeleton defense, proportional strength, specialized manipulators, rapid life cycles)
 
 _Brindlekin_ represents an established, stabilized woodland lineage rather than a separate
-root family.
+root family. Familiar animals outside the nine arise the same way: a raccoon-like critter
+sits somewhere between a bear crossed with a cat and a dog. Players name individuals,
+never breeds; chimera breed names will come from a generated naming scheme (not yet designed).
 
 ### Breeding and artificial growth technology
 
@@ -761,9 +766,43 @@ renderer.
   spent his life's accumulated fortune.
 - **Pip's role**: Pip is not a novice starter. Pip demonstrates mature autonomous harvesting
   in the opening, guides the player, outlives Grandpa, and becomes an honored homestead
-  mentor to the player's new generation of critters.
+  mentor to the player's new generation of critters. Pip is the only one of its kind.
+- **Pip after Grandpa**: Pip stays, for the ache of it and for its use. Pip visits
+  the spots Grandpa used to go, on his own, and teaches the player's critters basic
+  learned jobs.
 - **The passing of the torch**: Grandpa's eventual passing marks the end of the
   guided childhood era and the beginning of independent homestead management. Townspeople
   frequently remark that the player carries Grandpa's spirit.
-- **The friendly cousin**: A cousin of similar age receives a starter critter around the
-  same time, serving as a friendly rival, sparring partner, and ally during Colosseum festivals.
+- **The friendly cousin (undecided)**: A cousin of similar age might receive a starter
+  around the same time as a friendly rival. This is a maybe, not canon
+  ([D39](DECISIONS.md#d39--the-childhood-centers-on-grandpa-cousin-reopened-accepted-2026-10-02)).
+
+### The years with Grandpa
+
+The emotional heart of the game is losing Grandpa and carrying on: keeping his name
+alive and learning, after he is gone, who he really was (comparable in intent to
+_Ni no Kuni_). The childhood therefore spends its time developing Grandpa himself.
+
+- **Length (provisional)**: two or three years of only spring and summer. The player's
+  first winter comes after Grandpa's passing. Playtesting may lengthen or shorten this.
+
+### Opening and acquisition
+
+The first critter is chosen after a scripted walk into Oakhaven with Grandpa and Pip:
+
+- **Pip picks berries** along the way, showing that critters perform jobs they have learned.
+- **Gemothy** is met beside a garbage bin he has just knocked over.
+- **Grandpa explains the ways to partner with a critter**: raising one, buying from a
+  breeder, finding one, rescuing one, and so on. **Mallow** appears as one of the
+  examples along the walk and can be chosen as a starter.
+- **The offer**: three different primary families, drawn at random without duplicates.
+  The player chooses exactly one ([D04](DECISIONS.md#decision-index)).
+
+### Named critters
+
+Pip and Gemothy are the only named story critters so far.
+
+- **Gemothy** is a raccoon-like scavenger who belongs to no one. His name nods to
+  Jimothy the raccoon and to Gemini, one of the tools that shaped this design. In the
+  world's rules he is a chimera, somewhere between a bear crossed with a cat and a dog.
+  The player may later find him again and perhaps convince him to join them.
