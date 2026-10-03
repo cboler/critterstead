@@ -358,7 +358,8 @@ Inspired in design spirit by _Dragon's Dogma_, carrying weight affects character
 _Brindlekin_ represents an established, stabilized woodland lineage rather than a separate
 root family. Familiar animals outside the nine arise the same way: a raccoon-like critter
 sits somewhere between a bear crossed with a cat and a dog. Players name individuals,
-never breeds; chimera breed names will come from a generated naming scheme (not yet designed).
+never breeds. As a first pass, a chimera's breed name joins its parents' names by whole or
+partial word concatenation ([D42](DECISIONS.md#d42--chimera-breed-names-join-the-parents-names-accepted-2026-10-02)).
 
 ### Breeding and artificial growth technology
 
@@ -810,8 +811,7 @@ critter is chosen after a scripted walk into Oakhaven with Grandpa and Pip:
   breeder, finding or bonding with a wild one, rescuing one, a breeding arrangement with
   another owner, and later gene technology. Not every path supplies a starter.
 - **The offer**: three critters of different primary families. **Mallow**, met as an
-  example along the walk, is always one of them, recast as a primary family rather than
-  Brindlekin; the other two families are drawn at random without duplicates. The player
+  example along the walk, is always one of them, recast as Canine rather than Brindlekin; the other two families are drawn at random without duplicates. The player
   chooses exactly one ([D04](DECISIONS.md#decision-index)).
 - **Home**: the group returns to the stead. After the first night, Grandpa guides the
   first real day of care, chores and training.
@@ -823,5 +823,5 @@ Pip and Gemothy are the only named story critters so far.
 - **Gemothy** is a raccoon-like scavenger who belongs to no one. His name nods to
   Jimothy the raccoon and to Gemini, one of the tools that shaped this design. In the
   world's rules he is a chimera, somewhere between a bear crossed with a cat and a dog.
-  The player may later find him again and perhaps convince him to join them. The joke
-  must work for players who don't know its origin; no scene exists only as a reference.
+  The player may later find him again and perhaps convince him to join them. The
+  reference is if-you-know-you-know; it need not land for everyone.

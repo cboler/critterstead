@@ -19,7 +19,7 @@ For active milestone execution, see [exec-plans/README.md](exec-plans/README.md)
 
 ```
 [Stage 0: Bootstrap] -> [Stage 1: First Living Stead] -> [Stage 2: Household & Opening]
-       Complete             Active Campaign 001                Planned
+       Complete                 Complete                  Active Campaign 003
                                      |
                                      v
                         [Stage 3: Community & Expansion]
@@ -37,7 +37,7 @@ For active milestone execution, see [exec-plans/README.md](exec-plans/README.md)
 | Stage                           | Focus & Playable Outcome                                                                                                                                                            | Key Deliverables                                                                                                                                                          |
 | :------------------------------ | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **0 — Repository memory**       | Shared truth, architecture boundaries, recoverable plans                                                                                                                            | [Completed bootstrap record](exec-plans/completed/000-repository-memory-bootstrap.md)                                                                                     |
-| **1 — The First Living Stead**  | Multi-system vertical slice with one critter: rancher stats, checks, physical logistics, production, multi-crop farming, cottage interior, calendar, and diverse training minigames | Campaign 001 (M1–M9); save v8; multi-day loop built, gate pending product decision                                                                                        |
+| **1 — The First Living Stead**  | Multi-system vertical slice with one critter: rancher stats, checks, physical logistics, production, multi-crop farming, cottage interior, calendar, and diverse training minigames | Campaign 001 (M1–M9) complete; save v8; gate closed 2026-10-02                                                                                                            |
 | **2 — Household and opening**   | Guided childhood prologue centered on Grandpa: the walk to town with Pip, meeting Gemothy, starter acquisition, spring-and-summer years, Grandpa's passing, first winter alone      | Oakhaven reachable; Pip and Gemothy; primary-family archetypes for a 3-family starter offer ([D40](DECISIONS.md#d40--opening-walk-and-starter-offer-accepted-2026-10-02)) |
 | **3 — Community and expansion** | Expanded stead, 3-critter active party, town shops, cooking/baking appliances, requests, theatrical Colosseum tournaments                                                           | Roster & barn expansion; town commerce; turn-based combat                                                                                                                 |
 | **4 — Lineages and chimeras**   | Husbrandry, natural breeding, artificial growth technology, authored family spectra, stable lineages                                                                                | Chimera generation; pedigree history; trait inheritance                                                                                                                   |
@@ -45,7 +45,7 @@ For active milestone execution, see [exec-plans/README.md](exec-plans/README.md)
 
 ---
 
-## Active Campaign 001 — The First Living Stead
+## Campaign 001 — The First Living Stead (complete)
 
 Campaign 001 replaces the early underspecified M4–M6 runway with a comprehensive,
 staged progression (M1 through M9) that systematically builds the foundational vertical slice.
@@ -69,7 +69,7 @@ staged progression (M1 through M9) that systematically builds the foundational v
   |
 [M8: Diverse Training & Colosseum] (Complete - save v8)
   |
-[M9: Vertical Slice Gate] (Built - gate pending product decision)
+[M9: Vertical Slice Gate] (Complete - gate closed 2026-10-02)
 ```
 
 #### M1 — Establish distinct critter identity and ownership (Complete)
@@ -159,14 +159,14 @@ staged progression (M1 through M9) that systematically builds the foundational v
   3. Open the path to the Colosseum gate: enter the skeletal stadium shell and enter a
      multi-stat athletic exhibition trial with audience fanfare.
 
-#### M9 — Vertical slice integration, multi-day playtesting, and campaign gate (Built)
+#### M9 — Vertical slice integration, multi-day playtesting, and campaign gate (Complete)
 
 - **Delivered**: a three-day household exercised end to end (rules and browser), every save
   version v1–v7 migrating intact to v8, the playtest protocol, and fixes from the first
   human playtest (clear feedback placement, touch steering, no accidental drill restarts).
-  See [campaign evidence](exec-plans/active/001-deepen-one-critter-daily-loop.md#m9-evidence--2026-09-30).
-- **Gate**: two playtests are recorded and acted on; pending the remaining testers and the
-  vision sessions that shape Stage 2. Stage 2 has not begun.
+  See [campaign evidence](exec-plans/completed/001-deepen-one-critter-daily-loop.md#m9-evidence--2026-09-30).
+- **Gate**: closed by the product owner on 2026-10-02 after two playtests and the first
+  vision session ([D43](DECISIONS.md#d43--stage-2-begins-accepted-2026-10-02)).
 - **Player-visible change**:
   1. A cohesive, multi-day experience demonstrating the complete living stead: farming,
      resource gathering, physical hauling, refining lumber, training across varied disciplines,
@@ -175,6 +175,18 @@ staged progression (M1 through M9) that systematically builds the foundational v
      reloads, and verified save migration from every earlier version.
   3. Structured human playtest evaluating attachment, pacing, and daily engagement as the
      formal gate before beginning Stage 2.
+
+---
+
+## Active Campaign 003 — Household and Opening
+
+Stage 2, sequenced in [plan 003](exec-plans/active/003-household-and-opening.md):
+
+1. **M1** — the nine families and a choice of starter (save v9). In progress.
+2. **M2** — Grandpa, Pip and the road to Oakhaven.
+3. **M3** — the walk to town: the scripted opening and the starter offer in Oakhaven.
+4. **M4** — the years with Grandpa (needs story beats).
+5. **M5** — Grandpa's passing and the first winter (needs story beats).
 
 ---
 

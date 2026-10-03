@@ -6,7 +6,7 @@ M3 implementation and local verification complete and merged into `main` via PR 
 M4–M9 restructured to systematically build the first living stead vertical slice.
 M4–M6 merged to `main` via PR #2. M7 (save v7) and M8 (save v8) complete and locally
 verified on 2026-09-29. M9 built on 2026-09-30; the campaign gate awaits the product
-owner.
+owner. The gate closed on 2026-10-02 and the campaign is complete.
 Source baseline: `3a346fc` (documentation bootstrap on gameplay `06aa91e`),
 identical in content to the published bootstrap `7e14cac`.
 
@@ -237,8 +237,8 @@ playtest is a pending product gate, not a claim of failure or success.
 
 ### M9 — Vertical slice integration, multi-day playtesting, and campaign gate
 
-**Status:** built 2026-09-30 ([evidence](#m9-evidence--2026-09-30)); the formal gate
-awaits the product owner.
+**Status:** complete. Built 2026-09-30 ([evidence](#m9-evidence--2026-09-30)); gate closed
+2026-10-02.
 **Player-visible expectation:** A cohesive, multi-day vertical slice demonstrating the full living stead loop across 3+ days with genuine choices, delegation, progression, and exhibition competition; evaluated via a structured human playtest protocol.
 
 - [x] Demonstrate a seamless multi-day gameplay loop: tending 4-crop garden, gathering wood/stone,
@@ -253,9 +253,9 @@ awaits the product owner.
       learning is rewarding, physical logistics feel satisfying, and repeated days feel engaging.
       Playtest 1 is recorded and its findings fixed; the product owner's playtest of the M9
       build is pending.
-- [ ] Formal campaign exit gate: record findings, update roadmap, and authorize entry into
-      Stage 2 (Household and Opening). Do not begin Stage 2 automatically. Findings and
-      roadmap are recorded; authorization is the product owner's decision.
+- [x] Formal campaign exit gate: the product owner closed it on 2026-10-02 and authorized
+      Stage 2 ([D43](../../DECISIONS.md#d43--stage-2-begins-accepted-2026-10-02)); remaining
+      tester feedback arrives as tweaks.
 
 ---
 
@@ -399,10 +399,9 @@ The outstanding human comparison between M3 routines has been conducted on the d
 
 ## Current handoff
 
-M1–M9 built and published on `main`; playtests 1 and 2 are recorded and their findings
-fixed. Next: collect the remaining testers' feedback (protocol in DEVELOPMENT.md) and
-hold the planned vision sessions; then the product owner decides the Stage 2 gate. Do
-not begin Stage 2 before that decision.
+Campaign complete. M1–M9 are published on `main`, playtests 1 and 2 were acted on, and
+the product owner closed the gate on 2026-10-02 (D43). Stage 2 continues in
+[plan 003](../active/003-household-and-opening.md).
 
 M4 desktop persistence suite: 9 passed, including v1/v2 migration, paid activity,
 malformed/future/ambiguous save protection, and single-writer ownership.
