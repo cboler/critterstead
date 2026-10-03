@@ -145,9 +145,10 @@ describe('the first living stead across three days', () => {
       transfer(host, backpack(host.state).id, container('chest').id, 'lumber');
     }
     expect(host.haulingLearning().label).toBe('Hauls on cue');
-    // Then an exhibition at the Colosseum and a lap of the pacing loop on the way home.
-    travel(host, 'gate', 7.4, 0);
-    travel(host, 'colosseum-gate', 7, -3.8);
+    // Then an exhibition at the Colosseum, through Oakhaven, and a lap of the glade's loop.
+    travel(host, 'town-gate', -7.4, 1.2);
+    expect(host.state.areaId).toBe('town');
+    travel(host, 'colosseum-gate', -7.4, 1);
     expect(host.state.areaId).toBe('colosseum');
     go(host, -3, 1.9);
     must(host, 'exhibition', 'exhibit');
@@ -156,6 +157,8 @@ describe('the first living stead across three days', () => {
     expect(host.critter.competitions.at(-1)).toMatchObject({ day: 2, event: 'exhibition' });
     expect(act(host, 'exhibition', 'exhibit')).toBe(false);
     travel(host, 'gate', -7.4, 4);
+    travel(host, 'gate', 7.4, 1);
+    travel(host, 'gate', 7.4, 0);
     go(host, 1.2, 6);
     must(host, 'pace', 'pace');
     holdGauge(host, 0.6);

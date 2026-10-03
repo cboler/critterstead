@@ -249,7 +249,7 @@ export function readSave(value: unknown): GameState {
     const legacy = structuredClone(value as LegacyGameStateV8);
     // Every earlier companion was the provisional Brindlekin starter; it is now Canine (D40),
     // keeping Brindlekin for Pip. Identity, name, stats and history are untouched.
-    const migrated: GameState = {
+    const migrated: LegacyGameStateV9 = {
       ...legacy,
       version: 9,
       critters: legacy.critters.map((critter) => ({
@@ -258,6 +258,12 @@ export function readSave(value: unknown): GameState {
         visualTraits: { ...critter.visualTraits, size: 1 },
       })),
     };
+    return readSave(migrated);
+  }
+  if (root['version'] === 9) {
+    validateState(value, 9);
+    // v10 only adds Oakhaven as a place a save can be.
+    const migrated: GameState = { ...structuredClone(value as LegacyGameStateV9), version: 10 };
     validateSave(migrated);
     return migrated;
   }
@@ -275,10 +281,11 @@ interface LegacyCrop {
   watered: boolean;
   readyAt: number | null;
 }
+type LegacyGameStateV9 = Omit<GameState, 'version'> & { version: 9 };
 type LegacyCritterV8 = Omit<Critter, 'visualTraits'> & {
   visualTraits: { coat: string; accent: string };
 };
-type LegacyGameStateV8 = Omit<GameState, 'version' | 'critters'> & {
+type LegacyGameStateV8 = Omit<LegacyGameStateV9, 'version' | 'critters'> & {
   version: 8;
   critters: LegacyCritterV8[];
 };
@@ -320,10 +327,10 @@ type LegacyGameStateV1 = Omit<
 
 /** Writes accept only the current schema. Older records must pass readSave first. */
 export function validateSave(value: unknown): asserts value is GameState {
-  validateState(value, 9);
+  validateState(value, 10);
 }
 
-type SaveVersion = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+type SaveVersion = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
 function validateState(value: unknown, version: SaveVersion): void {
   const root = record(value, 'save');
   if (root['version'] !== version) {
@@ -736,11 +743,13 @@ function choice(value: unknown, choices: string[], path: string): void {
 function area(value: unknown, version: SaveVersion): void {
   choice(
     value,
-    version >= 8
-      ? ['homestead', 'glade', 'cottage', 'colosseum']
-      : version >= 7
-        ? ['homestead', 'glade', 'cottage']
-        : ['homestead', 'glade'],
+    version >= 10
+      ? ['homestead', 'glade', 'cottage', 'colosseum', 'town']
+      : version >= 8
+        ? ['homestead', 'glade', 'cottage', 'colosseum']
+        : version >= 7
+          ? ['homestead', 'glade', 'cottage']
+          : ['homestead', 'glade'],
     'areaId',
   );
 }

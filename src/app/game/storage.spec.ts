@@ -11,6 +11,7 @@ import { legacyV5 } from './fixtures/legacy-v5';
 import { legacyV6 } from './fixtures/legacy-v6';
 import { legacyV7 } from './fixtures/legacy-v7';
 import { legacyV8 } from './fixtures/legacy-v8';
+import { legacyV9 } from './fixtures/legacy-v9';
 
 // Golden v7 garden for the frozen v1 crop: planted 9300, watered, ready 9550, now 9472.
 const legacyGarden = [
@@ -100,7 +101,7 @@ describe('v1 migration and individual references', () => {
     expect(crop.readyAt).toBe(9550);
     expect(migrated).toEqual({
       ...world,
-      version: 9,
+      version: 10,
       haulLesson: null,
       plots: legacyGarden,
       companionIndoors: false,
@@ -239,7 +240,7 @@ describe('v2 learning migration and v3 protection', () => {
     expect(crop).toEqual(legacyV1.crop);
     expect(migrated).toEqual({
       ...oldWorld,
-      version: 9,
+      version: 10,
       haulLesson: null,
       plots: legacyGarden,
       companionIndoors: false,
@@ -335,13 +336,23 @@ describe('v2 learning migration and v3 protection', () => {
 
 // M9 gate: every historical save shape reaches the current schema with nothing lost.
 describe('every legacy save version', () => {
-  const fixtures = [legacyV1, legacyV2, legacyV3, legacyV4, legacyV5, legacyV6, legacyV7, legacyV8];
+  const fixtures = [
+    legacyV1,
+    legacyV2,
+    legacyV3,
+    legacyV4,
+    legacyV5,
+    legacyV6,
+    legacyV7,
+    legacyV8,
+    legacyV9,
+  ];
   it.each(fixtures.map((fixture) => [fixture.version, fixture] as const))(
-    'migrates a v%i save to v9 intact, idempotently, and ready to play',
+    'migrates a v%i save to v10 intact, idempotently, and ready to play',
     (_, fixture) => {
       const original = structuredClone(fixture) as Record<string, unknown> & typeof legacyV1;
       const migrated = readSave(structuredClone(fixture));
-      expect(migrated.version).toBe(9);
+      expect(migrated.version).toBe(10);
       expect(() => validateSave(migrated)).not.toThrow();
       // Earlier companions were provisional Brindlekin; they are now Canine at ordinary size.
       for (const critter of migrated.critters) {

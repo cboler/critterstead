@@ -1,4 +1,4 @@
-export type AreaId = 'homestead' | 'glade' | 'cottage' | 'colosseum';
+export type AreaId = 'homestead' | 'glade' | 'cottage' | 'colosseum' | 'town';
 export type Drill = 'hoops' | 'lift' | 'pace';
 export type Season = 'spring' | 'summer' | 'autumn' | 'winter';
 export type Weather = 'sunny' | 'cloudy' | 'rain' | 'snow';
@@ -167,7 +167,7 @@ export interface Training {
   scores?: number[];
 }
 export interface GameState {
-  version: 9;
+  version: 10;
   seed: number;
   day: number;
   minute: number;
@@ -226,7 +226,8 @@ export interface WorldObject {
     | 'counter'
     | 'lift'
     | 'pace'
-    | 'exhibition';
+    | 'exhibition'
+    | 'notices';
   name: string;
   position: Point;
   radius: number;

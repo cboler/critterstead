@@ -1157,6 +1157,7 @@ export class GameWorld {
         this.homestead();
         this.gardenBeds(state);
       } else if (state.areaId === 'colosseum') this.colosseum();
+      else if (state.areaId === 'town') this.town();
       else this.glade(state);
     }
     for (const node of state.materialNodes.filter((node) => node.areaId === state.areaId)) {
@@ -1237,8 +1238,8 @@ export class GameWorld {
       frame.add(this.millBlade);
       this.scenery.add(frame);
     }
-    if (state.areaId === 'homestead' || state.areaId === 'glade')
-      this.grass(state.areaId === 'homestead' ? 97 : 301);
+    if (state.areaId !== 'cottage' && state.areaId !== 'colosseum')
+      this.grass(state.areaId === 'homestead' ? 97 : state.areaId === 'town' ? 419 : 301);
   }
 
   private path(points: [number, number][], width = 1.2, color = '#e1ce9b'): void {
@@ -1281,6 +1282,14 @@ export class GameWorld {
         [9.2, 0],
       ],
       1.35,
+    );
+    this.path(
+      [
+        [-4, -0.7],
+        [-6.2, 0.7],
+        [-9.2, 1.2],
+      ],
+      1.2,
     );
     this.path(
       [
@@ -1330,6 +1339,7 @@ export class GameWorld {
     this.fence([8, 1.4], [8, 7], 4);
     this.fence([-4.9, 7.6], [-0.1, 7.6], 3);
     this.gate(8, 0, false);
+    this.gate(-8, 1.2, true);
     for (const [x, z] of [
       [-3.55, -1.75],
       [-1.95, 1.1],
@@ -1447,8 +1457,6 @@ export class GameWorld {
     });
     this.gate(-8, 0, true);
     this.label('↙ Back to the yard', -8, 2.4, 0, true);
-    this.gate(7.6, -4.4, false);
-    this.label('Colosseum grounds ↗', 7.6, 2.4, -4.4, true);
     const loop = this.mesh(
       this.keep(new THREE.RingGeometry(1.25, 1.95, 40)),
       '#d9c38e',
@@ -1874,12 +1882,214 @@ export class GameWorld {
     const heights: Partial<Record<string, number>> = { gate: 2.4, exhibition: 2.3 };
     for (const object of AREAS.colosseum.objects)
       this.label(
-        object.kind === 'gate' ? '↙ Back to Clover Glade' : object.name,
+        object.kind === 'gate' ? '↙ Back to Oakhaven' : object.name,
         object.position.x,
         heights[object.kind] ?? 1.8,
         object.position.z,
         object.kind === 'gate',
       );
+  }
+
+  /** Oakhaven: a square with a well, shopfronts along the north, and roads east and west. */
+  private town(): void {
+    this.path(
+      [
+        [9.2, 1],
+        [6, 1.1],
+        [3.4, 0.7],
+      ],
+      1.4,
+    );
+    this.path(
+      [
+        [-3.4, 0.7],
+        [-6, 1.1],
+        [-9.2, 1],
+      ],
+      1.4,
+    );
+    for (const [x, z] of [
+      [-5.2, -3.4],
+      [0, -3.9],
+      [5.2, -3.4],
+    ])
+      this.path(
+        [
+          [x * 0.4, 0],
+          [x, z],
+        ],
+        0.9,
+      );
+    const square = this.mesh(this.cylinder, '#ddd2b8', [0, 0.03, 0.2], [3.7, 0.05, 3.3]);
+    square.receiveShadow = true;
+    this.scenery.add(square);
+    for (let stone = 0; stone < 22; stone++) {
+      const angle = (stone / 22) * Math.PI * 2;
+      this.scenery.add(
+        this.mesh(
+          this.box,
+          stone % 2 ? '#c9bea4' : '#d3c8ae',
+          [Math.cos(angle) * 3.55, 0.06, 0.2 + Math.sin(angle) * 3.15],
+          [0.5, 0.06, 0.3],
+        ),
+      );
+    }
+    // The well at the heart of the square.
+    const well = new THREE.Group();
+    well.add(this.mesh(this.cylinder, '#b9b1a0', [0, 0.35, 0], [0.85, 0.7, 0.85]));
+    well.add(this.mesh(this.cylinder, '#5f8a8a', [0, 0.66, 0], [0.68, 0.05, 0.68]));
+    for (const side of [-1, 1])
+      well.add(this.mesh(this.box, '#8c6a45', [side * 0.75, 1.15, 0], [0.1, 1.6, 0.1]));
+    this.roof(well, 1.9, 1.2, 1.9, 0.45, this.palette.snow ? '#eef2f2' : '#b76e54');
+    well.add(this.mesh(this.cylinder, '#7d6448', [0, 1.55, 0], [0.06, 1.4, 0.06]));
+    well.children.at(-1)!.rotation.z = Math.PI / 2;
+    this.scenery.add(well);
+    this.townhouse(-5.2, -5.2, 3.2, 2.4, '#efd9b0', '#7f8f6a', 'General store');
+    this.townhouse(0, -5.8, 3.4, 2.4, '#f3ece0', '#6f8ea0', 'Clinic');
+    this.townhouse(5.2, -5.2, 3.4, 2.6, '#e6c9a1', '#a0604a', 'Tavern');
+    this.townhouse(-8.2, -5.6, 2.2, 2.2, '#e9dcc0', '#b76e54');
+    this.townhouse(8.4, -5.4, 2, 2.2, '#f0e2c4', '#8a7660');
+    // Covered carts wait along the south side of the square.
+    for (const [x, z, color] of [
+      [-4.4, 5.2, '#c8866a'],
+      [4.6, 5, '#5f8a6a'],
+    ] as [number, number, string][]) {
+      const cart = new THREE.Group();
+      cart.position.set(x, 0, z);
+      cart.add(this.mesh(this.box, '#9b714b', [0, 0.65, 0], [1.9, 0.45, 1.1]));
+      for (const side of [-1, 1])
+        cart.add(this.mesh(this.cylinder, '#6e5640', [side * 0.6, 0.35, 0.6], [0.35, 0.08, 0.35]));
+      cart.children.slice(-2).forEach((wheel) => (wheel.rotation.x = Math.PI / 2));
+      const cover = this.mesh(this.cylinder, color, [0, 1.15, 0], [0.75, 1.8, 0.62]);
+      cover.rotation.z = Math.PI / 2;
+      cart.add(cover);
+      this.scenery.add(cart);
+    }
+    const board = new THREE.Group();
+    board.position.set(2.6, 0, 2.6);
+    for (const side of [-1, 1])
+      board.add(this.mesh(this.box, '#7d6448', [side * 0.55, 0.75, 0], [0.1, 1.5, 0.1]));
+    board.add(this.mesh(this.box, '#a98458', [0, 1.25, 0], [1.3, 0.8, 0.08]));
+    for (const [x, y, color] of [
+      [-0.3, 1.35, '#f3ead2'],
+      [0.25, 1.4, '#e9cc83'],
+      [0.05, 1.08, '#f3ead2'],
+    ] as [number, number, string][])
+      board.add(this.mesh(this.box, color, [x, y, 0.05], [0.42, 0.3, 0.02]));
+    this.scenery.add(board);
+    this.pennants(-3.2, -2.8, 3.2, -2.8, 3);
+    // Benches, planters and a low hedge keep the south side of the square lived-in.
+    for (const [x, z, turn] of [
+      [-2.6, 3.9, 0.3],
+      [2.4, -2.3, Math.PI],
+      [-3.9, -1.4, Math.PI * 0.75],
+    ] as [number, number, number][]) {
+      const bench = new THREE.Group();
+      bench.position.set(x, 0, z);
+      bench.rotation.y = turn;
+      bench.add(this.mesh(this.box, '#a57e55', [0, 0.45, 0], [1.4, 0.1, 0.45]));
+      bench.add(this.mesh(this.box, '#a57e55', [0, 0.75, -0.2], [1.4, 0.4, 0.08]));
+      for (const side of [-1, 1])
+        bench.add(this.mesh(this.box, '#7d6448', [side * 0.6, 0.22, 0], [0.1, 0.45, 0.4]));
+      this.scenery.add(bench);
+    }
+    const planters = new THREE.Group();
+    for (const [x, z] of [
+      [-6.6, -3.6],
+      [-3.8, -3.6],
+      [1.4, -4.2],
+      [6.6, -3.6],
+      [-1.2, 4.6],
+      [1.6, 4.4],
+    ])
+      this.pot(planters, x, z);
+    this.scenery.add(planters);
+    for (const [from, to] of [
+      [-7.4, -2.2],
+      [2.2, 7.4],
+    ])
+      for (let x = from; x <= to; x += 0.9)
+        this.scenery.add(
+          this.mesh(this.sphere, x % 2 ? '#7d9b60' : '#88a868', [x, 0.35, 7.3], [0.55, 0.42, 0.5]),
+        );
+    const trees: [number, number, number][] = [
+      [-8.4, 7.3, 0.8],
+      [8.2, 7.4, 0.75],
+      [-1.4, 7.9, 0.6],
+      [8.6, -1.8, 0.6],
+      [-8.6, -2, 0.6],
+    ];
+    trees.forEach(([x, z, scale], index) => this.tree(x, z, scale, index + 4));
+    for (const [x, z] of [
+      [-3.6, 2.4],
+      [3.8, -1.9],
+      [-6.6, -0.6],
+      [6.8, 2.6],
+    ] as [number, number][])
+      this.lantern(x, z);
+    this.gate(8, 1, false);
+    this.gate(-8, 1, true);
+    for (const object of AREAS.town.objects)
+      this.label(
+        object.id === 'gate'
+          ? 'Back to Bramblewick ↗'
+          : object.id === 'colosseum-gate'
+            ? '↙ Colosseum grounds'
+            : object.name,
+        object.position.x,
+        object.kind === 'gate' ? 2.4 : 1.9,
+        object.position.z,
+        object.kind === 'gate',
+      );
+  }
+
+  /** A town building: plaster walls, a pitched roof, a door, two windows and a name. */
+  private townhouse(
+    x: number,
+    z: number,
+    width: number,
+    depth: number,
+    wall: string,
+    roof: string,
+    name?: string,
+  ): void {
+    const house = new THREE.Group();
+    house.position.set(x, 0, z);
+    const height = 2.1;
+    house.add(this.mesh(this.box, '#cbbd9c', [0, 0.1, 0], [width + 0.3, 0.2, depth + 0.3]));
+    house.add(this.mesh(this.box, wall, [0, 0.2 + height / 2, 0], [width, height, depth]));
+    this.roof(
+      house,
+      width + 0.6,
+      depth + 0.4,
+      0.2 + height,
+      1,
+      this.palette.snow ? '#eef2f2' : roof,
+    );
+    const triangle = new THREE.Shape();
+    triangle.moveTo(-width / 2, 0);
+    triangle.lineTo(width / 2, 0);
+    triangle.lineTo(0, 0.9);
+    triangle.closePath();
+    house.add(
+      this.mesh(
+        this.keep(new THREE.ExtrudeGeometry(triangle, { depth, bevelEnabled: false })),
+        wall,
+        [0, 0.2 + height, -depth / 2],
+      ),
+    );
+    const front = depth / 2;
+    house.add(this.mesh(this.box, '#c5a880', [0, 0.72, front + 0.01], [0.9, 1.3, 0.12]));
+    house.add(this.mesh(this.box, '#6c7f73', [0, 0.69, front + 0.07], [0.7, 1.15, 0.08]));
+    if (width > 2.6) {
+      this.window(house, -width * 0.3, 1.35, front + 0.01, 0.6);
+      this.window(house, width * 0.3, 1.35, front + 0.01, 0.6);
+    } else this.window(house, width * 0.28, 1.4, front + 0.01, 0.45);
+    if (name) {
+      house.add(this.mesh(this.box, '#efe0b7', [0, 1.75, front + 0.12], [1.3, 0.32, 0.06]));
+      this.label(name, x, 3.6, z);
+    }
+    this.scenery.add(house);
   }
 
   /** A path lantern: a post, a glass lamp that glows at night, and its light. */

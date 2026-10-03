@@ -157,13 +157,13 @@ describe('diminishing same-day training returns', () => {
 });
 
 describe('Colosseum exhibition', () => {
-  it('opens through the glade, scores sprint and stone pull, pays a medal once per day', () => {
-    const host = at(7.2, -4, (state) => (state.areaId = 'glade'));
-    expect(host.interaction()!.actions[0].label).toBe('Walk to the Colosseum · 15 min');
+  it('opens through Oakhaven, scores sprint and stone pull, pays a medal once per day', () => {
+    const host = at(-7.4, 1, (state) => (state.areaId = 'town'));
+    expect(host.interaction()!.actions[0].label).toBe('Walk to the Colosseum · 10 min');
     const minutes = host.state.totalMinutes;
     expect(act(host, 'colosseum-gate', 'travel')).toBe(true);
     expect(host.state.areaId).toBe('colosseum');
-    expect(host.state.totalMinutes).toBe(minutes + 15);
+    expect(host.state.totalMinutes).toBe(minutes + 10);
     host.state.player.position = { x: -3, z: 1.8 };
     const coins = host.state.player.coins;
     expect(act(host, 'exhibition', 'exhibit')).toBe(true);
@@ -205,7 +205,7 @@ describe('save v8 training migration', () => {
     const before = structuredClone(legacyV7);
     const state = readSave(before);
     expect(before).toEqual(legacyV7);
-    expect(state.version).toBe(9);
+    expect(state.version).toBe(10);
     expect(state.critters.map((critter) => critter.drills)).toEqual([
       { day: before.day, sessions: {} },
       { day: before.day, sessions: {} },

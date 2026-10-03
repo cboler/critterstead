@@ -78,9 +78,15 @@ const ROUTES: Record<GameState['areaId'], { label: string; description: string; 
       description: 'Follow the path with {name}. There are sunberries waiting beyond the fence.',
       arrival: 'Clover Glade smells of warm grass and sunberries. {name}’s ears perk up.',
     },
+    town: {
+      label: 'Walk to Oakhaven',
+      description: 'The lane west of the yard winds down into town.',
+      arrival: 'Oakhaven bustles around its square. {name} sticks close to your heels.',
+    },
     colosseum: {
       label: 'Walk to the Colosseum',
-      description: 'The half-built stands are already full of neighbours who love a good show.',
+      description:
+        'Past the edge of town, half-built stands full of neighbours who love a good show.',
       arrival: 'Banners, half-built stands, and a cheerful crowd. {name} stands a little taller.',
     },
     cottage: { label: '', description: '', arrival: '' },
@@ -104,7 +110,7 @@ const hauling = BEHAVIORS['lumber-hauling'];
 /** A new household with its chosen first companion and the seed its offer was drawn from. */
 export function createInitialState(starter: StarterCandidate = MALLOW, seed = 240921): GameState {
   return {
-    version: 9,
+    version: 10,
     seed,
     day: 1,
     minute: 480,
@@ -700,6 +706,19 @@ export class LocalGameHost {
           actions: [action('read-calendar', 'Read the calendar')],
         };
       }
+      case 'notices':
+        return {
+          id,
+          title: 'Oakhaven notice board',
+          description: `${formatDate(state.day)} · ${weatherFor(state.day)}. The Colosseum grounds, just west of the square, hold an exhibition every day. ${
+            critter.competitions.some(
+              (entry) => entry.event === 'exhibition' && entry.day === state.day,
+            )
+              ? `Someone has pinned up today's results; ${critter.name} is on them.`
+              : 'Any rancher with a companion may enter.'
+          }`,
+          actions: [],
+        };
       case 'hearth':
         return {
           id,
@@ -806,7 +825,7 @@ export class LocalGameHost {
           actions: [
             action(
               'travel',
-              `${state.areaId === 'colosseum' ? 'Back to Clover Glade' : route.label} · ${this.travelMinutes(object.destination!)} min`,
+              `${state.areaId === 'colosseum' ? 'Back to Oakhaven' : route.label} · ${this.travelMinutes(object.destination!)} min`,
             ),
           ],
         };
@@ -1124,7 +1143,13 @@ export class LocalGameHost {
         state.player.position = { ...gate.arrival! };
         critter.position = { x: gate.arrival!.x, z: gate.arrival!.z + 1.2 };
         this.advanceMinutes(minutes);
-        this.flag(destination === 'colosseum' ? 'visited-colosseum' : 'explored');
+        this.flag(
+          destination === 'colosseum'
+            ? 'visited-colosseum'
+            : destination === 'town'
+              ? 'visited-town'
+              : 'explored',
+        );
         this.note(ROUTES[destination].arrival.replaceAll('{name}', critter.name));
         return true;
       }
@@ -1344,7 +1369,9 @@ export class LocalGameHost {
       : 'Full gains for the first session today.';
   }
   private travelMinutes(destination: GameState['areaId']): number {
-    return destination === 'colosseum' || this.state.areaId === 'colosseum' ? 15 : 10;
+    // Oakhaven is a longer walk from the yard than the glade; the Colosseum is at its edge.
+    const ends = [destination, this.state.areaId];
+    return ends.includes('town') && ends.includes('homestead') ? 20 : 10;
   }
 
   private gather(node: ResourceNode, actor: 'player' | 'command' | 'autonomous'): void {

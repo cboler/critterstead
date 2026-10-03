@@ -59,7 +59,11 @@ export function objectives(state: GameState): Objective[] {
       (result) => result.day === state.day && result.event === 'exhibition',
     )
   )
-    offer('exhibition', 'Today’s Colosseum exhibition', 'The crowd is back; past Clover Glade.');
+    offer(
+      'exhibition',
+      'Today’s Colosseum exhibition',
+      'The crowd is back; through Oakhaven, west of the yard.',
+    );
 
   const lesson = (id: 'sunberry-foraging' | 'lumber-hauling') => {
     const behavior = BEHAVIORS[id];
@@ -108,7 +112,7 @@ export function objectives(state: GameState): Objective[] {
     step(
       'exhibition',
       'Stand before the crowd',
-      'Enter the Colosseum exhibition, past Clover Glade.',
+      'Enter the Colosseum exhibition, through Oakhaven.',
       has('exhibited'),
     ),
     step(
