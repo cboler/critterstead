@@ -66,6 +66,10 @@ interlocking gameplay fantasies:
 
 The emotional heart beneath these systems is Grandpa: growing up with him, losing him,
 and carrying his name forward ([The years with Grandpa](#the-years-with-grandpa)).
+The fantasy is not owning a bag of monsters but building a life with generations of
+critters who became good at things because of what they lived through with you. Success
+means players look back across years remembering individuals, proud enough of their
+critters to want to show them off. Critterstead is an offline game first.
 
 These systems are not disconnected minigames; they form mutually reinforcing loops:
 
@@ -707,6 +711,8 @@ Critters grow from energetic youths into peak adults and eventually wise elders:
 
 ### World architecture
 
+Several place names below came from brainstorming and are working names, not final branding.
+
 - Discrete **orthographic 2.5D diorama areas** connected by scenic path transitions:
   1. _Bramblewick Yard_ (homestead, cottage, barn, garden, workshops).
   2. _Cottage Interior_ (kitchen, bedroom, hearth, calendar, storage).
@@ -758,21 +764,27 @@ renderer.
 
 ### Grandpa, Pip, and the player
 
-- **Grandpa's legacy**: Grandpa was once the grand champion of the Colosseum.
-  The player grows up knowing him simply as loving Grandpa, unaware of his legendary
-  reputation.
+- **The player**: a scripted protagonist, roughly 12–14 at the start, living with their
+  grandparents. Only Grandpa has developed canon; do not invent Grandma's.
+- **Grandpa's legacy**: Grandpa was once the grand champion of the Colosseum, and the
+  town still knows him from markets and community life. The player grows up knowing him
+  simply as loving Grandpa; his history surfaces through people and places, never
+  front-loaded exposition.
 - **Pip's origin**: Pip belongs to Grandpa, not the player. Pip is extraordinarily old—the
-  pinnacle of Grandpa's lifetime of breeding, training, and care, upon which Grandpa
-  spent his life's accumulated fortune.
+  pinnacle of Grandpa's lifetime of breeding, training, and care. That Grandpa spent his
+  life's fortune on Pip is a later reveal; at first the player does not know where it went.
 - **Pip's role**: Pip is not a novice starter. Pip demonstrates mature autonomous harvesting
   in the opening, guides the player, outlives Grandpa, and becomes an honored homestead
   mentor to the player's new generation of critters. Pip is the only one of its kind.
-- **Pip after Grandpa**: Pip stays, for the ache of it and for its use. Pip visits
-  the spots Grandpa used to go, on his own, and teaches the player's critters basic
-  learned jobs.
-- **The passing of the torch**: Grandpa's eventual passing marks the end of the
-  guided childhood era and the beginning of independent homestead management. Townspeople
-  frequently remark that the player carries Grandpa's spirit.
+- **Pip after Grandpa**: Pip stays, for the ache of it and for its use. Pip keeps the
+  routines once shared with Grandpa, visits and lingers at the spots Grandpa used to go,
+  and teaches the player's critters basic learned jobs. The player inherits responsibility
+  for Pip without erasing Grandpa's ownership history. Pip's lifespan is exceptional and
+  never taken from a generic lifecycle table.
+- **The passing of the torch**: Grandpa's death is fixed, scripted and unavoidable; no
+  branch or optimization prevents it. It ends the guided childhood era and begins
+  independent homestead management. Townspeople sometimes remark that the player carries
+  Grandpa's spirit—sparingly, as community memory rather than hero worship.
 - **The friendly cousin (undecided)**: A cousin of similar age might receive a starter
   around the same time as a friendly rival. This is a maybe, not canon
   ([D39](DECISIONS.md#d39--the-childhood-centers-on-grandpa-cousin-reopened-accepted-2026-10-02)).
@@ -783,20 +795,26 @@ The emotional heart of the game is losing Grandpa and carrying on: keeping his n
 alive and learning, after he is gone, who he really was (comparable in intent to
 _Ni no Kuni_). The childhood therefore spends its time developing Grandpa himself.
 
-- **Length (provisional)**: two or three years of only spring and summer. The player's
-  first winter comes after Grandpa's passing. Playtesting may lengthen or shorten this.
+- **Length (provisional)**: two or three years of only spring and summer, using timeskips
+  rather than hundreds of fully simulated days. The player's first winter comes after
+  Grandpa's passing. Playtesting may lengthen or shorten this.
 
 ### Opening and acquisition
 
-The first critter is chosen after a scripted walk into Oakhaven with Grandpa and Pip:
+The opening teaches the game's fantasy through the world, not modal tutorials. The first
+critter is chosen after a scripted walk into Oakhaven with Grandpa and Pip:
 
 - **Pip picks berries** along the way, showing that critters perform jobs they have learned.
 - **Gemothy** is met beside a garbage bin he has just knocked over.
 - **Grandpa explains the ways to partner with a critter**: raising one, buying from a
-  breeder, finding one, rescuing one, and so on. **Mallow** appears as one of the
-  examples along the walk and can be chosen as a starter.
-- **The offer**: three different primary families, drawn at random without duplicates.
-  The player chooses exactly one ([D04](DECISIONS.md#decision-index)).
+  breeder, finding or bonding with a wild one, rescuing one, a breeding arrangement with
+  another owner, and later gene technology. Not every path supplies a starter.
+- **The offer**: three critters of different primary families. **Mallow**, met as an
+  example along the walk, is always one of them, recast as a primary family rather than
+  Brindlekin; the other two families are drawn at random without duplicates. The player
+  chooses exactly one ([D04](DECISIONS.md#decision-index)).
+- **Home**: the group returns to the stead. After the first night, Grandpa guides the
+  first real day of care, chores and training.
 
 ### Named critters
 
@@ -805,4 +823,5 @@ Pip and Gemothy are the only named story critters so far.
 - **Gemothy** is a raccoon-like scavenger who belongs to no one. His name nods to
   Jimothy the raccoon and to Gemini, one of the tools that shaped this design. In the
   world's rules he is a chimera, somewhere between a bear crossed with a cat and a dog.
-  The player may later find him again and perhaps convince him to join them.
+  The player may later find him again and perhaps convince him to join them. The joke
+  must work for players who don't know its origin; no scene exists only as a reference.

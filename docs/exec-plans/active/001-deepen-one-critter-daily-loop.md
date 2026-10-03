@@ -640,8 +640,8 @@ Second session with the same tester on the M9 build, answering the protocol's qu
   every 0.2 s); the HUD now re-measures whenever the bottom panel or the note changes.
   GPU screenshots inspected at 390×844, 844×390, 1280×800 and 1440×900 (storage rows,
   Learning tab, milestone banner, journal quests, petting reaction).
-- **Vision session 1 (2026-10-02):** recorded as D39 and D40 (childhood centered on
-  Grandpa, the opening walk and starter offer, Gemothy); new open questions listed in
+- **Vision session 1 (2026-10-02):** recorded as D39–D41 (childhood centered on
+  Grandpa, the opening walk and starter offer, Gemothy, offline first); open questions in
   DECISIONS.md.
 - **Still open for the gate:** feedback from other testers and the product owner's vision
   sessions. Stage 2 has not begun.

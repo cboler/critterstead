@@ -51,6 +51,7 @@ For sequencing, see [ROADMAP.md](ROADMAP.md) and [exec-plans/README.md](exec-pla
 | **D31** | Monster Rancher training minigames family               | Accepted       | [Training](GAME-DESIGN.md#training-system)                                                                                  |
 | **D32** | Viewport decoupling from interaction dock UI            | Accepted       | [Architecture](ARCHITECTURE.md#1-viewport--canvas-decoupling)                                                               |
 | **D33** | Restructured Campaign 001 vertical slice runway         | Accepted       | [Roadmap](ROADMAP.md)                                                                                                       |
+| **D41** | Offline game first; sharing critters is a later wish    | Accepted       | [Identity](GAME-DESIGN.md#high-level-game-identity)                                                                         |
 | **D40** | Opening walk; starter offer of three primary families   | Accepted       | [Opening](GAME-DESIGN.md#opening-and-acquisition)                                                                           |
 | **D39** | Childhood centers on Grandpa; cousin reopened           | Accepted       | [Years with Grandpa](GAME-DESIGN.md#the-years-with-grandpa)                                                                 |
 | **D38** | Quests read from the save; growth is visible and counts | Implemented    | [Plan 001 playtest 2](exec-plans/active/001-deepen-one-critter-daily-loop.md#playtest-2-follow-up--2026-10-01)              |
@@ -274,10 +275,18 @@ is unaffected. [Household](GAME-DESIGN.md#narrative-canon-and-household-history)
 
 The starter is chosen after a scripted walk to Oakhaven: Pip demonstrates berry picking,
 the player meets Gemothy (an unowned raccoon-like chimera scavenger), Grandpa explains the
-ways to partner with a critter, and Mallow appears as a selectable example. The offer is
-three different primary families drawn at random, which under D13 means drawn from the
-save's seed. Stage 2 must therefore build real primary-family archetypes, not only
-Brindlekin. [Opening](GAME-DESIGN.md#opening-and-acquisition).
+ways to partner with a critter, and Mallow appears as an example. The offer is three
+critters of different primary families: Mallow, recast from Brindlekin into a primary
+family so Pip stays unique, plus two families drawn at random without duplicates (under
+D13, from the save's seed). Stage 2 must therefore build real primary-family archetypes,
+not only Brindlekin. [Opening](GAME-DESIGN.md#opening-and-acquisition).
+
+### D41 — Offline game first (accepted 2026-10-02)
+
+Critterstead ships as a complete offline game. Its aim is that players grow proud enough
+of their critters to want to show them off; sharing them with other players (seasonal
+competition days, viewing others' critters) is a distant extension needing its own
+decision, not present scope. No backend, accounts or multiplayer architecture until then.
 
 ---
 
@@ -302,8 +311,10 @@ Agents must not invent hardcoded canon or premature balance constants for these 
 | **Automation throughput caps & scaling limits**        | Physical logistics settled; maximum autonomous efficiency will be playtested.                                                                                                      |
 | **Personality traits & preference influence**          | Evolving preferences settled; specific happiness formulas remain tunable.                                                                                                          |
 | **Critter longevity & end-of-life timing**             | Natural aging and respectful mortality settled; 1200-day placeholder is not fixed canon.                                                                                           |
-| **Pip's kind and Mallow's family**                     | Pip must be the only one of its kind; Mallow (Brindlekin today) may need another family. Whether Mallow is a fourth option or one of the three is open.                            |
-| **Childhood calendar mechanics**                       | Spring-and-summer-only years are settled direction; whether autumn and winter are skipped, compressed or time-skipped is open.                                                     |
+| **Mallow's family and Pip's kind**                     | Mallow becomes one of the nine primary families (D40); which one is open. Whether Brindlekin becomes Pip's unique kind is open.                                                    |
+| **Childhood calendar mechanics**                       | Spring-and-summer-only years are settled direction; whether autumn and winter are skipped or time-skipped is undecided until it can be felt in play.                               |
+| **Story beats across the Grandpa years**               | What happens in each of the 2–3 years, and the first winter's exact narrative role, are open.                                                                                      |
+| **Grandma and wider family**                           | The player lives with grandparents; only Grandpa has canon. Do not invent the rest.                                                                                                |
+| **Final place names**                                  | Oakhaven, Bramblewick and the other areas are working names.                                                                                                                       |
 | **Gemothy's return**                                   | Finding him again and possibly recruiting him is desired; when, where and how is open.                                                                                             |
 | **Chimera breed naming scheme**                        | Players name individuals, not breeds; a generated breed-naming scheme is not yet designed.                                                                                         |
-| **Seeing other players' critters**                     | Seasonal days for competitions and viewing others' critters are a long-term wish. It needs a service, which conflicts with local host authority (D13); not scheduled.              |
