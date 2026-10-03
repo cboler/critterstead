@@ -165,6 +165,22 @@ ears or their stand-ins, eyes, legs) with named colours resolved there, so chime
 later mix body plans. `GameWorld` rebuilds the companion when its family or looks change
 and draws offer candidates as presentation-only guests.
 
+## Current implementation additions — Stage 2 M2 (2026-10-02)
+
+Save v10 adds the `town` area (Oakhaven: square, notice board, gates east to the yard and
+west to the Colosseum) and Grandpa's Pip to every household (`household.ts`; v9 → v10
+appends him and his empty satchel). Validation requires Pip, owned by `grandpa`, and allows
+critters to be owned only by the player or Grandpa.
+
+Grandpa is not a saved entity yet. `grandpaWhereabouts` and `pipWhereabouts` compute where
+each is from the clock, the day's weather and Pip's picks (stored as `pip-1:<bush>` and
+`pip-2:<bush>` flags, cleared at dawn), so nothing about their positions is saved; the host
+keeps no copy and `GameWorld` eases its figures toward those points. `advanceMinutes` runs
+Pip's picks at 09:00 and 10:00 on fair days: the berries go to the yard chest, and a
+companion in sight learns as from the player. Residents join the dock's candidates within
+1.4 units, so a companion following you keeps the dock until you walk up to them. All
+critters now age overnight.
+
 ## Architectural reality audit (reconciliation baseline before M4)
 
 The following audit records the reconciled pre-M4 baseline. The dated additions

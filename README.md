@@ -20,8 +20,9 @@ Colosseum grounds for a daily athletic exhibition, step into the cottage to read
 120-day wall calendar and forecast, and sleep into another day. Rest together at the nook for two game hours to restore
 up to 30 of your energy and 35 for your companion. Independent foraging keeps 20 energy in reserve; an
 explicit cue can spend it. Chop timber and stone, run the sawmill, and teach the
-companion to haul lumber. There are four areas (yard, glade, cottage, Colosseum),
-four crops, and six berry bushes.
+companion to haul lumber. Grandpa keeps his own day around the stead, and his old Pip
+forages the glade each fair morning. There are five areas (yard, glade, cottage, Oakhaven,
+and the Colosseum beyond it), four crops, and six berry bushes.
 
 Fresh games begin by choosing a first companion: **Mallow** (Canine) and two critters
 of other families, drawn at random. Older saves keep their companion, now Canine, and

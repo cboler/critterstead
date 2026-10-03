@@ -456,6 +456,52 @@ const insect: Build = (f, kerchief) => {
   f.parts.height = 1.7;
 };
 
+// Brindlekin, the lineage Grandpa bred: fox-quick lines, a leafy crest, a brindled back and a
+// muzzle frosted with age. Pip is the only one.
+const brindlekin: Build = (f) => {
+  const { coat, accent } = f;
+  const frost = '#e9e4d8';
+  f.ball(coat.base, [0, 0.62, -0.02], [0.4, 0.36, 0.6]);
+  f.ball(frost, [0, 0.62, 0.3], [0.3, 0.32, 0.26]);
+  for (const z of [0.12, -0.1, -0.32]) f.ball(coat.dark, [0, 0.93, z], [0.34, 0.05, 0.065]);
+  f.ball(coat.head, [0, 0.99, 0.33], [0.33, 0.3, 0.3]);
+  f.ball(frost, [0, 0.9, 0.58], [0.16, 0.13, 0.22]);
+  f.ball('#4a3a30', [0, 0.93, 0.79], [0.05, 0.04, 0.03]);
+  for (const [x, tilt, height] of [
+    [-0.09, 0.35, 1.32],
+    [0, 0, 1.36],
+    [0.09, -0.35, 1.32],
+  ])
+    f.ball(x ? accent.base : accent.light, [x, height, 0.28], [0.06, 0.2, 0.12]).rotation.set(
+      -0.25,
+      0,
+      tilt,
+    );
+  for (const side of [-1, 1]) {
+    const ear = f.add(f.kit.cone, coat.ear, [side * 0.21, 1.27, 0.24], [0.12, 0.26, 0.09]);
+    ear.rotation.z = -side * 0.3;
+    f.ear(ear, side);
+    const inner = f.add(f.kit.cone, frost, [side * 0.21, 1.25, 0.28], [0.065, 0.16, 0.04]);
+    inner.rotation.z = -side * 0.3;
+    f.ear(inner, side);
+    // Frosted brows over eyes that squint kindly.
+    f.ball(frost, [side * 0.15, 1.1, 0.56], [0.07, 0.028, 0.03]);
+    for (const front of [-1, 1])
+      f.leg(coat.dark, [side * 0.25, 0.17, front * 0.3], [0.1, 0.17, 0.13]);
+  }
+  f.eyes(0.15, 1.02, 0.55, 0.85);
+  for (const eye of f.parts.eyes) eye.userData['open'] = (eye.userData['open'] as number) * 0.62;
+  f.parts.tail.position.set(0, 0.6, -0.5);
+  const brush = f.ball(coat.base, [0, 0.1, -0.28], [0.19, 0.19, 0.44], f.parts.tail);
+  brush.rotation.x = -0.45;
+  f.ball(frost, [0, 0.3, -0.64], [0.13, 0.13, 0.17], f.parts.tail);
+  for (const side of [-1, 1])
+    f.ball(accent.base, [side * 0.12, 0.04, -0.06], [0.05, 0.16, 0.1], f.parts.tail).rotation.z =
+      side * 0.6;
+  f.parts.back = 0.92;
+  f.parts.height = 1.7;
+};
+
 const BUILDS: Record<FamilyId, Build> = {
   avian,
   reptile,
@@ -469,8 +515,8 @@ const BUILDS: Record<FamilyId, Build> = {
 };
 
 /**
- * Builds a critter into `root` from its family and individual appearance. Unknown kinds,
- * such as a reserved lineage, fall back to the canine plan.
+ * Builds a critter into `root` from its family (or Brindlekin) and individual appearance.
+ * Unknown kinds fall back to the canine plan.
  */
 export function buildFigure(
   kit: FigureKit,
@@ -480,11 +526,12 @@ export function buildFigure(
   kerchief: boolean,
 ): FigureParts {
   const family = (speciesId in BUILDS ? speciesId : 'canine') as FamilyId;
+  const lineage = speciesId === 'brindlekin';
   const frame = new THREE.Group();
-  frame.scale.setScalar(FAMILY_SCALE[family] * appearance.size);
+  frame.scale.setScalar((lineage ? 0.95 : FAMILY_SCALE[family]) * appearance.size);
   root.add(frame);
   const figure = new FigureBuilder(kit, frame, appearance);
-  BUILDS[family](figure, kerchief);
+  (lineage ? brindlekin : BUILDS[family])(figure, kerchief);
   const scale = frame.scale.x;
   figure.parts.height *= scale;
   return figure.parts;

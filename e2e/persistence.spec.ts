@@ -165,7 +165,9 @@ test('migrates a populated v1 save, preserves Pip, and resumes paid training aft
   await expect.poll(async () => ((await readSave(page)) as GameState).version).toBe(10);
   const migrated = (await readSave(page)) as GameState;
   expect(migrated.activeCritterId).toBe('critter-pip');
-  expect(migrated.critters).toHaveLength(1);
+  // Grandpa's Pip joins beside the legacy companion of the same name.
+  expect(migrated.critters).toHaveLength(2);
+  expect(migrated.critters[1]).toMatchObject({ name: 'Pip', ownerId: 'grandpa' });
   expect(activeCritter(migrated)).toMatchObject({
     id: 'critter-pip',
     name: 'Pip',

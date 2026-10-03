@@ -1,3 +1,4 @@
+import { kept } from './fixtures/household';
 import { backpack } from './model';
 import { resolveCheck, encumbrance } from './checks';
 import { createInitialState, LocalGameHost } from './host';
@@ -97,7 +98,7 @@ describe('physical work and rancher capabilities', () => {
     const old = structuredClone(legacyV3);
     const migrated = readSave(old);
     expect(migrated.player).toMatchObject(old.player);
-    expect(migrated.critters).toEqual(
+    expect(kept(migrated.critters)).toEqual(
       old.critters.map((critter) => ({
         ...critter,
         hauling: { enabled: false, phase: 'idle', cued: false },

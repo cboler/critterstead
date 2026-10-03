@@ -19,6 +19,7 @@ import {
   type Point,
 } from './model';
 import { type Appearance } from './families';
+import { GRANDPA, grandpaWhereabouts, PIP_ID, pipWhereabouts } from './household';
 import { appearanceKey, buildFigure, type FigureKit, type FigureParts } from './render/figures';
 import {
   detectQuality,
@@ -207,6 +208,23 @@ export class GameWorld {
   private critterHeight = 1.9;
   private guests: Guest[] = [];
   private guestFocus: string | null = null;
+  // Grandpa and Pip: figures, eased view positions, labels and shadows.
+  private readonly grandpa = new THREE.Group();
+  private readonly grandpaBody = new THREE.Group();
+  private readonly grandpaLegs: THREE.Mesh[] = [];
+  private readonly pip = new THREE.Group();
+  private pipParts?: FigureParts;
+  private readonly residentViews = new Map<
+    string,
+    {
+      at: Point | null;
+      last: THREE.Vector2;
+      label: HTMLDivElement;
+      shadow: THREE.Mesh;
+      phase: number;
+      blink: number;
+    }
+  >();
   private readonly farmerLegs: THREE.Mesh[] = [];
   private critterLegs: THREE.Mesh[] = [];
   private readonly labelLayer = document.createElement('div');
@@ -349,6 +367,26 @@ export class GameWorld {
       shadow.renderOrder = 1;
       this.contactShadows.push(shadow);
       this.scene.add(shadow);
+    }
+    this.buildGrandpa();
+    this.scene.add(this.grandpa, this.pip);
+    for (const [id, name] of [
+      [GRANDPA.id, GRANDPA.name],
+      [PIP_ID, 'Pip'],
+    ]) {
+      const shadow = this.contactShadows[1].clone();
+      shadow.visible = false;
+      this.scene.add(shadow);
+      const label = this.makeLabel(name, true);
+      label.style.display = 'none';
+      this.residentViews.set(id, {
+        at: null,
+        last: new THREE.Vector2(),
+        label,
+        shadow,
+        phase: id.length,
+        blink: 2,
+      });
     }
     this.targetRing = new THREE.Mesh(
       this.keep(new THREE.RingGeometry(0.78, 0.95, 56)),
@@ -561,6 +599,7 @@ export class GameWorld {
     this.critter.visible =
       (state.areaId !== 'cottage' || state.companionIndoors) && this.guests.length === 0;
     this.animateGuests(state, dt);
+    this.animateResidents(state, dt);
     this.critterLabel.style.display = this.critter.visible ? '' : 'none';
     this.critterLabel.textContent = companion.name;
     this.positionLabel(
@@ -1951,8 +1990,8 @@ export class GameWorld {
     this.townhouse(8.4, -5.4, 2, 2.2, '#f0e2c4', '#8a7660');
     // Covered carts wait along the south side of the square.
     for (const [x, z, color] of [
-      [-4.4, 5.2, '#c8866a'],
-      [4.6, 5, '#5f8a6a'],
+      [-4.6, 6, '#c8866a'],
+      [5, 6, '#5f8a6a'],
     ] as [number, number, string][]) {
       const cart = new THREE.Group();
       cart.position.set(x, 0, z);
@@ -2464,6 +2503,125 @@ export class GameWorld {
     this.farmer.rotation.y = 0.4;
   }
 
+  /** Grandpa: taller than you, a little stooped, white-bearded, flat cap and walking stick. */
+  private buildGrandpa(): void {
+    this.grandpa.add(this.grandpaBody);
+    const body = this.grandpaBody;
+    body.rotation.x = 0.08;
+    body.add(this.mesh(this.sphere, '#8c6c55', [0, 0.92, 0], [0.32, 0.46, 0.24]));
+    body.add(this.mesh(this.box, '#a5836a', [0, 1.02, 0.2], [0.36, 0.42, 0.04]));
+    for (const y of [0.88, 1.02, 1.16])
+      body.add(this.mesh(this.sphere, '#e7d8b8', [0, y, 0.235], [0.025, 0.025, 0.015]));
+    body.add(this.mesh(this.sphere, '#e0ae88', [0, 1.46, 0.035], [0.25, 0.27, 0.235]));
+    body.add(this.mesh(this.sphere, '#ece8df', [0, 1.5, -0.04], [0.26, 0.2, 0.24]));
+    body.add(this.mesh(this.sphere, '#ece8df', [0, 1.33, 0.18], [0.19, 0.17, 0.12]));
+    body.add(this.mesh(this.sphere, '#d79e7d', [0, 1.43, 0.27], [0.05, 0.045, 0.04]));
+    body.add(this.mesh(this.cylinder, '#6b6f5e', [0, 1.68, 0.03], [0.27, 0.09, 0.27]));
+    body.add(this.mesh(this.box, '#6b6f5e', [0, 1.65, 0.24], [0.36, 0.03, 0.16]));
+    for (const side of [-1, 1]) {
+      body.add(this.mesh(this.sphere, '#3f362c', [side * 0.08, 1.49, 0.27], [0.02, 0.022, 0.018]));
+      body.add(this.mesh(this.box, '#ece8df', [side * 0.08, 1.54, 0.27], [0.07, 0.02, 0.02]));
+      const arm = this.mesh(
+        this.cylinder,
+        '#8c6c55',
+        [side * 0.33, 0.95, 0.04],
+        [0.095, 0.44, 0.095],
+      );
+      arm.rotation.z = side * 0.18;
+      body.add(arm);
+      body.add(this.mesh(this.sphere, '#dfad85', [side * 0.37, 0.72, 0.06], [0.085, 0.1, 0.085]));
+      const leg = this.mesh(this.cylinder, '#5d6670', [side * 0.14, 0.36, 0], [0.11, 0.5, 0.11]);
+      leg.add(this.mesh(this.box, '#4f4438', [0, -0.42, 0.35], [1.12, 0.3, 1.8]));
+      this.grandpaLegs.push(leg);
+      this.grandpa.add(leg);
+    }
+    const stick = this.mesh(this.cylinder, '#7d6448', [0.42, 0.42, 0.16], [0.035, 0.84, 0.035]);
+    stick.rotation.x = 0.12;
+    body.add(stick);
+    this.glaze(this.grandpa);
+    this.grandpa.visible = false;
+  }
+
+  /**
+   * Draws Grandpa and Pip where the household's routine puts them, easing between spots and
+   * snapping when they arrive in a new area.
+   */
+  private animateResidents(state: GameState, dt: number): void {
+    const companion = activeCritter(state);
+    const pip = state.critters.find((critter) => critter.id === PIP_ID);
+    if (pip && !this.pipParts) {
+      this.pipParts = buildFigure(this.figureKit, this.pip, pip.speciesId, pip.visualTraits, false);
+      this.glaze(this.pip);
+    }
+    const residents = [
+      {
+        id: GRANDPA.id,
+        group: this.grandpa,
+        where: grandpaWhereabouts(state),
+        legs: this.grandpaLegs,
+        speed: 1.6,
+        height: 2.05,
+      },
+      {
+        id: PIP_ID,
+        group: this.pip,
+        where: pip ? pipWhereabouts(state, companion.position) : null,
+        legs: this.pipParts?.legs ?? [],
+        speed: 2.4,
+        height: (this.pipParts?.height ?? 1.6) + 0.1,
+      },
+    ];
+    for (const resident of residents) {
+      const view = this.residentViews.get(resident.id)!;
+      const here =
+        !!resident.where && resident.where.areaId === state.areaId && this.guests.length === 0;
+      resident.group.visible = here;
+      view.label.style.display = here ? '' : 'none';
+      view.shadow.visible = here;
+      if (!here) {
+        view.at = null;
+        continue;
+      }
+      const target = resident.where!.position;
+      const gap = view.at ? Math.hypot(target.x - view.at.x, target.z - view.at.z) : Infinity;
+      if (!view.at || gap > 5 || this.reducedMotion) {
+        view.at = { ...target };
+        view.last.set(target.x, target.z);
+      } else if (gap > 0.01) {
+        const step = Math.min(gap, resident.speed * dt);
+        view.at = {
+          x: view.at.x + ((target.x - view.at.x) / gap) * step,
+          z: view.at.z + ((target.z - view.at.z) / gap) * step,
+        };
+      }
+      const moving = this.animateActor(resident.group, view.at, view.last, resident.legs, 0.22);
+      const player = state.player.position;
+      const toPlayer = Math.hypot(player.x - view.at.x, player.z - view.at.z);
+      if (!moving && toPlayer < 3.5) {
+        const facing = Math.atan2(player.x - view.at.x, player.z - view.at.z);
+        resident.group.rotation.y +=
+          Math.atan2(
+            Math.sin(facing - resident.group.rotation.y),
+            Math.cos(facing - resident.group.rotation.y),
+          ) * Math.min(1, dt * 2);
+      }
+      const breath = this.reducedMotion ? 0 : Math.sin(this.clock * 2 + view.phase) * 0.012;
+      if (resident.id === PIP_ID && this.pipParts) {
+        this.pipParts.body.scale.y = 1 + breath;
+        this.pipParts.tail.rotation.z = this.reducedMotion
+          ? 0
+          : Math.sin(this.clock * (moving ? 6 : 1.6)) * 0.14;
+        view.blink -= dt;
+        const shut = view.blink < 0 && view.blink > -0.15;
+        for (const eye of this.pipParts.eyes)
+          eye.scale.y = (eye.userData['open'] as number) * (shut ? 0.12 : 1);
+        if (view.blink < -0.15) view.blink = 2.5 + Math.random() * 3;
+      } else this.grandpaBody.scale.y = 1 + breath;
+      view.shadow.position.set(view.at.x, 0.045, view.at.z);
+      this.positionLabel(view.label, this.projection.set(view.at.x, resident.height, view.at.z));
+    }
+  }
+
   /** Figures get a slightly glossier glaze than the matte scenery. */
   private glaze(figure: THREE.Object3D): void {
     figure.traverse((object) => {
@@ -2754,6 +2912,8 @@ export class GameWorld {
     companionView: Point,
   ): { x: number; z: number; radius: number } | null {
     if (id === activeCritter(state).id) return { ...companionView, radius: 0.72 };
+    const resident = this.residentViews.get(id)?.at;
+    if (resident) return { ...resident, radius: 0.72 };
     const object = AREAS[state.areaId].objects.find((item) => item.id === id);
     if (object) {
       // Buildings are marked at their door rather than around their whole footprint.

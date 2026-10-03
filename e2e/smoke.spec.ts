@@ -2,7 +2,15 @@ import { backpack } from '../src/app/game/model';
 import { expect, test, type Page } from '@playwright/test';
 import { activeCritter, type GameState } from '../src/app/game/model';
 import { createInitialState } from '../src/app/game/host';
-import { developmentState, PACE, savedState, SPOTS, walk, takeStarterHome } from './helpers';
+import {
+  developmentState,
+  PACE,
+  pipAlreadyForaged,
+  savedState,
+  SPOTS,
+  takeStarterHome,
+  walk,
+} from './helpers';
 
 test('opens a responsive, playable homestead without runtime errors', async ({
   page,
@@ -153,6 +161,8 @@ test('plays a complete day and keeps the improved homestead after reload', async
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/');
   await takeStarterHome(page);
+  // This day is about your own teaching; Pip has already done his morning round.
+  await pipAlreadyForaged(page);
   await expect(page.locator('.world-canvas canvas')).toBeVisible();
   await page.getByRole('button', { name: /Give a little scritch/ }).click();
   await page.getByRole('button', { name: /Offer feed/ }).click();
@@ -407,7 +417,11 @@ test('walks home exhausted, recovers without supplies, and feeds through ordinar
   await page.screenshot({ path: testInfo.outputPath('independent-reserve.png'), fullPage: true });
   const stopped = await developmentState(page);
   // The nearest opportunity can vary with walking frames; exactly one autonomous harvest is affordable.
-  expect(stopped.resources.filter((node) => !node.available)).toHaveLength(2);
+  // Bushes Pip picked on his own morning round are not ours to count.
+  const ours = stopped.resources.filter(
+    (node) => !node.available && !stopped.flags.some((flag) => flag.endsWith(`:${node.id}`)),
+  );
+  expect(ours).toHaveLength(2);
   expect(activeCritter(stopped).stamina).toBe(29);
   await expect.poll(async () => activeCritter(await savedState(page)).stamina).toBe(29);
   await page.reload();

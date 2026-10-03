@@ -1,3 +1,4 @@
+import { kept } from './fixtures/household';
 import { describe, expect, it } from 'vitest';
 import { EXHIBITION } from './content';
 import { liftScore, paceScore, startGauge, stepLift, stepPace, push } from './drills';
@@ -206,7 +207,7 @@ describe('save v8 training migration', () => {
     const state = readSave(before);
     expect(before).toEqual(legacyV7);
     expect(state.version).toBe(10);
-    expect(state.critters.map((critter) => critter.drills)).toEqual([
+    expect(kept(state.critters).map((critter) => critter.drills)).toEqual([
       { day: before.day, sessions: {} },
       { day: before.day, sessions: {} },
     ]);

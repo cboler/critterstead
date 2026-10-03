@@ -1,3 +1,4 @@
+import { kept } from './fixtures/household';
 import { FAMILIES, FAMILY_IDS, MALLOW, starterName, starterOffer } from './families';
 import { createInitialState, LocalGameHost } from './host';
 import { activeCritter } from './model';
@@ -73,7 +74,7 @@ describe('save v9 families', () => {
     const before = structuredClone(legacyV8);
     const migrated = readSave(before);
     expect(before).toEqual(legacyV8);
-    expect(migrated.critters).toEqual(
+    expect(kept(migrated.critters)).toEqual(
       before.critters.map((critter) => ({
         ...critter,
         speciesId: 'canine',

@@ -51,6 +51,8 @@ For sequencing, see [ROADMAP.md](ROADMAP.md) and [exec-plans/README.md](exec-pla
 | **D31** | Monster Rancher training minigames family               | Accepted       | [Training](GAME-DESIGN.md#training-system)                                                                                     |
 | **D32** | Viewport decoupling from interaction dock UI            | Accepted       | [Architecture](ARCHITECTURE.md#1-viewport--canvas-decoupling)                                                                  |
 | **D33** | Restructured Campaign 001 vertical slice runway         | Accepted       | [Roadmap](ROADMAP.md)                                                                                                          |
+| **D45** | Grandpa, Pip and Oakhaven in every household (save v10) | Implemented    | [Plan 003](exec-plans/active/003-household-and-opening.md)                                                                     |
+| **D44** | Pip is the one Brindlekin                               | Accepted       | [Household](GAME-DESIGN.md#narrative-canon-and-household-history)                                                              |
 | **D43** | Stage 2 begins; Campaign 001 gate closed                | Accepted       | [Plan 003](exec-plans/active/003-household-and-opening.md)                                                                     |
 | **D42** | Chimera breed names join the parents' names             | Accepted       | [Families](GAME-DESIGN.md#genetics-lineages-breeding-and-chimeras)                                                             |
 | **D41** | Offline game first; sharing critters is a later wish    | Accepted       | [Identity](GAME-DESIGN.md#high-level-game-identity)                                                                            |
@@ -301,6 +303,21 @@ The product owner closed Campaign 001's gate and authorized Stage 2. Remaining t
 feedback arrives as tweaks along the way rather than holding the gate.
 [Plan 003](exec-plans/active/003-household-and-opening.md).
 
+### D44 — Pip is the one Brindlekin (accepted 2026-10-02)
+
+Brindlekin, the stabilized woodland lineage, is Grandpa's life's work and Pip is its only
+living member, so Pip stays one of a kind. [Household](GAME-DESIGN.md#narrative-canon-and-household-history).
+
+### D45 — Grandpa, Pip and Oakhaven in every household (implemented 2026-10-02)
+
+Save v10 adds Oakhaven as an area and Grandpa's Pip (owned by `grandpa`, with an empty
+satchel) to every save; a legacy companion named Pip keeps its own id and owner. Grandpa and
+Pip are placed by a daily routine computed from the clock, weather and Pip's two morning
+picks, so their positions are not saved. Pip's picks go to the yard chest, and a companion
+within sight learns from watching him as it would from you. Everyone now ages overnight.
+The Colosseum is reached through Oakhaven rather than the glade.
+[Plan 003 M2](exec-plans/active/003-household-and-opening.md#m2-evidence--2026-10-02).
+
 ---
 
 ## Open or exploratory — do not invent canon
@@ -324,7 +341,6 @@ Agents must not invent hardcoded canon or premature balance constants for these 
 | **Automation throughput caps & scaling limits**        | Physical logistics settled; maximum autonomous efficiency will be playtested.                                                                                                      |
 | **Personality traits & preference influence**          | Evolving preferences settled; specific happiness formulas remain tunable.                                                                                                          |
 | **Critter longevity & end-of-life timing**             | Natural aging and respectful mortality settled; 1200-day placeholder is not fixed canon.                                                                                           |
-| **Pip's kind**                                         | Pip must stay the only one of its kind. Whether Brindlekin becomes Pip's unique kind is open.                                                                                      |
 | **Childhood calendar mechanics**                       | Spring-and-summer-only years are settled direction; whether autumn and winter are skipped or time-skipped is undecided until it can be felt in play.                               |
 | **Story beats across the Grandpa years**               | What happens in each of the 2–3 years, and the first winter's exact narrative role, are open.                                                                                      |
 | **Grandma and wider family**                           | The player lives with grandparents; only Grandpa has canon. Do not invent the rest.                                                                                                |

@@ -1,3 +1,4 @@
+import { kept } from './fixtures/household';
 import { describe, expect, it } from 'vitest';
 import { calendarDate, calendarView, nextDawn, upcomingEvents, weatherFor } from './calendar';
 import { CROPS } from './content';
@@ -292,7 +293,7 @@ describe('save v7 garden and cottage migration', () => {
     expect(state.plots.slice(1).every((plot) => !plot.tilled && !plot.crop)).toBe(true);
     expect(state.companionIndoors).toBe(false);
     expect(state.seed).toBe(before.seed);
-    expect(state.containers.map((item) => item.items)).toEqual(
+    expect(kept(state.containers).map((item) => item.items)).toEqual(
       before.containers.map((item) => item.items),
     );
     expect(readSave(state)).toEqual(state);

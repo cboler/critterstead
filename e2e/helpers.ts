@@ -175,3 +175,20 @@ export async function takeStarterHome(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Take Mallow home' }).click();
   await expect(page.locator('.starter-offer')).toHaveCount(0);
 }
+
+/** Marks Pip's two morning picks as made, so lesson counts in a test are the player's alone. */
+export async function pipAlreadyForaged(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    const game = (window as unknown as DebugHostWindow).ng!.getComponent(
+      document.querySelector('app-root')!,
+    );
+    game.host.state.flags.push('pip-1:done', 'pip-2:done');
+    // Saved at once, so a reload later in the test keeps it.
+    await game.save();
+  });
+}
+interface DebugHostWindow {
+  ng?: {
+    getComponent(element: Element): { host: { state: GameState }; save(): Promise<void> };
+  };
+}

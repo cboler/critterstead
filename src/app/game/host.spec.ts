@@ -86,6 +86,8 @@ describe('progression, resources, and persistence', () => {
       state.resources.forEach((node, index) => {
         node.position = { x: index * 0.1, z: 0 };
       });
+      // Pip has already foraged today, so his morning picks neither teach nor take a bush.
+      state.flags.push('pip-1:done', 'pip-2:done');
     });
     expect(act(host, host.state.resources[0].id, 'critter-gather')).toBe(false);
     expect(host.learning().label).toBe('Curious companion');
@@ -780,7 +782,7 @@ describe('individual identity and ownership', () => {
     },
   );
 
-  it('does not borrow Pip’s knowledge and only advances the active individual through work and sleep', () => {
+  it('does not borrow Pip’s knowledge; work and sleep change only the active individual and age everyone', () => {
     const state = household();
     state.areaId = 'glade';
     state.player.position = { x: -3, z: -2 };
@@ -792,7 +794,7 @@ describe('individual identity and ownership', () => {
     expect(host.critter.learnedBehaviors['sunberry-foraging']).toBe(1);
     host.dispatch({ type: 'debug', action: 'next-day' });
     expect(host.critter.ageDays).toBe(19);
-    expect(host.state.critters[0]).toEqual(before);
+    expect(host.state.critters[0]).toEqual({ ...before, ageDays: before.ageDays + 1 });
   });
 
   it('keeps daily petting individual when a different owned companion is selected in saved state', () => {

@@ -1,7 +1,7 @@
 # 003 — Household and Opening (Stage 2)
 
-**Status:** authorized 2026-10-02 ([D43](../../DECISIONS.md#d43--stage-2-begins-accepted-2026-10-02)). M1 built and locally verified
-2026-10-02 ([evidence](#m1-evidence--2026-10-02)); M2 next.
+**Status:** authorized 2026-10-02 ([D43](../../DECISIONS.md#d43--stage-2-begins-accepted-2026-10-02)). M1 and M2 built and locally
+verified 2026-10-02 ([M1](#m1-evidence--2026-10-02), [M2](#m2-evidence--2026-10-02)); M3 next.
 
 ## Purpose
 
@@ -39,10 +39,18 @@ before they start.
       and chained migration), e2e suite updated to choose a starter, lint, build, PWA
       check, and inspected screenshots of every family at phone and desktop sizes.
 
-### M2 — Grandpa, Pip and the road to Oakhaven
+### M2 — Grandpa, Pip and the road to Oakhaven (save v10)
 
-Grandpa lives on the stead; Pip (Grandpa-owned, D20) forages on its own; more than one
-critter is simulated and drawn; Oakhaven is a reachable area and the Colosseum moves there.
+- [x] Oakhaven is reachable west of the yard (20 minutes): a square with a well, shopfronts
+      (not yet open), benches and a notice board. The Colosseum moves to its west edge.
+- [x] Grandpa keeps a daily routine on the stead (garden, porch, lunch, stall, hearth;
+      indoors in bad weather) and can be talked to; he ends with your next goal.
+- [x] Pip, Grandpa's Brindlekin (D44), keeps near Grandpa and forages the glade on fair
+      mornings; his picks fill the yard chest and teach a companion who watches.
+- [x] Save v10: every household gains Pip and allows saves in Oakhaven; older saves keep
+      everything, including a legacy companion named Pip.
+- [x] Verification: unit tests, the browser suite with the Colosseum reached through town,
+      lint, build, PWA check, inspected screenshots.
 
 ### M3 — The walk to town
 
@@ -87,7 +95,26 @@ Fixed, scripted passing; Pip's after-routines; inheriting the stead. Needs story
 - Known: Mallow keeps her original look and long ears, which read more fennec than hound;
   reshaping her is a product call. Reloading before choosing draws a new offer.
 
+## M2 evidence — 2026-10-02
+
+- Host: `household.ts` (Grandpa's and Pip's routines, Pip's picks, what Grandpa says),
+  Oakhaven in `content.ts`, save v10. Unit tests: 154 passed, including Grandpa's day, Pip's
+  two fair-morning picks into the yard chest, teaching a watching companion, foul-weather
+  days, the v1–v9 chain to v10, and refusal of saves without Pip or with a stranger owner.
+- Presentation: Grandpa's figure, Pip's Brindlekin figure, the Oakhaven diorama and the
+  yard's west road. Evidence: [yard](../evidence/003-m2/yard-grandpa-pip.png),
+  [Oakhaven](../evidence/003-m2/oakhaven.png).
+- Gates: lint, production build, PWA check, and the browser suite (64 passed, 28 skipped by
+  project). The suite caught Grandpa standing on bed 2's and the stall's working spots;
+  his spots were moved off them. Tests about your own teaching mark Pip's round as done.
+- Routine decisions: residents join the dock within 1.4 units, so your companion keeps it
+  until you walk up to Grandpa or Pip; when you are not in the glade, Pip picks the farthest
+  bushes; everyone ages overnight. Provisional: Pip's age (4800 days) and stats, Grandpa's
+  spots and hours, his lines, travel times.
+- Known: Grandpa is not yet a saved entity (M5 will need that for his passing); town shops
+  are facades until Stage 3.
+
 ## Current handoff
 
-M1 complete pending publication. Next: M2 — Grandpa on the stead, Pip as a Grandpa-owned
-autonomous forager drawn beside the companion, and Oakhaven as a reachable area.
+M2 complete pending publication. Next: M3 — the walk to town. Before starting, the product
+owner chooses how existing saves meet the prologue.

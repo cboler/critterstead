@@ -718,7 +718,7 @@ Several place names below came from brainstorming and are working names, not fin
   1. _Bramblewick Yard_ (homestead, cottage, barn, garden, workshops).
   2. _Cottage Interior_ (kitchen, bedroom, hearth, calendar, storage).
   3. _Oakhaven Town_ (town square, shops, tavern, clinic, artisan yards).
-  4. _The Grand Colosseum_ (arena floor, stables, grandstands).
+  4. _The Grand Colosseum_ (arena floor, stables, grandstands), at the edge of Oakhaven.
   5. _Whispering Woods_ (timber reserve, wild foraging, ancient hollows).
   6. _Old Quarry & Mine_ (boulder fields, iron veins, deep tunnels).
   7. _Sunken Brook_ (fishing piers, reeds, watermill).
@@ -776,7 +776,8 @@ renderer.
   life's fortune on Pip is a later reveal; at first the player does not know where it went.
 - **Pip's role**: Pip is not a novice starter. Pip demonstrates mature autonomous harvesting
   in the opening, guides the player, outlives Grandpa, and becomes an honored homestead
-  mentor to the player's new generation of critters. Pip is the only one of its kind.
+  mentor to the player's new generation of critters. Pip is a Brindlekin, the lineage Grandpa
+  bred, and the only one of his kind ([D44](DECISIONS.md#d44--pip-is-the-one-brindlekin-accepted-2026-10-02)).
 - **Pip after Grandpa**: Pip stays, for the ache of it and for its use. Pip keeps the
   routines once shared with Grandpa, visits and lingers at the spots Grandpa used to go,
   and teaches the player's critters basic learned jobs. The player inherits responsibility

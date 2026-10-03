@@ -2,6 +2,7 @@ import { createInitialState, LocalGameHost } from './host';
 import { GameState } from './model';
 import { readSave, validateSave } from './storage';
 import { legacyV9 } from './fixtures/legacy-v9';
+import { kept } from './fixtures/household';
 
 function at(areaId: GameState['areaId'], x: number, z: number): LocalGameHost {
   const state = createInitialState();
@@ -52,13 +53,21 @@ describe('Oakhaven', () => {
     );
   });
 
-  it('saves in town only from v10, and v9 saves gain nothing else', () => {
+  it('saves in town only from v10, where v9 saves gain only Grandpa’s Pip', () => {
     const state = createInitialState();
     state.areaId = 'town';
     expect(() => validateSave(state)).not.toThrow();
     const old = structuredClone(legacyV9) as unknown as Record<string, unknown>;
     old['areaId'] = 'town';
     expect(() => readSave(old)).toThrow(/areaId/);
-    expect(readSave(structuredClone(legacyV9))).toEqual({ ...legacyV9, version: 10 });
+    const migrated = readSave(structuredClone(legacyV9));
+    expect(kept(migrated.critters)).toEqual(legacyV9.critters);
+    expect(kept(migrated.containers)).toEqual(legacyV9.containers);
+    expect({ ...migrated, critters: [], containers: [] }).toEqual({
+      ...legacyV9,
+      version: 10,
+      critters: [],
+      containers: [],
+    });
   });
 });

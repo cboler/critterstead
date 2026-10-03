@@ -12,6 +12,10 @@ import { legacyV6 } from './fixtures/legacy-v6';
 import { legacyV7 } from './fixtures/legacy-v7';
 import { legacyV8 } from './fixtures/legacy-v8';
 import { legacyV9 } from './fixtures/legacy-v9';
+import { kept } from './fixtures/household';
+import { createPip, PIP_ID } from './household';
+
+const pipSatchel = initialContainers('player-local', PIP_ID, [], [PIP_ID])[1];
 
 // Golden v7 garden for the frozen v1 crop: planted 9300, watered, ready 9550, now 9472.
 const legacyGarden = [
@@ -93,7 +97,7 @@ describe('versioned homestead save validation', () => {
 });
 
 describe('v1 migration and individual references', () => {
-  it('preserves the entire populated legacy save without mutating it or inventing narrative Pip', () => {
+  it('preserves the entire populated legacy save, keeping its own Pip apart from Grandpa’s', () => {
     const original = structuredClone(legacyV1);
     const { critter, inventory, crop, ...world } = original;
     const { berryKnowledge, ...individual } = critter;
@@ -105,7 +109,10 @@ describe('v1 migration and individual references', () => {
       haulLesson: null,
       plots: legacyGarden,
       companionIndoors: false,
-      containers: initialContainers(original.player.id, critter.id, inventory as InventoryItem[]),
+      containers: [
+        ...initialContainers(original.player.id, critter.id, inventory as InventoryItem[]),
+        pipSatchel,
+      ],
       production: { progressMinutes: 0 },
       player: {
         ...original.player,
@@ -126,6 +133,7 @@ describe('v1 migration and individual references', () => {
           ownerId: original.player.id,
           lastPettedDay: original.day,
         },
+        createPip(original.day),
       ],
       activeCritterId: critter.id,
       training: { ...original.training, critterId: critter.id },
@@ -133,8 +141,15 @@ describe('v1 migration and individual references', () => {
     expect(original).toEqual(legacyV1);
     expect(readSave(migrated)).toEqual(migrated);
     expect(readSave(JSON.parse(JSON.stringify(migrated)))).toEqual(migrated);
-    expect(migrated.critters).toHaveLength(1);
-    expect(migrated.critters[0]).toMatchObject({ id: 'critter-pip', name: 'Pip', ageDays: 24 });
+    // The legacy companion named Pip stays the player's; Grandpa's Pip is a separate individual.
+    expect(migrated.critters).toHaveLength(2);
+    expect(migrated.critters[0]).toMatchObject({
+      id: 'critter-pip',
+      name: 'Pip',
+      ageDays: 24,
+      ownerId: original.player.id,
+    });
+    expect(migrated.critters[1]).toMatchObject({ id: PIP_ID, ownerId: 'grandpa' });
   });
 
   it('preserves the daily care restriction, including saves that have not been petted', () => {
@@ -244,12 +259,15 @@ describe('v2 learning migration and v3 protection', () => {
       haulLesson: null,
       plots: legacyGarden,
       companionIndoors: false,
-      containers: initialContainers(
-        before.player.id,
-        before.activeCritterId,
-        inventory as InventoryItem[],
-        before.critters.map((critter) => critter.id),
-      ),
+      containers: [
+        ...initialContainers(
+          before.player.id,
+          before.activeCritterId,
+          inventory as InventoryItem[],
+          before.critters.map((critter) => critter.id),
+        ),
+        pipSatchel,
+      ],
       production: { progressMinutes: 0 },
       player: {
         ...before.player,
@@ -259,14 +277,17 @@ describe('v2 learning migration and v3 protection', () => {
       materialNodes: createInitialState().materialNodes,
       groundCargo: [],
       work: null,
-      critters: before.critters.map(({ berryKnowledge, ...individual }) => ({
-        ...individual,
-        hauling: { enabled: false, phase: 'idle', cued: false },
-        drills: { day: before.day, sessions: {} },
-        learnedBehaviors: { 'sunberry-foraging': berryKnowledge },
-        speciesId: 'canine',
-        visualTraits: { ...individual.visualTraits, size: 1 },
-      })),
+      critters: [
+        ...before.critters.map(({ berryKnowledge, ...individual }) => ({
+          ...individual,
+          hauling: { enabled: false, phase: 'idle', cued: false },
+          drills: { day: before.day, sessions: {} },
+          learnedBehaviors: { 'sunberry-foraging': berryKnowledge },
+          speciesId: 'canine',
+          visualTraits: { ...individual.visualTraits, size: 1 },
+        })),
+        createPip(before.day),
+      ],
     });
     expect(before).toEqual(legacyV2);
     expect(readSave(migrated)).toEqual(migrated);
@@ -355,10 +376,12 @@ describe('every legacy save version', () => {
       expect(migrated.version).toBe(10);
       expect(() => validateSave(migrated)).not.toThrow();
       // Earlier companions were provisional Brindlekin; they are now Canine at ordinary size.
-      for (const critter of migrated.critters) {
+      for (const critter of kept(migrated.critters)) {
         expect(critter.speciesId).toBe('canine');
         expect(critter.visualTraits.size).toBe(1);
       }
+      // Grandpa's Pip joins every household, beside any companion of the same name.
+      expect(migrated.critters.at(-1)).toEqual(createPip(original.day));
       // The world, economy, clock and history carry over.
       for (const key of ['seed', 'day', 'minute', 'totalMinutes', 'shedLevel'] as const)
         expect(migrated[key], key).toBe(original[key]);

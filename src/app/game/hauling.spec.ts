@@ -1,3 +1,4 @@
+import { kept } from './fixtures/household';
 import { createInitialState, LocalGameHost } from './host';
 import { addItem, ITEM_IDS, quantity } from './logistics';
 import { backpack, satchel } from './model';
@@ -175,7 +176,7 @@ describe('compositional learned hauling', () => {
     const before = structuredClone(legacyV5);
     const state = readSave(before);
     // Contents and places are unchanged; general containers also accept v7 garden goods.
-    expect(state.containers.map((item) => ({ ...item, allowed: [] }))).toEqual(
+    expect(kept(state.containers).map((item) => ({ ...item, allowed: [] }))).toEqual(
       before.containers.map((item) => ({ ...item, allowed: [] })),
     );
     for (const container of state.containers)

@@ -1,5 +1,6 @@
 import { Critter, GameState, Training } from './model';
 import { CRITTER_KINDS } from './families';
+import { createPip, GRANDPA, PIP_ID } from './household';
 import { BEHAVIORS, CROPS, initialMaterialNodes, initialPlots } from './content';
 import { nextDawn } from './calendar';
 import { initialContainers, ITEM_IDS, LEGACY_ITEM_IDS, MILL_MINUTES } from './logistics';
@@ -262,8 +263,19 @@ export function readSave(value: unknown): GameState {
   }
   if (root['version'] === 9) {
     validateState(value, 9);
-    // v10 only adds Oakhaven as a place a save can be.
-    const migrated: GameState = { ...structuredClone(value as LegacyGameStateV9), version: 10 };
+    const legacy = structuredClone(value as LegacyGameStateV9);
+    if (legacy.critters.some((critter) => critter.id === PIP_ID)) corrupt('ambiguous Pip');
+    // v10 adds Oakhaven as a place to be, and Grandpa's Pip (with an empty satchel) to every
+    // household. A legacy companion named Pip keeps its own identity and owner.
+    const [satchel] = initialContainers(legacy.player.id, PIP_ID, [], [PIP_ID]).filter(
+      (container) => container.kind === 'satchel',
+    );
+    const migrated: GameState = {
+      ...legacy,
+      version: 10,
+      critters: [...legacy.critters, createPip(legacy.day)],
+      containers: [...legacy.containers, satchel],
+    };
     validateSave(migrated);
     return migrated;
   }
@@ -371,6 +383,8 @@ function validateState(value: unknown, version: SaveVersion): void {
     entityId(critter['id'], ids);
     if (version >= 2) {
       string(critter['ownerId'], 'critter.ownerId');
+      if (version >= 10 && ![player['id'], GRANDPA.id].includes(critter['ownerId'] as string))
+        corrupt('critter.ownerId');
       if (critter['lastPettedDay'] !== null)
         number(critter['lastPettedDay'], 'critter.lastPettedDay', 1, root['day'] as number, true);
     }
@@ -381,6 +395,14 @@ function validateState(value: unknown, version: SaveVersion): void {
       (item) => record(item, 'critter')['id'] === root['activeCritterId'],
     ) as Record<string, unknown> | undefined;
     if (!selected || selected['ownerId'] !== player['id']) corrupt('activeCritterId');
+    if (
+      version >= 10 &&
+      !individuals.some((item) => {
+        const critter = record(item, 'critter');
+        return critter['id'] === PIP_ID && critter['ownerId'] === GRANDPA.id;
+      })
+    )
+      corrupt('household');
     if (root['critter'] !== undefined) corrupt('obsolete critter field');
   }
   if (version < 5)

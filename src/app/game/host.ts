@@ -36,6 +36,18 @@ import {
 import { advanceGarden, plotReady } from './garden';
 import { MALLOW, StarterCandidate } from './families';
 import {
+  createPip,
+  GRANDPA,
+  grandpaSays,
+  grandpaWhereabouts,
+  PIP_ID,
+  PIP_PICKS,
+  pipNextPick,
+  pipWhereabouts,
+  Whereabouts,
+} from './household';
+import { nextObjective } from './objectives';
+import {
   drillMultiplier,
   liftScore,
   paceScore,
@@ -63,6 +75,7 @@ import {
   SoilPlot,
 } from './model';
 
+const RESIDENT_REACH = 1.4;
 const clamp = (value: number, min = 0, max = 100) => Math.max(min, Math.min(max, value));
 const COTTAGE_COMPANION_SPOT: Point = { x: 0.5, z: 3.4 };
 const ROUTES: Record<GameState['areaId'], { label: string; description: string; arrival: string }> =
@@ -156,11 +169,17 @@ export function createInitialState(starter: StarterCandidate = MALLOW, seed = 24
         history: ['Day 1: A new home at Bramblewick Yard.'],
         competitions: [],
       },
+      createPip(1),
     ],
-    containers: initialContainers('player-local', starter.id, [
-      { id: 'stack-feed-1', itemId: 'feed', quantity: 4, quality: 1 },
-      { id: 'stack-seed-1', itemId: 'seed', quantity: 3, quality: 1 },
-    ]),
+    containers: initialContainers(
+      'player-local',
+      starter.id,
+      [
+        { id: 'stack-feed-1', itemId: 'feed', quantity: 4, quality: 1 },
+        { id: 'stack-seed-1', itemId: 'seed', quantity: 3, quality: 1 },
+      ],
+      [starter.id, PIP_ID],
+    ),
     production: { progressMinutes: 0 },
     haulLesson: null,
     resources: BERRY_NODES.map((node) => ({
@@ -498,6 +517,7 @@ export class LocalGameHost {
             'areaId' in container.location && container.location.areaId === state.areaId,
         )
         .map((container) => ({ id: container.id, position: this.containerPosition(container) })),
+      ...this.residents(),
     ].filter((target) => this.inReach(target.id));
     candidates.sort(
       (a, b) =>
@@ -510,6 +530,13 @@ export class LocalGameHost {
 
   private inReach(id: string): boolean {
     const state = this.state;
+    const resident = this.residents().find((item) => item.id === id);
+    // Walk right up to Grandpa or Pip; from farther off, your own companion keeps the dock.
+    if (resident)
+      return (
+        resident.areaId === state.areaId &&
+        distance(resident.position, state.player.position) <= RESIDENT_REACH
+      );
     const container = state.containers.find((item) => item.id === id);
     if (container)
       return (
@@ -560,6 +587,29 @@ export class LocalGameHost {
         : critter.stamina < companion
           ? `${critter.name} needs some rest. Rest together at the nook or offer food.`
           : undefined;
+    const resident = this.residents().find((item) => item.id === id);
+    if (resident?.id === GRANDPA.id)
+      return {
+        id,
+        title: GRANDPA.name,
+        description: resident.activity,
+        actions: [action('talk', 'Talk with Grandpa · 5 min')],
+      };
+    if (resident)
+      return {
+        id,
+        title: 'Pip',
+        description: `${resident.activity} Grandpa's Brindlekin, older than anyone can quite say.`,
+        actions: [
+          action(
+            'greet-pip',
+            'Scratch Pip behind the ears',
+            state.flags.includes('greeted-pip-today')
+              ? 'Pip has had his fuss for today. He will remember you tomorrow.'
+              : undefined,
+          ),
+        ],
+      };
     if (id === critter.id)
       return {
         id,
@@ -1134,6 +1184,18 @@ export class LocalGameHost {
         this.add('seed', 1);
         this.note('One packet of feed seeds. They grow in spring, summer, and autumn.');
         return true;
+      case 'talk':
+        this.advanceMinutes(5);
+        this.note(grandpaSays(state, nextObjective(state)));
+        this.flag('talked-grandpa');
+        return true;
+      case 'greet-pip': {
+        const pip = state.critters.find((item) => item.id === PIP_ID)!;
+        pip.happiness = clamp(pip.happiness + 5);
+        this.flag('greeted-pip-today');
+        this.note('Pip leans into your hand and sighs, the way he does for Grandpa.');
+        return true;
+      }
       case 'travel': {
         const gate = AREAS[state.areaId].objects.find((item) => item.id === id)!;
         const destination = gate.destination!;
@@ -1561,6 +1623,10 @@ export class LocalGameHost {
     state.minute = state.totalMinutes % 1440;
     for (const note of advanceGarden(state.plots, previousMinutes, state.totalMinutes))
       this.note(note);
+    for (const [index, mark] of PIP_PICKS.entries()) {
+      const at = (state.day - 1) * 1440 + mark;
+      if (previousMinutes < at && at <= state.totalMinutes) this.pipPick(index + 1);
+    }
     activeCritter(state).hunger = clamp(activeCritter(state).hunger + minutes * 0.025);
     const worker = this.critter;
     if (
@@ -1578,13 +1644,60 @@ export class LocalGameHost {
       }
     }
     if (state.day > previousDay) {
-      activeCritter(state).ageDays += state.day - previousDay;
-      state.flags = state.flags.filter((flag) => flag !== 'petted-today');
+      for (const individual of state.critters) individual.ageDays += state.day - previousDay;
+      state.flags = state.flags.filter(
+        (flag) =>
+          flag !== 'petted-today' && flag !== 'greeted-pip-today' && !flag.startsWith('pip-'),
+      );
     }
     for (const node of state.materialNodes)
       if (node.remaining === 0 && node.respawnAt <= state.totalMinutes) node.remaining = 6;
     for (const node of state.resources)
       if (!node.available && node.respawnAt <= state.totalMinutes) node.available = true;
+  }
+
+  /** Grandpa and Pip, where they are right now; Pip only while he belongs to the household. */
+  residents(): (Whereabouts & { id: string })[] {
+    const state = this.state;
+    const grandpa = grandpaWhereabouts(state);
+    const pip = state.critters.some((item) => item.id === PIP_ID)
+      ? pipWhereabouts(state, activeCritter(state).position)
+      : null;
+    return [
+      ...(grandpa ? [{ id: GRANDPA.id, ...grandpa }] : []),
+      ...(pip ? [{ id: PIP_ID, ...pip }] : []),
+    ];
+  }
+
+  /**
+   * One of Pip's two morning picks. The berries go to the yard chest; a companion close
+   * enough to see it learns from watching, as it would from you.
+   */
+  private pipPick(pick: number): void {
+    const state = this.state;
+    const weather = weatherFor(state.day);
+    if (
+      !state.critters.some((item) => item.id === PIP_ID) ||
+      weather === 'rain' ||
+      weather === 'snow' ||
+      state.flags.some((flag) => flag.startsWith(`pip-${pick}:`))
+    )
+      return;
+    const companion = activeCritter(state);
+    const node = pipNextPick(state, companion.position);
+    if (!node) return;
+    node.available = false;
+    node.respawnAt = state.totalMinutes + GAME_CONFIG.berryRespawnMinutes;
+    state.flags.push(`pip-${pick}:${node.id}`);
+    const chest = state.containers.find((container) => container.kind === 'chest')!;
+    const kept = room(chest, 'berry') >= 2;
+    if (kept) addItem(chest, 'berry', 2, 2);
+    if (state.areaId !== 'glade') return;
+    const watching = this.companionHere() && distance(companion.position, node.position) <= 5;
+    this.note(
+      `Pip pads to a sunberry bush and strips it with practised paws${kept ? ', saving two fine berries for the yard chest' : ''}. ${watching ? `${companion.name} watches every move.` : `${companion.name} was too far away to see how.`}`,
+    );
+    if (watching) this.learn(foraging, 'observation');
   }
 
   private sleep(): void {

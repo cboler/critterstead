@@ -183,7 +183,7 @@ staged progression (M1 through M9) that systematically builds the foundational v
 Stage 2, sequenced in [plan 003](exec-plans/active/003-household-and-opening.md):
 
 1. **M1** — the nine families and a choice of starter (save v9). Complete.
-2. **M2** — Grandpa, Pip and the road to Oakhaven.
+2. **M2** — Grandpa, Pip and the road to Oakhaven (save v10). Complete.
 3. **M3** — the walk to town: the scripted opening and the starter offer in Oakhaven.
 4. **M4** — the years with Grandpa (needs story beats).
 5. **M5** — Grandpa's passing and the first winter (needs story beats).

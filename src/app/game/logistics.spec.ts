@@ -1,3 +1,4 @@
+import { kept } from './fixtures/household';
 import { LocalGameHost } from './host';
 import { backpack, satchel } from './model';
 import { addItem, productionStatus, quantity, transfer } from './logistics';
@@ -16,7 +17,7 @@ describe('localized storage and the first production chain', () => {
     for (const key of ['seed', 'work', 'groundCargo', 'materialNodes', 'journal'] as const)
       expect(state[key]).toEqual(before[key]);
     expect(state.plots[0].crop).toMatchObject({ speciesId: 'feed', growthMinutes: 102 });
-    expect(state.critters).toEqual(
+    expect(kept(state.critters)).toEqual(
       before.critters.map((critter) => ({
         ...critter,
         hauling: { enabled: false, phase: 'idle', cued: false },
@@ -26,7 +27,7 @@ describe('localized storage and the first production chain', () => {
       })),
     );
     expect('inventory' in state).toBe(false);
-    expect(state.containers.filter((item) => item.kind === 'satchel')).toHaveLength(2);
+    expect(kept(state.containers).filter((item) => item.kind === 'satchel')).toHaveLength(2);
     expect(readSave(state)).toEqual(state);
     expect(before).toEqual(legacyV4);
     const host = new LocalGameHost(state);
