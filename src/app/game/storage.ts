@@ -1,4 +1,5 @@
 import { Critter, GameState, Training } from './model';
+import { CRITTER_KINDS } from './families';
 import { BEHAVIORS, CROPS, initialMaterialNodes, initialPlots } from './content';
 import { nextDawn } from './calendar';
 import { initialContainers, ITEM_IDS, LEGACY_ITEM_IDS, MILL_MINUTES } from './logistics';
@@ -233,12 +234,28 @@ export function readSave(value: unknown): GameState {
     const legacy = structuredClone(value as LegacyGameStateV7);
     if (legacy.critters.some((critter) => 'drills' in critter)) corrupt('ambiguous drills');
     // No sessions are known before v8, so today's first session of each drill gives full gains.
-    const migrated: GameState = {
+    const migrated: LegacyGameStateV8 = {
       ...legacy,
       version: 8,
       critters: legacy.critters.map((critter) => ({
         ...critter,
         drills: { day: legacy.day, sessions: {} },
+      })),
+    };
+    return readSave(migrated);
+  }
+  if (root['version'] === 8) {
+    validateState(value, 8);
+    const legacy = structuredClone(value as LegacyGameStateV8);
+    // Every earlier companion was the provisional Brindlekin starter; it is now Canine (D40),
+    // keeping Brindlekin for Pip. Identity, name, stats and history are untouched.
+    const migrated: GameState = {
+      ...legacy,
+      version: 9,
+      critters: legacy.critters.map((critter) => ({
+        ...critter,
+        speciesId: critter.speciesId === 'brindlekin' ? 'canine' : critter.speciesId,
+        visualTraits: { ...critter.visualTraits, size: 1 },
       })),
     };
     validateSave(migrated);
@@ -249,16 +266,25 @@ export function readSave(value: unknown): GameState {
 }
 
 // Versioned differences; frozen legacy fixtures must not depend on new-game defaults.
-type LegacyCritter = Omit<Critter, 'learnedBehaviors' | 'hauling'> & { berryKnowledge: number };
+type LegacyCritter = Omit<LegacyCritterV8, 'learnedBehaviors' | 'hauling'> & {
+  berryKnowledge: number;
+};
 interface LegacyCrop {
   id: string;
   plantedAt: number | null;
   watered: boolean;
   readyAt: number | null;
 }
-type LegacyGameStateV7 = Omit<GameState, 'version' | 'critters'> & {
+type LegacyCritterV8 = Omit<Critter, 'visualTraits'> & {
+  visualTraits: { coat: string; accent: string };
+};
+type LegacyGameStateV8 = Omit<GameState, 'version' | 'critters'> & {
+  version: 8;
+  critters: LegacyCritterV8[];
+};
+type LegacyGameStateV7 = Omit<LegacyGameStateV8, 'version' | 'critters'> & {
   version: 7;
-  critters: Omit<Critter, 'drills'>[];
+  critters: Omit<LegacyCritterV8, 'drills'>[];
 };
 type LegacyGameStateV6 = Omit<LegacyGameStateV7, 'version' | 'plots' | 'companionIndoors'> & {
   version: 6;
@@ -266,7 +292,7 @@ type LegacyGameStateV6 = Omit<LegacyGameStateV7, 'version' | 'plots' | 'companio
 };
 type LegacyGameStateV5 = Omit<LegacyGameStateV6, 'version' | 'critters' | 'haulLesson'> & {
   version: 5;
-  critters: Omit<Critter, 'hauling'>[];
+  critters: Omit<LegacyCritterV8, 'hauling'>[];
 };
 type LegacyGameStateV4 = Omit<LegacyGameStateV5, 'version' | 'containers' | 'production'> & {
   version: 4;
@@ -294,10 +320,10 @@ type LegacyGameStateV1 = Omit<
 
 /** Writes accept only the current schema. Older records must pass readSave first. */
 export function validateSave(value: unknown): asserts value is GameState {
-  validateState(value, 8);
+  validateState(value, 9);
 }
 
-type SaveVersion = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+type SaveVersion = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
 function validateState(value: unknown, version: SaveVersion): void {
   const root = record(value, 'save');
   if (root['version'] !== version) {
@@ -637,6 +663,10 @@ function validateCritter(critter: Record<string, unknown>, version: SaveVersion)
   const traits = record(critter['visualTraits'], 'critter.visualTraits');
   string(traits['coat'], 'critter.visualTraits.coat');
   string(traits['accent'], 'critter.visualTraits.accent');
+  if (version >= 9) {
+    number(traits['size'], 'critter.visualTraits.size', 0.5, 2);
+    if (!CRITTER_KINDS.includes(critter['speciesId'] as string)) corrupt('critter.speciesId');
+  } else if (traits['size'] !== undefined) corrupt('ambiguous visualTraits.size');
   strings(
     record(critter['pedigree'], 'critter.pedigree')['parentIds'],
     'critter.pedigree.parentIds',

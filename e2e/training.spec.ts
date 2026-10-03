@@ -1,6 +1,15 @@
 import { expect, test } from '@playwright/test';
 import { activeCritter } from '../src/app/game/model';
-import { cues, developmentState, holdGauge, PACE, savedState, SPOTS, walk } from './helpers';
+import {
+  cues,
+  developmentState,
+  holdGauge,
+  PACE,
+  savedState,
+  SPOTS,
+  walk,
+  takeStarterHome,
+} from './helpers';
 
 test('trains strength with fading repeat gains, then earns a Colosseum exhibition medal', async ({
   page,
@@ -10,6 +19,7 @@ test('trains strength with fading repeat gains, then earns a Colosseum exhibitio
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/');
+  await takeStarterHome(page);
   await expect(page.locator('.world-canvas canvas')).toBeVisible();
 
   await walk(page, ...SPOTS.lift);

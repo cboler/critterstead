@@ -11,7 +11,7 @@ Three.js world made from original procedural geometry.
 
 ## What you can play today
 
-Care for one Brindlekin companion, practice timed cues, till and water four
+Choose a first companion from three critters of different families, practice timed cues, till and water four
 garden beds of seasonal crops, explore Clover Glade, teach berry gathering through
 observation and cues, watch independent foraging, sell produce, improve the shed,
 run a small daily time trial, train strength at the boulder lift and endurance on
@@ -23,9 +23,9 @@ explicit cue can spend it. Chop timber and stone, run the sawmill, and teach the
 companion to haul lumber. There are four areas (yard, glade, cottage, Colosseum),
 four crops, and six berry bushes.
 
-Fresh games in this revision begin with **Mallow**, a provisional player-owned
-Brindlekin for testing the daily loop. Version-1 saves retain their original
-individual, including a companion named Pip, and all existing progress. The model
+Fresh games begin by choosing a first companion: **Mallow** (Canine) and two critters
+of other families, drawn at random. Older saves keep their companion, now Canine, and
+all existing progress; version-1 saves keep their individual named Pip. The model
 now distinguishes identity, ownership, and the selected companion; play still
 uses just one companion.
 

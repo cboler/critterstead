@@ -12,7 +12,15 @@ import {
 } from '@angular/core';
 import { AREAS } from './game/content';
 import { calendarDate, calendarView, capitalize, formatDate, weatherFor } from './game/calendar';
-import { LocalGameHost } from './game/host';
+import { createInitialState, LocalGameHost } from './game/host';
+import {
+  FAMILIES,
+  kindName,
+  MALLOW,
+  starterName,
+  starterOffer,
+  type StarterCandidate,
+} from './game/families';
 import {
   activeCritter,
   GameCommand,
@@ -140,6 +148,23 @@ export class App implements AfterViewInit, OnDestroy {
   protected readonly sound = signal(false);
   protected readonly canInstall = signal(false);
   protected readonly resetArmed = signal(false);
+  // A fresh game begins by choosing a first companion; nothing is saved until then.
+  protected readonly offer = signal<StarterCandidate[] | null>(null);
+  protected readonly offerFocus = signal<string>(MALLOW.id);
+  protected readonly starterDraft = signal(MALLOW.name);
+  protected readonly starterError = signal('');
+  protected readonly focusedCandidate = computed(
+    () => this.offer()?.find((candidate) => candidate.id === this.offerFocus()) ?? null,
+  );
+  protected readonly families = FAMILIES;
+  protected readonly kindName = kindName;
+  protected readonly offerStats = [
+    { key: 'strength', label: 'STR' },
+    { key: 'endurance', label: 'END' },
+    { key: 'speed', label: 'SPD' },
+    { key: 'intelligence', label: 'INT' },
+  ] as const;
+  private offerSeed = 0;
   protected readonly sessionBusy = signal(false);
   protected readonly controllerConnected = signal(false);
   protected readonly gamepadAction = signal<string | null>(null);
@@ -396,6 +421,7 @@ export class App implements AfterViewInit, OnDestroy {
       const saved = await this.storage.load();
       if (this.destroyed) return;
       if (saved) this.host = new LocalGameHost(saved);
+      else this.beginOffer();
       this.saveStatus.set(saved ? 'Your homestead is saved' : 'A new beginning');
     } catch (error) {
       this.saveBlocked = true;
@@ -416,6 +442,8 @@ export class App implements AfterViewInit, OnDestroy {
           },
           this.qualityChoice(),
         );
+        this.world.setGuests(this.offer());
+        this.world.setGuestFocus(this.offerFocus());
         this.frame = requestAnimationFrame(this.animate);
       });
       this.quality.set(this.world!.quality);
@@ -434,7 +462,7 @@ export class App implements AfterViewInit, OnDestroy {
     const dt = this.previousTime ? Math.min((time - this.previousTime) / 1000, 0.1) : 0;
     this.previousTime = time;
     const stick = document.hidden ? { x: 0, z: 0 } : this.pollGamepad();
-    if (!this.paused() && !this.panel() && !document.hidden) {
+    if (!this.paused() && !this.panel() && !document.hidden && !this.offer()) {
       let x = 0;
       let z = 0;
       if (this.keys.has('w') || this.keys.has('arrowup')) {
@@ -585,6 +613,12 @@ export class App implements AfterViewInit, OnDestroy {
     const newlyPressed = pressed.map((value, index) => value && !this.gamepadButtons[index]);
     const edge = (index: number) => newlyPressed[index];
     this.gamepadButtons = pressed;
+    if (this.offer()) {
+      if (edge(12) || edge(14)) this.zone.run(() => this.moveOfferFocus(-1));
+      if (edge(13) || edge(15)) this.zone.run(() => this.moveOfferFocus(1));
+      if (edge(0)) this.zone.run(() => this.chooseStarter());
+      return { x: 0, z: 0 };
+    }
     if (edge(9))
       this.zone.run(() => {
         if (this.panel()) this.openPanel(null);
@@ -863,6 +897,14 @@ export class App implements AfterViewInit, OnDestroy {
     const target = event.target as HTMLElement;
     if (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName)) return;
     const key = event.key.toLowerCase();
+    if (this.offer()) {
+      const step = { arrowleft: -1, a: -1, arrowright: 1, d: 1 }[key];
+      if (step) {
+        event.preventDefault();
+        this.zone.run(() => this.moveOfferFocus(step));
+      }
+      return;
+    }
     if (
       ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' ', 'e'].includes(
         key,
@@ -1015,13 +1057,56 @@ export class App implements AfterViewInit, OnDestroy {
     return actions.every((action) => action.disabled) ? (actions[0]?.reason ?? '') : '';
   }
   protected async save(): Promise<void> {
-    if (this.saveBlocked) return;
+    if (this.saveBlocked || this.offer()) return;
     try {
       await this.storage.save(this.host.state);
       if (!this.destroyed) this.saveStatus.set('Your homestead is saved');
     } catch {
       this.saveStatus.set('Could not save — keep this tab open');
     }
+  }
+  /** Draws a fresh game's seed once and shows the critters it offers. */
+  private beginOffer(): void {
+    this.offerSeed = crypto.getRandomValues(new Uint32Array(1))[0];
+    const offer = starterOffer(this.offerSeed);
+    this.offer.set(offer);
+    this.focusCandidate(offer[0].id);
+    this.world?.setGuests(offer);
+  }
+  protected focusCandidate(id: string): void {
+    const candidate = this.offer()?.find((item) => item.id === id);
+    if (!candidate) return;
+    this.offerFocus.set(id);
+    this.starterDraft.set(candidate.name);
+    this.starterError.set('');
+    this.world?.setGuestFocus(id);
+  }
+  private moveOfferFocus(step: number): void {
+    const offer = this.offer() ?? [];
+    const index = offer.findIndex((candidate) => candidate.id === this.offerFocus());
+    const next = offer[(index + step + offer.length) % offer.length];
+    if (!next) return;
+    this.focusCandidate(next.id);
+    this.element.nativeElement
+      .querySelector<HTMLButtonElement>(`.offer-card[data-candidate="${next.id}"]`)
+      ?.focus();
+  }
+  /** Takes the focused candidate home under the chosen name and starts the household. */
+  protected async chooseStarter(): Promise<void> {
+    const candidate = this.focusedCandidate();
+    if (!candidate) return;
+    const name = starterName(this.starterDraft());
+    if (!name) {
+      this.starterError.set('Names use letters, spaces, hyphens or apostrophes (up to 16).');
+      return;
+    }
+    this.host = new LocalGameHost(createInitialState({ ...candidate, name }, this.offerSeed));
+    this.offer.set(null);
+    this.world?.setGuests(null);
+    this.world?.setGuestFocus(null);
+    this.baseline = null;
+    this.refresh();
+    await this.save();
   }
   protected debug(action: 'next-day' | 'restore'): void {
     this.command({ type: 'debug', action });
@@ -1037,9 +1122,9 @@ export class App implements AfterViewInit, OnDestroy {
       this.host = new LocalGameHost();
       this.saveBlocked = false;
       this.error.set('');
-      this.refresh();
-      await this.save();
       this.openPanel(null);
+      this.beginOffer();
+      this.refresh();
     } catch {
       this.error.set('Could not reset the save. Please check browser storage permissions.');
     }

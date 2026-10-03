@@ -10,9 +10,6 @@ import {
   SoilPlot,
 } from './model';
 
-// Provisional loop-testing starter, separate from Grandpa’s narrative Pip.
-export const STARTER = { id: 'critter-mallow', name: 'Mallow' } as const;
-
 export const GAME_CONFIG = {
   realSecondsPerDay: 30 * 60,
   interactionDistance: 2.35,
@@ -122,15 +119,6 @@ export const BEHAVIORS: Record<BehaviorId, BehaviorDefinition> = {
     ],
   },
 };
-
-export const SPECIES = {
-  brindlekin: {
-    name: 'Brindlekin',
-    description: 'A soft-footed woodland forager with a leafy crest and an enormous curiosity.',
-    lifespanDays: 1200,
-    gatheringAptitudes: ['berries'],
-  },
-} as const;
 
 export const AREAS: Record<AreaId, AreaDefinition> = {
   homestead: {

@@ -10,6 +10,7 @@ import { legacyV4 } from './fixtures/legacy-v4';
 import { legacyV5 } from './fixtures/legacy-v5';
 import { legacyV6 } from './fixtures/legacy-v6';
 import { legacyV7 } from './fixtures/legacy-v7';
+import { legacyV8 } from './fixtures/legacy-v8';
 
 // Golden v7 garden for the frozen v1 crop: planted 9300, watered, ready 9550, now 9472.
 const legacyGarden = [
@@ -99,7 +100,7 @@ describe('v1 migration and individual references', () => {
     expect(crop.readyAt).toBe(9550);
     expect(migrated).toEqual({
       ...world,
-      version: 8,
+      version: 9,
       haulLesson: null,
       plots: legacyGarden,
       companionIndoors: false,
@@ -118,6 +119,8 @@ describe('v1 migration and individual references', () => {
           ...individual,
           hauling: { enabled: false, phase: 'idle', cued: false },
           drills: { day: original.day, sessions: {} },
+          speciesId: 'canine',
+          visualTraits: { ...individual.visualTraits, size: 1 },
           learnedBehaviors: { 'sunberry-foraging': berryKnowledge },
           ownerId: original.player.id,
           lastPettedDay: original.day,
@@ -236,7 +239,7 @@ describe('v2 learning migration and v3 protection', () => {
     expect(crop).toEqual(legacyV1.crop);
     expect(migrated).toEqual({
       ...oldWorld,
-      version: 8,
+      version: 9,
       haulLesson: null,
       plots: legacyGarden,
       companionIndoors: false,
@@ -260,6 +263,8 @@ describe('v2 learning migration and v3 protection', () => {
         hauling: { enabled: false, phase: 'idle', cued: false },
         drills: { day: before.day, sessions: {} },
         learnedBehaviors: { 'sunberry-foraging': berryKnowledge },
+        speciesId: 'canine',
+        visualTraits: { ...individual.visualTraits, size: 1 },
       })),
     });
     expect(before).toEqual(legacyV2);
@@ -330,14 +335,19 @@ describe('v2 learning migration and v3 protection', () => {
 
 // M9 gate: every historical save shape reaches the current schema with nothing lost.
 describe('every legacy save version', () => {
-  const fixtures = [legacyV1, legacyV2, legacyV3, legacyV4, legacyV5, legacyV6, legacyV7];
+  const fixtures = [legacyV1, legacyV2, legacyV3, legacyV4, legacyV5, legacyV6, legacyV7, legacyV8];
   it.each(fixtures.map((fixture) => [fixture.version, fixture] as const))(
-    'migrates a v%i save to v8 intact, idempotently, and ready to play',
+    'migrates a v%i save to v9 intact, idempotently, and ready to play',
     (_, fixture) => {
       const original = structuredClone(fixture) as Record<string, unknown> & typeof legacyV1;
       const migrated = readSave(structuredClone(fixture));
-      expect(migrated.version).toBe(8);
+      expect(migrated.version).toBe(9);
       expect(() => validateSave(migrated)).not.toThrow();
+      // Earlier companions were provisional Brindlekin; they are now Canine at ordinary size.
+      for (const critter of migrated.critters) {
+        expect(critter.speciesId).toBe('canine');
+        expect(critter.visualTraits.size).toBe(1);
+      }
       // The world, economy, clock and history carry over.
       for (const key of ['seed', 'day', 'minute', 'totalMinutes', 'shedLevel'] as const)
         expect(migrated[key], key).toBe(original[key]);

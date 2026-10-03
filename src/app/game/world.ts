@@ -10,7 +10,16 @@ import { Atmosphere, glowTexture } from './render/atmosphere';
 import { addWind, wind } from './render/wind';
 import { Finish } from './render/post';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import { activeCritter, type AreaId, type CropId, type GameState, type Point } from './model';
+import {
+  activeCritter,
+  type AreaId,
+  type CropId,
+  type Critter,
+  type GameState,
+  type Point,
+} from './model';
+import { type Appearance } from './families';
+import { appearanceKey, buildFigure, type FigureKit, type FigureParts } from './render/figures';
 import {
   detectQuality,
   pixelRatioFor,
@@ -101,6 +110,24 @@ const WIND_BY_WEATHER = { sunny: 1, cloudy: 1.25, rain: 1.8, snow: 0.6 } as cons
 const BUTTERFLY_COLORS = ['#f4e3a1', '#fbf6e8', '#bcd3e6', '#f2c1a8'];
 const PUFF_LIFE = 0.7;
 
+/** A critter shown in the world before it belongs to anyone, such as a starter on offer. */
+export interface GuestCritter {
+  id: string;
+  name: string;
+  speciesId: string;
+  visualTraits: Appearance;
+  position: Point;
+}
+interface Guest {
+  id: string;
+  root: THREE.Group;
+  parts: FigureParts;
+  label: HTMLDivElement;
+  shadow: THREE.Mesh;
+  phase: number;
+  blink: number;
+}
+
 /** A view of the simulation. Geometry and animation never change game state. */
 export class GameWorld {
   private readonly scene = new THREE.Scene();
@@ -127,9 +154,9 @@ export class GameWorld {
   private readonly soft = glowTexture();
   private readonly areaMaterials: THREE.Material[] = [];
   private readonly swaying: { object: THREE.Object3D; phase: number; amount: number }[] = [];
-  private readonly critterEyes: THREE.Mesh[] = [];
+  private critterEyes: THREE.Mesh[] = [];
   private readonly farmerEyes: THREE.Mesh[] = [];
-  private readonly critterEars: THREE.Mesh[] = [];
+  private critterEars: THREE.Mesh[] = [];
   private readonly farmerArms: THREE.Group[] = [];
   private blink = { critter: 1.6, farmer: 2.8, twitch: 3.5 };
   private readonly puffs: { sprite: THREE.Sprite; life: number }[] = [];
@@ -154,6 +181,14 @@ export class GameWorld {
   private readonly pebble = this.keep(new THREE.IcosahedronGeometry(1, 1));
   private readonly cylinder = this.keep(new THREE.CylinderGeometry(1, 1, 1, 12));
   private readonly cone = this.keep(new THREE.ConeGeometry(1, 1, 7));
+  private readonly torus = this.keep(new THREE.TorusGeometry(0.26, 0.057, 6, 18));
+  private readonly figureKit: FigureKit = {
+    mesh: (geometry, color, position, scale) => this.mesh(geometry, color, position, scale),
+    sphere: this.sphere,
+    cylinder: this.cylinder,
+    cone: this.cone,
+    torus: this.torus,
+  };
   private readonly raycaster = new THREE.Raycaster();
   private readonly ground = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
   private readonly pointer = new THREE.Vector2();
@@ -165,10 +200,15 @@ export class GameWorld {
   private readonly farmer = new THREE.Group();
   private readonly critter = new THREE.Group();
   private readonly farmerBody = new THREE.Group();
-  private readonly critterBody = new THREE.Group();
-  private readonly tail = new THREE.Group();
+  private critterBody = new THREE.Group();
+  private tail = new THREE.Group();
+  // The companion's figure is rebuilt whenever its family or appearance changes.
+  private figureKey = '';
+  private critterHeight = 1.9;
+  private guests: Guest[] = [];
+  private guestFocus: string | null = null;
   private readonly farmerLegs: THREE.Mesh[] = [];
-  private readonly critterLegs: THREE.Mesh[] = [];
+  private critterLegs: THREE.Mesh[] = [];
   private readonly labelLayer = document.createElement('div');
   private readonly labels: WorldLabel[] = [];
   private readonly critterLabel: HTMLDivElement;
@@ -278,24 +318,10 @@ export class GameWorld {
     this.workTool.add(this.mesh(this.box, '#c6d4d3', [0.12, 0.78, 0], [0.35, 0.23, 0.1]));
     this.workTool.position.set(0.45, 0.9, 0.25);
     this.farmerBody.add(this.carriedLoad, this.workTool);
-    this.buildCritter();
-    // Figures get a slightly glossier glaze than the matte scenery.
-    for (const figure of [this.farmer, this.critter])
-      figure.traverse((object) => {
-        if (!(object instanceof THREE.Mesh)) return;
-        const base = object.material as THREE.MeshStandardMaterial;
-        const key = base.color.getHexString();
-        let glaze = this.glossy.get(key);
-        if (!glaze) {
-          glaze = base.clone();
-          glaze.roughness = 0.55;
-          this.glossy.set(key, glaze);
-        }
-        object.material = glaze;
-      });
+    this.glaze(this.farmer);
     this.companionLoad.add(this.mesh(this.box, '#c59160', [0, 0.9, 0.3], [0.85, 0.18, 0.35]));
     this.companionLoad.add(this.mesh(this.box, '#866546', [0.37, 0.6, 0], [0.27, 0.35, 0.4]));
-    this.critterBody.add(this.companionLoad);
+    this.critter.rotation.y = 0.6;
     this.buildFeedback();
     this.atmosphere = new Atmosphere(this.scene, this.sun, this.hemisphere, this.renderer);
     for (let index = 0; index < 28; index++) {
@@ -409,6 +435,11 @@ export class GameWorld {
 
   render(state: GameState, dtSeconds: number): void {
     const companion = activeCritter(state);
+    const figure = appearanceKey(companion.speciesId, companion.visualTraits);
+    if (figure !== this.figureKey) {
+      this.figureKey = figure;
+      this.rebuildCritter(companion);
+    }
     const dt = Math.min(Math.max(dtSeconds, 0), 0.1);
     this.clock += this.reducedMotion ? 0 : dt;
     this.cueTime += dt;
@@ -526,13 +557,19 @@ export class GameWorld {
       });
     }
     this.animateLife(state, dt, visualCritterPosition, playerMoving, critterMoving, jumpHeight);
-    // A companion working in the yard is not drawn inside the cottage.
-    this.critter.visible = state.areaId !== 'cottage' || state.companionIndoors;
+    // A companion working in the yard is not drawn inside the cottage, nor before it is chosen.
+    this.critter.visible =
+      (state.areaId !== 'cottage' || state.companionIndoors) && this.guests.length === 0;
+    this.animateGuests(state, dt);
     this.critterLabel.style.display = this.critter.visible ? '' : 'none';
     this.critterLabel.textContent = companion.name;
     this.positionLabel(
       this.critterLabel,
-      this.projection.set(visualCritterPosition.x, 1.9 + jumpHeight, visualCritterPosition.z),
+      this.projection.set(
+        visualCritterPosition.x,
+        this.critterHeight + jumpHeight,
+        visualCritterPosition.z,
+      ),
     );
     this.animateFeedback(state, dt);
     const timber = backpack(state).items.some(
@@ -704,6 +741,7 @@ export class GameWorld {
   }
 
   dispose(): void {
+    this.setGuests(null);
     this.observer.disconnect();
     this.renderer.domElement.removeEventListener('pointerdown', this.walk);
     this.renderer.domElement.removeEventListener('pointermove', this.pointerMove);
@@ -938,7 +976,9 @@ export class GameWorld {
       const rise = this.reducedMotion ? 0 : note.age * 26;
       // The companion's notes start just above its name tag, which sits at the same height.
       const clearance = note.who === 'critter' ? 32 : 0;
-      this.projection.set(anchor.x, note.who === 'player' ? 2 : 1.9, anchor.z).project(this.camera);
+      this.projection
+        .set(anchor.x, note.who === 'player' ? 2 : this.critterHeight, anchor.z)
+        .project(this.camera);
       const x = (this.projection.x * 0.5 + 0.5) * this.width;
       const y =
         (-this.projection.y * 0.5 + 0.5) * this.height - clearance - rise - stacks[note.who] * 22;
@@ -2214,79 +2254,119 @@ export class GameWorld {
     this.farmer.rotation.y = 0.4;
   }
 
-  private buildCritter(): void {
-    this.critter.add(this.critterBody);
-    const body = this.critterBody;
-    body.add(this.mesh(this.sphere, '#dc9e6d', [0, 0.64, 0], [0.43, 0.39, 0.58]));
-    body.add(this.mesh(this.sphere, '#edbb87', [0, 0.71, 0.3], [0.38, 0.4, 0.36]));
-    body.add(this.mesh(this.sphere, '#f2d8ac', [0, 0.53, 0.42], [0.28, 0.24, 0.22]));
-    body.add(this.mesh(this.sphere, '#e8ad79', [0, 1.02, 0.29], [0.37, 0.34, 0.33]));
-    for (const side of [-1, 1]) {
-      const ear = this.mesh(
-        this.sphere,
-        '#dd9f70',
-        [side * 0.245, 1.38, 0.23],
-        [0.135, 0.38, 0.11],
-      );
-      ear.rotation.z = -side * 0.28;
-      body.add(ear);
-      this.critterEars.push(ear);
-      const inner = this.mesh(
-        this.sphere,
-        '#ba7b67',
-        [side * 0.248, 1.38, 0.317],
-        [0.072, 0.245, 0.027],
-      );
-      inner.rotation.z = -side * 0.28;
-      body.add(inner);
-      this.critterEars.push(inner);
-      for (const eye of [
-        this.mesh(this.sphere, '#f9e3bc', [side * 0.17, 1.045, 0.562], [0.13, 0.14, 0.038]),
-        this.mesh(this.sphere, '#384c40', [side * 0.17, 1.055, 0.599], [0.059, 0.071, 0.025]),
-        this.mesh(this.sphere, '#fff6da', [side * 0.155, 1.08, 0.622], [0.015, 0.019, 0.008]),
-      ]) {
-        eye.userData['open'] = eye.scale.y;
-        body.add(eye);
-        this.critterEyes.push(eye);
+  /** Figures get a slightly glossier glaze than the matte scenery. */
+  private glaze(figure: THREE.Object3D): void {
+    figure.traverse((object) => {
+      if (!(object instanceof THREE.Mesh)) return;
+      const base = object.material as THREE.MeshStandardMaterial;
+      const key = base.color.getHexString();
+      let glaze = this.glossy.get(key);
+      if (!glaze) {
+        glaze = base.clone();
+        glaze.roughness = 0.55;
+        this.glossy.set(key, glaze);
       }
-      body.add(
-        this.mesh(this.sphere, '#d58f77', [side * 0.28, 0.939, 0.507], [0.073, 0.038, 0.025]),
-      );
-      for (const front of [-1, 1]) {
-        const leg = this.mesh(
-          this.sphere,
-          '#b27d56',
-          [side * 0.29, 0.18, front * 0.32],
-          [0.12, 0.16, 0.19],
-        );
-        this.critterLegs.push(leg);
-        this.critter.add(leg);
-      }
-    }
-    body.add(this.mesh(this.sphere, '#674e3c', [0, 0.96, 0.628], [0.055, 0.038, 0.026]));
-    const neckerchief = this.mesh(
-      this.keep(new THREE.TorusGeometry(0.26, 0.057, 6, 18)),
-      '#527f77',
-      [0, 0.79, 0.3],
-      [1, 1, 1],
+      object.material = glaze;
+    });
+  }
+
+  /** Rebuilds the companion's body for its family and looks; animation state carries over. */
+  private rebuildCritter(companion: Critter): void {
+    this.critter.clear();
+    const parts = buildFigure(
+      this.figureKit,
+      this.critter,
+      companion.speciesId,
+      companion.visualTraits,
+      true,
     );
-    neckerchief.rotation.x = Math.PI / 2;
-    body.add(neckerchief);
-    body.add(this.mesh(this.sphere, '#d7b366', [0, 0.735, 0.582], [0.058, 0.065, 0.029]));
-    this.tail.position.set(0, 0.57, -0.46);
-    for (let plume = 0; plume < 5; plume++) {
-      const feather = this.mesh(
-        this.sphere,
-        plume % 2 ? '#789775' : '#538378',
-        [(plume - 2) * 0.135, 0.15 + Math.abs(plume - 2) * 0.015, -0.23],
-        [0.13, 0.16, 0.5 - Math.abs(plume - 2) * 0.05],
-      );
-      feather.rotation.y = -(plume - 2) * 0.17;
-      feather.rotation.x = -0.22;
-      this.tail.add(feather);
+    this.glaze(this.critter);
+    this.critterBody = parts.body;
+    this.tail = parts.tail;
+    this.critterEars = parts.ears;
+    this.critterEyes = parts.eyes;
+    this.critterLegs = parts.legs;
+    this.critterHeight = parts.height;
+    this.companionLoad.position.y = parts.back - 0.9;
+    this.critterBody.add(this.companionLoad);
+  }
+
+  /**
+   * Shows candidates waiting to be chosen, or clears them. They are presentation only:
+   * nobody owns them until the host creates the household.
+   */
+  setGuests(guests: GuestCritter[] | null): void {
+    for (const guest of this.guests) {
+      this.scene.remove(guest.root);
+      guest.label.remove();
+      guest.shadow.removeFromParent();
     }
-    body.add(this.tail);
-    this.critter.rotation.y = 0.6;
+    this.guests = [];
+    for (const candidate of guests ?? []) {
+      const root = new THREE.Group();
+      const parts = buildFigure(
+        this.figureKit,
+        root,
+        candidate.speciesId,
+        candidate.visualTraits,
+        false,
+      );
+      this.glaze(root);
+      root.position.set(candidate.position.x, 0, candidate.position.z);
+      root.rotation.y = Math.atan2(-candidate.position.x, -candidate.position.z) * 0.5;
+      const shadow = this.contactShadows[1].clone();
+      shadow.position.set(candidate.position.x, 0.045, candidate.position.z);
+      shadow.visible = true;
+      this.scene.add(root, shadow);
+      const label = this.makeLabel(candidate.name, true);
+      this.guests.push({
+        id: candidate.id,
+        root,
+        parts,
+        label,
+        shadow,
+        phase: this.guests.length * 1.7,
+        blink: 1 + this.guests.length,
+      });
+    }
+  }
+
+  /** Breathing, blinking, wagging and a small hop for the candidate in focus. */
+  private animateGuests(state: GameState, dt: number): void {
+    const player = state.player.position;
+    for (const guest of this.guests) {
+      const focused = guest.id === this.guestFocus;
+      const t = this.clock + guest.phase;
+      const still = this.reducedMotion;
+      guest.parts.body.scale.setScalar(1);
+      guest.parts.body.scale.y = 1 + (still ? 0 : Math.sin(t * 2.4) * 0.014);
+      guest.parts.body.position.y = focused && !still ? Math.abs(Math.sin(t * 6)) * 0.12 : 0;
+      guest.parts.tail.rotation.z = still ? 0 : Math.sin(t * (focused ? 9 : 3)) * 0.18;
+      guest.blink -= dt;
+      const shut = guest.blink < 0 && guest.blink > -0.13;
+      for (const eye of guest.parts.eyes)
+        eye.scale.y = (eye.userData['open'] as number) * (shut ? 0.12 : 1);
+      if (guest.blink < -0.13) guest.blink = 2 + Math.random() * 3;
+      const target = Math.atan2(player.x - guest.root.position.x, player.z - guest.root.position.z);
+      const turn = Math.atan2(
+        Math.sin(target - guest.root.rotation.y),
+        Math.cos(target - guest.root.rotation.y),
+      );
+      guest.root.rotation.y += turn * Math.min(1, dt * 2);
+      guest.label.classList.toggle('focused', focused);
+      this.positionLabel(
+        guest.label,
+        this.projection.set(
+          guest.root.position.x,
+          guest.parts.height + 0.15,
+          guest.root.position.z,
+        ),
+      );
+    }
+  }
+
+  setGuestFocus(id: string | null): void {
+    this.guestFocus = id;
   }
 
   /** Breath, blinks, glances, sway, dust, grounding shadows, the target ring, butterflies. */
@@ -2354,10 +2434,13 @@ export class GameWorld {
     if (this.blink.critter < -0.13) this.blink.critter = 2 + Math.random() * 3.2;
     if (this.blink.farmer < -0.13) this.blink.farmer = 2.6 + Math.random() * 3.5;
     const twitch = this.blink.twitch < 0 && this.blink.twitch > -0.3 && !still;
-    this.critterEars.forEach((ear, index) => {
-      const side = index < 2 ? -1 : 1;
-      ear.rotation.z = -side * (0.28 + pose.ears) + (twitch ? Math.sin(this.clock * 38) * 0.18 : 0);
-    });
+    for (const ear of this.critterEars) {
+      const side = ear.userData['side'] as number;
+      ear.rotation.z =
+        (ear.userData['baseZ'] as number) -
+        side * pose.ears +
+        (twitch ? Math.sin(this.clock * 38) * 0.18 : 0);
+    }
     if (this.blink.twitch < -0.3) this.blink.twitch = 3 + Math.random() * 5;
     this.farmerArms.forEach((arm, index) => {
       // One arm reaches out when petting or offering food.

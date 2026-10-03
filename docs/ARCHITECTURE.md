@@ -146,6 +146,25 @@ their ids and labels stay the host's. `GameWorld.react` plays companion reaction
 requests; idle fidgets are chosen in the view from energy and hunger. `forageYield` and
 `haulingPace` (host) are the single source for both the rule and the text that explains it.
 
+## Current implementation additions — Stage 2 M1 (2026-10-02)
+
+`families.ts` holds the nine root families (provisional starting stats, each totalling
+18; coat, accent and name pools) and `starterOffer(seed)`: Mallow plus two other families
+drawn without duplicates from a copy of the seed's LCG, never advancing `state.seed`.
+`createInitialState(starter, seed)` builds the household from the chosen candidate; with
+no arguments it is Mallow on the old fixed seed, which tests rely on. A fresh browser
+game draws its seed once (`crypto.getRandomValues`), shows the offer, and writes no save
+until a candidate is taken home (renaming through `starterName`).
+
+Save v9 stores a family (or lineage) id in `speciesId`, validated against
+`CRITTER_KINDS`, and adds `visualTraits.size`. Migration v8 → v9 turns every Brindlekin,
+all earlier companions, into Canine at size 1 and touches nothing else.
+
+`render/figures.ts` builds each family's figure in code from shared parts (body, tail,
+ears or their stand-ins, eyes, legs) with named colours resolved there, so chimeras can
+later mix body plans. `GameWorld` rebuilds the companion when its family or looks change
+and draws offer candidates as presentation-only guests.
+
 ## Architectural reality audit (reconciliation baseline before M4)
 
 The following audit records the reconciled pre-M4 baseline. The dated additions

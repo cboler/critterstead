@@ -1,7 +1,7 @@
 # 003 — Household and Opening (Stage 2)
 
-**Status:** authorized 2026-10-02 ([D43](../../DECISIONS.md#d43--stage-2-begins-accepted-2026-10-02)).
-M1 in progress.
+**Status:** authorized 2026-10-02 ([D43](../../DECISIONS.md#d43--stage-2-begins-accepted-2026-10-02)). M1 built and locally verified
+2026-10-02 ([evidence](#m1-evidence--2026-10-02)); M2 next.
 
 ## Purpose
 
@@ -23,19 +23,19 @@ before they start.
 
 ### M1 — The nine families and a choice of starter (save v9)
 
-- [ ] Nine primary families in host content with descriptions and provisional starting
+- [x] Nine primary families in host content with descriptions and provisional starting
       stat tendencies of equal total; Brindlekin stays a lineage, reserved.
-- [ ] Each family has a distinct, animated low-poly figure from one shared parametric figure
+- [x] Each family has a distinct, animated low-poly figure from one shared parametric figure
       builder, with seeded individual variation in colour and size.
-- [ ] A fresh game opens on a starter offer: Mallow (now Canine) plus two other families
+- [x] A fresh game opens on a starter offer: Mallow (now Canine) plus two other families
       drawn from the new game's seed without duplicates. Each shows name, family,
       personality and stats; the player may rename the one they choose.
-- [ ] The chosen critter is the companion, and every existing system (care, foraging,
+- [x] The chosen critter is the companion, and every existing system (care, foraging,
       hauling, drills, exhibition) works for every family.
-- [ ] Save v9: Brindlekin companions from v1–v8 become Canine with identity, name, stats
+- [x] Save v9: Brindlekin companions from v1–v8 become Canine with identity, name, stats
       and history intact; unknown families fail validation without touching the save.
-- [ ] Keyboard, gamepad and touch can make the choice; controls are labelled.
-- [ ] Verification: unit tests (offer determinism, no duplicates, Mallow present, v8→v9
+- [x] Keyboard, gamepad and touch can make the choice; controls are labelled.
+- [x] Verification: unit tests (offer determinism, no duplicates, Mallow present, v8→v9
       and chained migration), e2e suite updated to choose a starter, lint, build, PWA
       check, and inspected screenshots of every family at phone and desktop sizes.
 
@@ -68,7 +68,26 @@ Fixed, scripted passing; Pip's after-routines; inheriting the stead. Needs story
   (provisional; M3 moves the offer into the walk).
 - In M1 every family can learn the existing behaviors; morphology limits arrive with tools.
 
+## M1 evidence — 2026-10-02
+
+- Host: `families.ts` (nine families, `starterOffer`, `starterName`), save v9 with v8 → v9
+  migration, `createInitialState(starter, seed)`. Unit tests: 143 passed, including offer
+  determinism over 200 seeds, every non-Canine family reachable, the v1–v8 chain to v9, and
+  refusal of unknown families, missing sizes and ambiguous v8 records.
+- Presentation: `render/figures.ts` with nine family figures; the offer sheet with
+  keyboard (arrows, Enter), gamepad (D-pad, A) and touch choice. Inspected in the browser
+  at 1280×720 and 375×812; all nine figures checked close up. Evidence:
+  [desktop offer](../evidence/003-m1/desktop-offer.png),
+  [phone offer](../evidence/003-m1/phone-offer.png).
+- Gates: lint, production build, PWA check (now taking Mallow home first), and the browser suite: 64 passed and
+  28 skipped by project, after the reset tests were taught to choose a starter (36/36
+  persistence tests on the rerun).
+- Provisional: family stat tendencies, colour pools, name pools, offer positions in the
+  yard, size range 0.9–1.1.
+- Known: Mallow keeps her original look and long ears, which read more fennec than hound;
+  reshaping her is a product call. Reloading before choosing draws a new offer.
+
 ## Current handoff
 
-M1 in progress. Next: family content and save v9 in the host, then the figure builder, then
-the offer screen and e2e updates.
+M1 complete pending publication. Next: M2 — Grandpa on the stead, Pip as a Grandpa-owned
+autonomous forager drawn beside the companion, and Oakhaven as a reachable area.

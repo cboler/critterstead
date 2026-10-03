@@ -54,6 +54,8 @@ try {
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto(`http://127.0.0.1:${server.address().port}${base}`);
   await page.locator('.world-canvas canvas').waitFor({ state: 'visible' });
+  // A fresh game opens on the starter offer.
+  await page.getByRole('button', { name: 'Take Mallow home' }).click();
   const care = page.getByRole('button', { name: /Give a little scritch/ });
   await care.click();
   await expect(care).toBeDisabled();

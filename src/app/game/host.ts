@@ -19,7 +19,6 @@ import {
   EXHIBITION,
   GAME_CONFIG,
   PRODUCE_PRICES,
-  STARTER,
   initialMaterialNodes,
   initialPlots,
 } from './content';
@@ -35,6 +34,7 @@ import {
   weatherFor,
 } from './calendar';
 import { advanceGarden, plotReady } from './garden';
+import { MALLOW, StarterCandidate } from './families';
 import {
   drillMultiplier,
   liftScore,
@@ -101,10 +101,11 @@ export function learnedStage(critter: Critter, behavior: BehaviorDefinition): Be
 const foraging = BEHAVIORS['sunberry-foraging'];
 const hauling = BEHAVIORS['lumber-hauling'];
 
-export function createInitialState(): GameState {
+/** A new household with its chosen first companion and the seed its offer was drawn from. */
+export function createInitialState(starter: StarterCandidate = MALLOW, seed = 240921): GameState {
   return {
-    version: 8,
-    seed: 240921,
+    version: 9,
+    seed,
     day: 1,
     minute: 480,
     totalMinutes: 480,
@@ -121,19 +122,19 @@ export function createInitialState(): GameState {
     materialNodes: initialMaterialNodes(),
     groundCargo: [],
     work: null,
-    activeCritterId: STARTER.id,
+    activeCritterId: starter.id,
     critters: [
       {
-        id: STARTER.id,
-        name: STARTER.name,
+        id: starter.id,
+        name: starter.name,
         ownerId: 'player-local',
         lastPettedDay: null,
-        speciesId: 'brindlekin',
+        speciesId: starter.speciesId,
         ageDays: 18,
-        sex: 'female',
-        personality: 'Curious · food-motivated · quietly brave',
+        sex: starter.sex,
+        personality: starter.personality,
         position: { x: -1, z: 0.6 },
-        stats: { strength: 3, endurance: 5, speed: 4, intelligence: 6 },
+        stats: { ...starter.stats },
         stamina: 100,
         health: 100,
         happiness: 70,
@@ -143,14 +144,14 @@ export function createInitialState(): GameState {
         hauling: { enabled: false, phase: 'idle', cued: false },
         drills: { day: 1, sessions: {} },
         skills: { harvesting: 0, racing: 0 },
-        visualTraits: { coat: 'peach', accent: 'moss' },
+        visualTraits: { ...starter.visualTraits },
         pedigree: { parentIds: [] },
-        genetics: { coat: 'peach/peach', crest: 'fern/fern' },
+        genetics: { ...starter.genetics },
         history: ['Day 1: A new home at Bramblewick Yard.'],
         competitions: [],
       },
     ],
-    containers: initialContainers('player-local', STARTER.id, [
+    containers: initialContainers('player-local', starter.id, [
       { id: 'stack-feed-1', itemId: 'feed', quantity: 4, quality: 1 },
       { id: 'stack-seed-1', itemId: 'seed', quantity: 3, quality: 1 },
     ]),
@@ -168,7 +169,7 @@ export function createInitialState(): GameState {
     shedLevel: 0,
     flags: [],
     journal: [
-      `Welcome to Bramblewick. ${STARTER.name} is waiting to meet you. Walk close, then offer a little care.`,
+      `Welcome to Bramblewick. ${starter.name} is waiting to meet you. Walk close, then offer a little care.`,
     ],
     training: null,
   };

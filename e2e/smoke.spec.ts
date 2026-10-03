@@ -2,7 +2,7 @@ import { backpack } from '../src/app/game/model';
 import { expect, test, type Page } from '@playwright/test';
 import { activeCritter, type GameState } from '../src/app/game/model';
 import { createInitialState } from '../src/app/game/host';
-import { developmentState, PACE, savedState, SPOTS, walk } from './helpers';
+import { developmentState, PACE, savedState, SPOTS, walk, takeStarterHome } from './helpers';
 
 test('opens a responsive, playable homestead without runtime errors', async ({
   page,
@@ -10,6 +10,7 @@ test('opens a responsive, playable homestead without runtime errors', async ({
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/');
+  await takeStarterHome(page);
   await expect(page).toHaveTitle(/Critterstead/);
   await expect(page.locator('.brand')).toContainText('Critterstead');
   await expect(page.locator('.world-canvas canvas')).toBeVisible();
@@ -70,6 +71,7 @@ test('keeps the desktop world, goals, and satchel in one viewport', async ({ pag
   ]) {
     await page.setViewportSize(viewport);
     await page.goto('/');
+    if (viewport.width === 1280) await takeStarterHome(page);
     await expect(page.locator('.world-canvas canvas')).toBeVisible();
     const dimensions = await page.evaluate(() => {
       const rail = document.querySelector('.side-rail')!;
@@ -99,6 +101,7 @@ test('keeps the desktop world, goals, and satchel in one viewport', async ({ pag
 
 test('keeps care and day progression across a reload', async ({ page }) => {
   await page.goto('/');
+  await takeStarterHome(page);
   await expect(page.locator('.world-canvas canvas')).toBeVisible();
   await page.getByRole('button', { name: /Give a little scritch/ }).click();
   await expect(page.getByRole('button', { name: /Give a little scritch/ })).toBeDisabled();
@@ -149,6 +152,7 @@ test('plays a complete day and keeps the improved homestead after reload', async
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/');
+  await takeStarterHome(page);
   await expect(page.locator('.world-canvas canvas')).toBeVisible();
   await page.getByRole('button', { name: /Give a little scritch/ }).click();
   await page.getByRole('button', { name: /Offer feed/ }).click();
@@ -270,6 +274,7 @@ test('preserves critter energy for a competition-oriented day by doing the harve
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/');
+  await takeStarterHome(page);
   await expect(page.locator('.world-canvas canvas')).toBeVisible();
   await page.getByRole('button', { name: /Give a little scritch/ }).click();
   await page.getByRole('button', { name: /Offer feed/ }).click();

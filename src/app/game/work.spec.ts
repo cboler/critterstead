@@ -102,6 +102,8 @@ describe('physical work and rancher capabilities', () => {
         ...critter,
         hauling: { enabled: false, phase: 'idle', cued: false },
         drills: { day: old.day, sessions: {} },
+        speciesId: 'canine',
+        visualTraits: { ...critter.visualTraits, size: 1 },
       })),
     );
     expect(backpack(migrated).items).toEqual(old.inventory);

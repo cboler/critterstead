@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { developmentState, PACE, savedState, SPOTS, walk } from './helpers';
+import { developmentState, PACE, savedState, SPOTS, walk, takeStarterHome } from './helpers';
 
 test('tills and sows a seasonal bed, reads the cottage calendar, and keeps it all after reload', async ({
   page,
@@ -9,6 +9,7 @@ test('tills and sows a seasonal bed, reads the cottage calendar, and keeps it al
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/');
+  await takeStarterHome(page);
   await expect(page.locator('.world-canvas canvas')).toBeVisible();
   await expect(page.locator('.season')).toContainText('Spring 1 · Year 1');
 

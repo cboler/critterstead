@@ -282,7 +282,7 @@ describe('save v7 garden and cottage migration', () => {
   it('migrates frozen v6 into four plots without losing growth, goods or seed', () => {
     const before = structuredClone(legacyV6);
     const state = readSave(before);
-    expect(state.version).toBe(8);
+    expect(state.version).toBe(9);
     expect(before).toEqual(legacyV6);
     expect(state.plots.map((plot) => plot.id)).toEqual(['plot-1', 'plot-2', 'plot-3', 'plot-4']);
     expect(state.plots[0]).toMatchObject({

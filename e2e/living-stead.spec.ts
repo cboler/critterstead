@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { developmentState, PACE, savedState, SPOTS, walk } from './helpers';
+import { developmentState, PACE, savedState, SPOTS, walk, takeStarterHome } from './helpers';
 
 test('physically supplies the sawmill, clears its full crate, and carries lumber with the companion', async ({
   page,
@@ -9,6 +9,7 @@ test('physically supplies the sawmill, clears its full crate, and carries lumber
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/');
+  await takeStarterHome(page);
   await expect(page.locator('.world-canvas canvas')).toBeVisible();
   await walk(page, -1, -4);
   for (let i = 0; i < 3; i++) {
@@ -62,6 +63,7 @@ test('works physical timber and stone, carries and sets down cargo, and keeps a 
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/');
+  await takeStarterHome(page);
   await expect(page.locator('.world-canvas canvas')).toBeVisible();
   const initial = await page.locator('.world-canvas canvas').boundingBox();
   await walk(page, -1, -4);

@@ -71,6 +71,7 @@ export interface Critter extends ActorCapabilities {
   ownerId: string;
   lastPettedDay: number | null;
   name: string;
+  // A root family id (see families.ts) or a stabilized lineage such as Brindlekin.
   speciesId: string;
   ageDays: number;
   sex: 'female' | 'male';
@@ -85,7 +86,7 @@ export interface Critter extends ActorCapabilities {
   learnedBehaviors: Partial<Record<BehaviorId, number>>;
   hauling: HaulingJob;
   skills: Record<string, number> & { harvesting: number; racing: number };
-  visualTraits: { coat: string; accent: string };
+  visualTraits: { coat: string; accent: string; size: number };
   pedigree: { parentIds: string[] };
   genetics: Record<string, string>;
   history: string[];
@@ -166,7 +167,7 @@ export interface Training {
   scores?: number[];
 }
 export interface GameState {
-  version: 8;
+  version: 9;
   seed: number;
   day: number;
   minute: number;

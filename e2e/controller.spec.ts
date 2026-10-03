@@ -44,6 +44,8 @@ test('standard controller moves, chooses actions, and navigates menus', async ({
   });
   await page.goto('/');
   await expect(page.locator('.world-canvas canvas')).toBeVisible();
+  await button(page, 0); // A: take the focused starter, Mallow, home
+  await expect(page.locator('.starter-offer')).toHaveCount(0);
   await expect(page.locator('.movement-hint')).toContainText('Controller connected');
   await button(page, 0); // A: first nearby action
   await expect(page.getByRole('button', { name: /Give a little scritch/ })).toBeDisabled();

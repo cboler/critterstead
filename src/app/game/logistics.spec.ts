@@ -21,6 +21,8 @@ describe('localized storage and the first production chain', () => {
         ...critter,
         hauling: { enabled: false, phase: 'idle', cued: false },
         drills: { day: before.day, sessions: {} },
+        speciesId: 'canine',
+        visualTraits: { ...critter.visualTraits, size: 1 },
       })),
     );
     expect('inventory' in state).toBe(false);

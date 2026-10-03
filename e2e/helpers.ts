@@ -168,3 +168,10 @@ export async function seedSave(page: Page, value: unknown): Promise<void> {
     }
   }, value);
 }
+
+/** A fresh game opens on the starter offer; take Mallow (always offered) home. */
+export async function takeStarterHome(page: Page): Promise<void> {
+  await page.getByRole('radio', { name: /^Mallow,/ }).click();
+  await page.getByRole('button', { name: 'Take Mallow home' }).click();
+  await expect(page.locator('.starter-offer')).toHaveCount(0);
+}

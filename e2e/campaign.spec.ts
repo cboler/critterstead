@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { activeCritter, type Point } from '../src/app/game/model';
-import { cues, developmentState, PACE, savedState, SPOTS, walk } from './helpers';
+import { cues, developmentState, PACE, savedState, SPOTS, walk, takeStarterHome } from './helpers';
 
 interface WorldWindow {
   ng: {
@@ -37,6 +37,7 @@ test('plays three days in a row with results where you act and drills that reset
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/');
+  await takeStarterHome(page);
   await expect(page.locator('.world-canvas canvas')).toBeVisible();
 
   // Day 1. A scritch's result appears just above the actions, floats over Mallow, and

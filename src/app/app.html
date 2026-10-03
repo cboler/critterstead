@@ -5,6 +5,7 @@
   [class.quality-light]="quality() === 'light'"
   [class.is-night]="night()"
   [attr.inert]="panel() ? '' : null"
+  [class.choosing]="!!offer()"
 >
   <header class="masthead">
     <div class="masthead-start">
@@ -184,7 +185,69 @@
           <button class="icon-button" (click)="zoom(1)" aria-label="Zoom out">−</button>
         </div>
       </div>
-      @if (!state().training && !result() && nearby(); as target) {
+      @if (offer(); as candidates) {
+        <section class="starter-offer" id="game-controls" aria-labelledby="offer-heading">
+          <p class="offer-eyebrow">A first companion</p>
+          <h2 id="offer-heading">Who will you take home?</h2>
+          <div class="offer-cards" role="radiogroup" aria-label="Critters you can choose">
+            @for (candidate of candidates; track candidate.id) {
+              <button
+                class="offer-card"
+                type="button"
+                role="radio"
+                [attr.data-candidate]="candidate.id"
+                [attr.aria-label]="candidate.name + ', ' + kindName(candidate.speciesId)"
+                [attr.aria-checked]="candidate.id === offerFocus()"
+                (click)="focusCandidate(candidate.id)"
+              >
+                <strong>{{ candidate.name }}</strong>
+                <span class="offer-kind"
+                  >{{ kindName(candidate.speciesId) }} ·
+                  {{ candidate.sex === 'female' ? '♀' : '♂' }}</span
+                >
+              </button>
+            }
+          </div>
+          @if (focusedCandidate(); as chosen) {
+            <div class="offer-detail">
+              <p>
+                {{ families[chosen.speciesId].description }}
+                <span class="temperament">{{ chosen.personality }}</span>
+              </p>
+              <dl class="offer-stats" aria-label="Starting abilities">
+                @for (stat of offerStats; track stat.key) {
+                  <div>
+                    <dt>{{ stat.label }}</dt>
+                    <dd>
+                      <i><b [style.width.%]="(chosen.stats[stat.key] / 8) * 100"></b></i
+                      >{{ chosen.stats[stat.key] }}
+                    </dd>
+                  </div>
+                }
+              </dl>
+            </div>
+            <div class="offer-choose">
+              <label
+                >Name
+                <input
+                  type="text"
+                  maxlength="16"
+                  autocomplete="off"
+                  [value]="starterDraft()"
+                  (input)="starterDraft.set($any($event.target).value)"
+                  (keydown.enter)="chooseStarter()"
+              /></label>
+              <button class="primary" type="button" (click)="chooseStarter()">
+                Take {{ starterDraft().trim() || chosen.name }} home
+              </button>
+            </div>
+            @if (starterError()) {
+              <p class="action-reason" role="alert">{{ starterError() }}</p>
+            }
+          }
+        </section>
+      }
+      @if (!offer() && !state().training && !result() && nearby(); as target) {
         <div class="interaction-dock" id="game-controls">
           <div class="interaction-copy">
             <h2>{{ target.title }}</h2>
@@ -297,13 +360,13 @@
           <img
             class="portrait"
             src="icons/critterstead.svg"
-            [alt]="companion().name + ', a Brindlekin companion'"
+            [alt]="companion().name + ', a ' + kindName(companion().speciesId) + ' companion'"
           />
           <div>
             <h2>
               {{ companion().name }}<span>{{ companion().sex === 'female' ? '♀' : '♂' }}</span>
             </h2>
-            <p>Brindlekin · {{ companion().ageDays }} days old</p>
+            <p>{{ kindName(companion().speciesId) }} · {{ companion().ageDays }} days old</p>
             <span class="temperament">{{ companion().personality }}</span>
           </div>
         </div>
@@ -558,8 +621,9 @@
       </div>
       @if (currentPanel === 'help') {
         <p>
-          Meet {{ companion().name }}, your curious Brindlekin. Good food, a little practice, and
-          time together are the start of something wonderful.
+          Meet {{ companion().name }}, your
+          {{ kindName(companion().speciesId).toLowerCase() }} companion. Good food, a little
+          practice, and time together are the start of something wonderful.
         </p>
         <div class="help-grid">
           <article>
