@@ -19,7 +19,11 @@ For active milestone execution, see [exec-plans/README.md](exec-plans/README.md)
 
 ```
 [Stage 0: Bootstrap] -> [Stage 1: First Living Stead] -> [Stage 2: Household & Opening]
-       Complete                 Complete                  Active Campaign 003
+       Complete                 Complete                  Campaign 003; M4-M5 await story
+                                     |
+                                     v
+                  [Training & Exhibitions] -> [Colosseum Ladder]
+                   Active Campaign 004          Next campaign
                                      |
                                      v
                         [Stage 3: Community & Expansion]
@@ -178,7 +182,15 @@ staged progression (M1 through M9) that systematically builds the foundational v
 
 ---
 
-## Active Campaign 003 — Household and Opening
+## Active Campaign 004 — Training and exhibitions
+
+Brought ahead of plan 003's M4–M5 and Stage 3 by [D47](DECISIONS.md#d47--raise-critters-for-the-colosseum-accepted-2026-10-03):
+two real-time drills per stat, each also a menu routine, then scheduled exhibitions
+([plan 004](exec-plans/active/004-training-and-exhibitions.md)). The Colosseum ladder
+(ranks, promotion cups, a balancing simulator) is the next campaign, pulled forward from
+Stage 3's tournaments.
+
+## Campaign 003 — Household and Opening
 
 Stage 2, sequenced in [plan 003](exec-plans/active/003-household-and-opening.md):
 

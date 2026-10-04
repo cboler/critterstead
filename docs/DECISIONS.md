@@ -51,6 +51,10 @@ For sequencing, see [ROADMAP.md](ROADMAP.md) and [exec-plans/README.md](exec-pla
 | **D31** | Monster Rancher training minigames family                 | Accepted       | [Training](GAME-DESIGN.md#training-system)                                                                                     |
 | **D32** | Viewport decoupling from interaction dock UI              | Accepted       | [Architecture](ARCHITECTURE.md#1-viewport--canvas-decoupling)                                                                  |
 | **D33** | Restructured Campaign 001 vertical slice runway           | Accepted       | [Roadmap](ROADMAP.md)                                                                                                          |
+| **D50** | Lifespan is a family trait and is inherited               | Accepted       | [Aging](GAME-DESIGN.md#aging-and-respectful-mortality)                                                                         |
+| **D49** | Brindlekin is a chimera lineage                           | Accepted       | [Families](GAME-DESIGN.md#genetics-lineages-breeding-and-chimeras)                                                             |
+| **D48** | Two ways to train: together or as a routine               | Accepted       | [Training](GAME-DESIGN.md#training-system)                                                                                     |
+| **D47** | Raise critters for the Colosseum; training first          | Accepted       | [Plan 004](exec-plans/active/004-training-and-exhibitions.md)                                                                  |
 | **D46** | The opening walk plays before any save; old saves skip it | Implemented    | [Plan 003](exec-plans/active/003-household-and-opening.md)                                                                     |
 | **D45** | Grandpa, Pip and Oakhaven in every household (save v10)   | Implemented    | [Plan 003](exec-plans/active/003-household-and-opening.md)                                                                     |
 | **D44** | Pip is the one Brindlekin                                 | Accepted       | [Household](GAME-DESIGN.md#narrative-canon-and-household-history)                                                              |
@@ -328,6 +332,34 @@ is taken home; the household then starts the next morning, as before. Existing s
 the prologue (product owner, 2026-10-03).
 [Plan 003 M3](exec-plans/active/003-household-and-opening.md#m3-evidence--2026-10-03).
 
+### D47 — Raise critters for the Colosseum (accepted 2026-10-03)
+
+The game's spine is the original critter-raising loop: train, compete, earn, raise
+stronger critters. Farming, hauling and the stead's automation are what critters and the
+player do between training, and how critters earn their keep; nothing is cut. Training and
+exhibitions (plan 004) come before the years with Grandpa, with the Colosseum ladder next;
+systems start shallow, as in _Monster Rancher_, and deepen through iteration.
+[Identity](GAME-DESIGN.md#high-level-game-identity), [plan 004](exec-plans/active/004-training-and-exhibitions.md).
+
+### D48 — Two ways to train (accepted 2026-10-03)
+
+Each drill is a real-time minigame played together, which costs the critter less energy and
+pays from poor to excellent on your play, and, once played, a routine chosen from a menu,
+which costs the critter more and you little, usually pays a fair amount and occasionally
+more. Two drills per stat, each a short game of a familiar pattern; a wider-timing assist
+covers every drill. [Training](GAME-DESIGN.md#training-system).
+
+### D49 — Brindlekin is a chimera lineage (accepted 2026-10-03)
+
+Refines D44: Pip is a chimera, as Brindlekin is a stabilized lineage Grandpa bred from
+families even the household cannot name. Pip remains its only member.
+
+### D50 — Lifespan is a family trait and is inherited (accepted 2026-10-03)
+
+Maximum age differs between families and is a primary trait offspring inherit. Aging
+stays a handful of modeling choices (youth, peak, elder) rather than a deep system.
+[Aging](GAME-DESIGN.md#aging-and-respectful-mortality).
+
 ---
 
 ## Open or exploratory — do not invent canon
@@ -350,7 +382,7 @@ Agents must not invent hardcoded canon or premature balance constants for these 
 | **Turn-based Colosseum movesets & damage math**        | Nonlethal, theatrical, SPD-turn-order settled; specific combat skills belong to Stage 3.                                                                                           |
 | **Automation throughput caps & scaling limits**        | Physical logistics settled; maximum autonomous efficiency will be playtested.                                                                                                      |
 | **Personality traits & preference influence**          | Evolving preferences settled; specific happiness formulas remain tunable.                                                                                                          |
-| **Critter longevity & end-of-life timing**             | Natural aging and respectful mortality settled; 1200-day placeholder is not fixed canon.                                                                                           |
+| **Critter longevity & end-of-life timing**             | Natural aging and respectful mortality settled; lifespan varies by family and is inherited (D50); 1200-day placeholder is not fixed canon.                                         |
 | **Childhood calendar mechanics**                       | Spring-and-summer-only years are settled direction; whether autumn and winter are skipped or time-skipped is undecided until it can be felt in play.                               |
 | **Story beats across the Grandpa years**               | What happens in each of the 2–3 years, and the first winter's exact narrative role, are open.                                                                                      |
 | **Grandma and wider family**                           | The player lives with grandparents; only Grandpa has canon. Do not invent the rest.                                                                                                |

@@ -64,6 +64,10 @@ interlocking gameplay fantasies:
    combinations, persistent life history, and deliberate breeding choices produce
    distinct individuals over generations.
 
+In one line: **raise critters for the Colosseum; the stead is where they learn to live and
+work.** Training and competition are the spine; farming, production and delegated jobs fill
+the days between and pay for the stead ([D47](DECISIONS.md#d47--raise-critters-for-the-colosseum-accepted-2026-10-03)).
+
 The emotional heart beneath these systems is Grandpa: growing up with him, losing him,
 and carrying his name forward ([The years with Grandpa](#the-years-with-grandpa)).
 The fantasy is not owning a bag of monsters but building a life with generations of
@@ -291,6 +295,19 @@ _Monster Rancher_, where the visual and mechanical metaphor fits the capability 
 - **Fishing**: aim, tension control, timing, and rod technique (_SPD_ + _Fishing_).
 - **Sparring / Arena Drills**: simulated combat reactions and positioning (_STR_ / _SPD_ / _Combat_).
 
+### Two ways to train
+
+Each drill can be played **together**, as a short real-time minigame that costs the critter
+less energy and pays from poor to excellent on your play, or, once played, run as a
+**routine** from a menu: more critter energy, little of yours, a fair result that is
+occasionally better ([D48](DECISIONS.md#d48--two-ways-to-train-accepted-2026-10-03)).
+Routines are what later let Pip or a trained critter coach the others.
+
+Drills are built from a small set of familiar patterns, two drills per stat; the roster
+and later pool live in [plan 004](exec-plans/active/004-training-and-exhibitions.md).
+Exhibition events chain drills on harder settings. A wider-timing assist applies to every
+drill.
+
 ### Demonstration and mentoring
 
 A player or an experienced critter can demonstrate a training exercise before a novice
@@ -355,8 +372,9 @@ Inspired in design spirit by _Dragon's Dogma_, carrying weight affects character
 8. **Slime** (amorphous flexibility, elemental absorption, unique liquid logistics)
 9. **Insect** (exoskeleton defense, proportional strength, specialized manipulators, rapid life cycles)
 
-_Brindlekin_ represents an established, stabilized woodland lineage rather than a separate
-root family. Familiar animals outside the nine arise the same way: a raccoon-like critter
+_Brindlekin_ represents an established, stabilized woodland chimera lineage rather than a
+separate root family; even Grandpa's household cannot say which families went into it
+([D49](DECISIONS.md#d49--brindlekin-is-a-chimera-lineage-accepted-2026-10-03)). Familiar animals outside the nine arise the same way: a raccoon-like critter
 sits somewhere between a bear crossed with a cat and a dog. Players name individuals,
 never breeds. As a first pass, a chimera's breed name joins its parents' names by whole or
 partial word concatenation ([D42](DECISIONS.md#d42--chimera-breed-names-join-the-parents-names-accepted-2026-10-02)).
@@ -690,7 +708,8 @@ Critters grow from energetic youths into peak adults and eventually wise elders:
 
 - Eldership brings slower movement and lower maximum stamina, balanced by seasoned skill
   mastery and exceptional mentoring capability.
-- Critters enjoy long, fulfilling lifespans.
+- Critters enjoy long, fulfilling lifespans. Maximum age differs between families and is
+  a primary trait offspring inherit ([D50](DECISIONS.md#d50--lifespan-is-a-family-trait-and-is-inherited-accepted-2026-10-03)).
 - When an elder critter reaches the natural end of its life, the event is treated with
   warmth, dignity, and gentle respect (retirement to pasture, memorial groves, passing
   down keepsakes to offspring).
@@ -776,8 +795,8 @@ renderer.
   life's fortune on Pip is a later reveal; at first the player does not know where it went.
 - **Pip's role**: Pip is not a novice starter. Pip demonstrates mature autonomous harvesting
   in the opening, guides the player, outlives Grandpa, and becomes an honored homestead
-  mentor to the player's new generation of critters. Pip is a Brindlekin, the lineage Grandpa
-  bred, and the only one of his kind ([D44](DECISIONS.md#d44--pip-is-the-one-brindlekin-accepted-2026-10-02)).
+  mentor to the player's new generation of critters. Pip is a Brindlekin, the chimera lineage
+  Grandpa bred, and the only one of his kind ([D44](DECISIONS.md#d44--pip-is-the-one-brindlekin-accepted-2026-10-02), [D49](DECISIONS.md#d49--brindlekin-is-a-chimera-lineage-accepted-2026-10-03)).
 - **Pip after Grandpa**: Pip stays, for the ache of it and for its use. Pip keeps the
   routines once shared with Grandpa, visits and lingers at the spots Grandpa used to go,
   and teaches the player's critters basic learned jobs. The player inherits responsibility
