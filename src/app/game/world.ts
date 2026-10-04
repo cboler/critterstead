@@ -7,6 +7,7 @@ import {
   arenaSeats,
   CROPS,
   EXHIBITION_BOOTH,
+  ROUTINE,
   TAVERN_BIN,
   TOSS_STATION,
   TOWN_BUILDINGS,
@@ -29,6 +30,7 @@ import {
   type Critter,
   type GameState,
   type Point,
+  type Training,
 } from './model';
 import { type Appearance } from './families';
 import { GRANDPA, grandpaWhereabouts, PIP_ID, pipWhereabouts } from './household';
@@ -538,7 +540,7 @@ export class GameWorld {
     );
     let visualCritterPosition = companion.position;
     let jumpHeight = 0;
-    const activity = state.training;
+    const activity = this.rehearse(state.training);
     const gaugeMeter = activity?.meter ?? 0;
     if (activity?.kind === 'lift') {
       visualCritterPosition = { x: 4.3, z: 6.6 };
@@ -555,10 +557,10 @@ export class GameWorld {
         activity.stage === 1
           ? { x: 2.2, z: -1 }
           : { x: -3.5 + ((activity.hits.length + activity.phase * 0.3) / 3) * 6, z: -1 };
-    } else if (state.training) {
-      if (state.training.hits.length !== this.lastCueCount) this.cueTime = 0;
-      if (state.training.kind === 'race') {
-        const progress = (state.training.hits.length + state.training.phase * 0.2) / 3;
+    } else if (activity) {
+      if (activity.hits.length !== this.lastCueCount) this.cueTime = 0;
+      if (activity.kind === 'race') {
+        const progress = (activity.hits.length + activity.phase * 0.2) / 3;
         this.raceProgress +=
           (Math.max(progress, this.raceProgress) - this.raceProgress) * Math.min(1, dt * 7);
         visualCritterPosition = {
@@ -567,15 +569,13 @@ export class GameWorld {
         };
       } else {
         const jump = Math.min(1, this.cueTime / 0.65);
-        const towardsFront = state.training.hits.length % 2 === 1;
-        const across = state.training.hits.length === 0 ? 0 : towardsFront ? jump : 1 - jump;
+        const towardsFront = activity.hits.length % 2 === 1;
+        const across = activity.hits.length === 0 ? 0 : towardsFront ? jump : 1 - jump;
         visualCritterPosition = { x: 3, z: 1.1 + across * 1.8 };
         jumpHeight =
-          this.reducedMotion || state.training.hits.length === 0
-            ? 0
-            : Math.sin(jump * Math.PI) * 0.65;
+          this.reducedMotion || activity.hits.length === 0 ? 0 : Math.sin(jump * Math.PI) * 0.65;
       }
-      this.lastCueCount = state.training.hits.length;
+      this.lastCueCount = activity.hits.length;
     } else {
       this.lastCueCount = 0;
       this.raceProgress = 0;
@@ -599,7 +599,7 @@ export class GameWorld {
     this.critter.position.y = jumpHeight;
     // Gauge drills lift their stones with the force meter.
     this.liftStone.position.y = activity?.kind === 'lift' ? gaugeMeter * 0.6 : 0;
-    this.animateToss(state, companion, visualCritterPosition, dt);
+    this.animateToss(activity, companion, visualCritterPosition, dt);
     this.pullStone.position.x =
       activity?.kind === 'exhibition' && activity.stage === 1 ? (activity.progress ?? 0) * 1.5 : 0;
     const showings = companion.competitions.filter((item) => item.event === 'exhibition').length;
@@ -620,7 +620,7 @@ export class GameWorld {
       piece.rotation.z = this.clock * 3 + index;
     });
     if (
-      (state.training?.kind === 'race' ||
+      (activity?.kind === 'race' ||
         activity?.kind === 'pace' ||
         (activity?.kind === 'exhibition' && activity.stage !== 1)) &&
       !this.reducedMotion
@@ -1815,6 +1815,31 @@ export class GameWorld {
     this.scenery.add(spout);
   }
 
+  /**
+   * A routine replays its drill's own animation unprompted: three hops or throws, a lap, or
+   * a steady lift, spread over the routine's few seconds.
+   */
+  private rehearse(training: Training | null): Training | null {
+    if (training?.kind !== 'routine') return training;
+    const share = Math.min(1, training.elapsed / ROUTINE.seconds);
+    const beats = Math.min(3, Math.floor(share * 3.3));
+    const within = (share * 3.3) % 1;
+    const drill = training.drill!;
+    return {
+      ...training,
+      kind: drill === 'hoops' ? 'training' : drill,
+      hits: Array<number>(beats).fill(training.scores?.[0] ?? 0.5),
+      progress: share,
+      phase: within,
+      // A throw flies for the first part of each beat, then the next log is charged.
+      stage: drill === 'toss' && beats < 3 && within > 0.35 ? 1 : 0,
+      meter:
+        drill === 'toss'
+          ? Math.max(0, (within - 0.35) / 0.65)
+          : 0.55 + 0.2 * Math.sin(this.clock * 5),
+    };
+  }
+
   /** A chopping stump, a few spare logs, and distance pegs running west for the log toss. */
   private tossStation(x: number, z: number): void {
     this.scenery.add(this.mesh(this.cylinder, '#8a6a48', [x, 0.22, z], [0.38, 0.44, 0.38]));
@@ -1846,8 +1871,7 @@ export class GameWorld {
   }
 
   /** Overhead while charging, rising with power; then it flies west and lies where it landed. */
-  private animateToss(state: GameState, critter: Critter, at: Point, dt: number): void {
-    const activity = state.training;
+  private animateToss(activity: Training | null, critter: Critter, at: Point, dt: number): void {
     if (activity?.kind !== 'toss') {
       this.tossLog.visible = false;
       this.tossThrows = 0;

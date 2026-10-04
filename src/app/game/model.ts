@@ -92,6 +92,8 @@ export interface Critter extends ActorCapabilities {
   history: string[];
   // Completed training sessions per discipline on one game day, for diminishing returns.
   drills: { day: number; sessions: Partial<Record<Drill, number>> };
+  // Sessions played together with the player, per drill, ever. One unlocks its routine.
+  practised: Partial<Record<Drill, number>>;
   // Clover Cup entries have no event; exhibition entries store points in `time`.
   competitions: { day: number; time: number; medal: string; event?: 'exhibition' }[];
 }
@@ -157,7 +159,9 @@ export interface Training {
   hits: number[];
   elapsed: number;
   lastHitAt?: number;
-  kind: 'training' | 'race' | 'lift' | 'pace' | 'toss' | 'exhibition';
+  kind: 'training' | 'race' | 'lift' | 'pace' | 'toss' | 'exhibition' | 'routine';
+  // A routine: the drill the critter runs on its own; its score is drawn as it starts.
+  drill?: Drill;
   // Wider timing windows, fixed when the activity starts.
   assist?: boolean;
   // Gauge drills: meter is force or pace, progress is 0-1 toward done, reserve is breath.
@@ -171,7 +175,7 @@ export interface Training {
   scores?: number[];
 }
 export interface GameState {
-  version: 10;
+  version: 11;
   seed: number;
   day: number;
   minute: number;

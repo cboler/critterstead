@@ -42,6 +42,7 @@ export function createPip(day: number): Critter {
     learnedBehaviors: { 'sunberry-foraging': 60, 'lumber-hauling': 30 },
     hauling: { enabled: false, phase: 'idle', cued: false },
     drills: { day, sessions: {} },
+    practised: {},
     skills: { harvesting: 40, racing: 12 },
     visualTraits: { coat: 'chestnut', accent: 'fern', size: 0.95 },
     pedigree: { parentIds: [] },

@@ -52,7 +52,8 @@ test('trains strength with fading repeat gains, then earns a Colosseum exhibitio
   await walk(page, -7.4, 1);
   await page.getByRole('button', { name: /^Walk to the Colosseum · 10 min/ }).click();
   await expect(page.locator('.location-tag')).toContainText('The Colosseum grounds');
-  await walk(page, -3, 1.9);
+  // Into the entrance gap: anywhere the walk stops there is within reach of the booth.
+  await walk(page, -2.6, 1.3);
   await page.getByRole('button', { name: /^Enter the exhibition/ }).click();
   await expect(page.locator('.training-card')).toContainText('Sprint for the crowd!');
   await cues(page, /Sprint!/);
@@ -119,5 +120,18 @@ test('throws logs in the glade by tapping twice or holding and letting go', asyn
   expect(activeCritter(after).stats.strength).toBeGreaterThan(start + 0.4);
   expect(activeCritter(after).drills.sessions).toEqual({ toss: 1 });
   expect(after.flags).toContain('tossed');
+  expect(activeCritter(after).practised).toEqual({ toss: 1 });
+
+  // Played together once, the toss can now be run as a routine: Mallow throws alone.
+  const routine = page.getByRole('button', { name: /^Run it as a routine · 35 Mallow energy/ });
+  await expect(routine).toBeEnabled();
+  await routine.click();
+  await expect(page.locator('.training-card')).toContainText('Mallow runs it alone');
+  await expect(page.getByRole('progressbar', { name: 'Routine' })).toBeVisible();
+  await page.screenshot({ path: info.outputPath('log-toss-routine.png'), fullPage: true });
+  await expect(page.locator('.result-card')).toContainText('ran it alone and gains');
+  const routined = await savedState(page);
+  expect(activeCritter(routined).drills.sessions).toEqual({ toss: 2 });
+  expect(activeCritter(routined).practised).toEqual({ toss: 1 });
   expect(errors).toEqual([]);
 });

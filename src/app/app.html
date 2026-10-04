@@ -101,11 +101,24 @@
             @let copy = activityCopy();
             <span class="eyebrow">{{ copy.eyebrow }}</span>
             <h2>{{ copy.heading }}</h2>
-            <p>
-              Press <kbd>{{ controllerConnected() ? 'A' : 'Space' }}</kbd> {{ copy.instructions }}
-            </p>
+            @if (copy.instructions) {
+              <p>
+                Press <kbd>{{ controllerConnected() ? 'A' : 'Space' }}</kbd> {{ copy.instructions }}
+              </p>
+            }
             @let band = activityBand();
-            @if (copy.gauge) {
+            @if (copy.gauge === 'routine') {
+              <div
+                class="meter"
+                role="progressbar"
+                aria-label="Routine"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                [attr.aria-valuenow]="round(routineProgress() * 100)"
+              >
+                <i [style.width.%]="routineProgress() * 100"></i>
+              </div>
+            } @else if (copy.gauge) {
               <div
                 class="timing-track"
                 role="meter"
@@ -168,7 +181,7 @@
                   {{ copy.button }}
                   <kbd>{{ controllerConnected() ? 'A' : 'Space' }}</kbd>
                 </button>
-              } @else {
+              } @else if (copy.gauge !== 'routine') {
                 <button class="primary" (click)="act()">
                   {{ copy.button }}
                   <kbd>{{ controllerConnected() ? 'A' : 'Space' }}</kbd>

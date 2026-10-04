@@ -103,6 +103,15 @@ export const DRILLS: Record<Drill, DrillDefinition> = {
   },
 };
 export const DRILL_IDS = Object.keys(DRILLS) as Drill[];
+// Plan 004 provisional routine tuning: a drill run from the menu, without you playing it.
+export const ROUTINE = {
+  // Extra critter energy over the drill played together; the player spends none.
+  extraEnergy: 10,
+  // Real seconds the critter is seen working through it.
+  seconds: 3,
+  // Scores for a flop, a fair session and a great one; the chances shift with condition.
+  scores: { flop: 0.2, fair: 0.5, great: 0.8 },
+} as const;
 export const EXHIBITION = {
   energy: 40,
   minutes: 60,

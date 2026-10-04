@@ -205,6 +205,14 @@ and of solid objects, glances along round ones, and lets anyone already inside w
 The Colosseum's wall and stands and Oakhaven's footprints are shared data that the
 renderer draws from.
 
+## Current implementation additions — plan 004 M2 (2026-10-03)
+
+Save v11 adds `Critter.practised` (drills played together, ever). Every drill station
+offers a `routine` action once its drill is practised: a `Training` of kind `routine` with
+the `drill` and one pre-drawn score in `scores`, finished by `update` after
+`ROUTINE.seconds` and paid by the same `finishDrill`. The renderer's `rehearse` turns a
+routine into a stand-in activity of its drill, so each station replays its own animation.
+
 ## Architectural reality audit (reconciliation baseline before M4)
 
 The following audit records the reconciled pre-M4 baseline. The dated additions

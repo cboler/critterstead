@@ -270,11 +270,39 @@ export function readSave(value: unknown): GameState {
     const [satchel] = initialContainers(legacy.player.id, PIP_ID, [], [PIP_ID]).filter(
       (container) => container.kind === 'satchel',
     );
-    const migrated: GameState = {
+    // Pip as v10 knew him, before critters remembered their practice.
+    const pip: LegacyCritterV10 & Partial<Critter> = createPip(legacy.day);
+    delete pip.practised;
+    const migrated: LegacyGameStateV10 = {
       ...legacy,
       version: 10,
-      critters: [...legacy.critters, createPip(legacy.day)],
+      critters: [...legacy.critters, pip],
       containers: [...legacy.containers, satchel],
+    };
+    return readSave(migrated);
+  }
+  if (root['version'] === 10) {
+    validateState(value, 10);
+    const legacy = structuredClone(value as LegacyGameStateV10);
+    if (legacy.critters.some((critter) => 'practised' in critter)) corrupt('ambiguous practice');
+    // v11 remembers which drills each critter has played together, to unlock its routines.
+    // Lifts, pacing and log tosses were counted as skills; hoops leave only the household's
+    // 'trained' flag, which belongs to the companion of the day.
+    const migrated: GameState = {
+      ...legacy,
+      version: 11,
+      critters: legacy.critters.map((critter) => {
+        const count = (skill: string) => critter.skills[skill] ?? 0;
+        const practised: Critter['practised'] = {};
+        if (legacy.flags.includes('trained') && critter.id === legacy.activeCritterId)
+          practised.hoops = 1;
+        if (count('lifting')) practised.lift = count('lifting');
+        if (count('pacing')) practised.pace = count('pacing');
+        if (count('tossing')) practised.toss = count('tossing');
+        return critter.ownerId === legacy.player.id
+          ? { ...critter, practised }
+          : { ...critter, practised: {} };
+      }),
     };
     validateSave(migrated);
     return migrated;
@@ -293,7 +321,12 @@ interface LegacyCrop {
   watered: boolean;
   readyAt: number | null;
 }
-type LegacyGameStateV9 = Omit<GameState, 'version'> & { version: 9 };
+type LegacyCritterV10 = Omit<Critter, 'practised'>;
+type LegacyGameStateV10 = Omit<GameState, 'version' | 'critters'> & {
+  version: 10;
+  critters: LegacyCritterV10[];
+};
+type LegacyGameStateV9 = Omit<LegacyGameStateV10, 'version'> & { version: 9 };
 type LegacyCritterV8 = Omit<Critter, 'visualTraits'> & {
   visualTraits: { coat: string; accent: string };
 };
@@ -339,10 +372,10 @@ type LegacyGameStateV1 = Omit<
 
 /** Writes accept only the current schema. Older records must pass readSave first. */
 export function validateSave(value: unknown): asserts value is GameState {
-  validateState(value, 10);
+  validateState(value, 11);
 }
 
-type SaveVersion = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
+type SaveVersion = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11;
 function validateState(value: unknown, version: SaveVersion): void {
   const root = record(value, 'save');
   if (root['version'] !== version) {
@@ -593,11 +626,13 @@ function validateState(value: unknown, version: SaveVersion): void {
     if (training['lastHitAt'] !== undefined) number(training['lastHitAt'], 'training.lastHitAt');
     choice(
       training['kind'],
-      version >= 10
-        ? ['training', 'race', 'lift', 'pace', 'toss', 'exhibition']
-        : version >= 8
-          ? ['training', 'race', 'lift', 'pace', 'exhibition']
-          : ['training', 'race'],
+      version >= 11
+        ? ['training', 'race', 'lift', 'pace', 'toss', 'exhibition', 'routine']
+        : version >= 10
+          ? ['training', 'race', 'lift', 'pace', 'toss', 'exhibition']
+          : version >= 8
+            ? ['training', 'race', 'lift', 'pace', 'exhibition']
+            : ['training', 'race'],
       'training.kind',
     );
     for (const key of ['meter', 'progress', 'reserve'])
@@ -617,6 +652,10 @@ function validateState(value: unknown, version: SaveVersion): void {
     )
       corrupt('training gauge');
     if (training['kind'] === 'toss' && training['meter'] === undefined) corrupt('training toss');
+    if (training['kind'] === 'routine') {
+      choice(training['drill'], DRILL_IDS, 'training.drill');
+      if (array(training['scores'], 'training.scores').length !== 1) corrupt('routine score');
+    } else if (training['drill'] !== undefined) corrupt('training.drill');
     const hits = array(training['hits'], 'training.hits');
     for (const hit of hits) number(hit, 'training.hit', 0, 1);
     if (
@@ -726,6 +765,14 @@ function validateCritter(critter: Record<string, unknown>, version: SaveVersion)
       number(count, 'drills.count', 0, 10000, true);
     }
   }
+  if (version >= 11)
+    for (const [drill, count] of Object.entries(
+      record(critter['practised'], 'critter.practised'),
+    )) {
+      choice(drill, DRILL_IDS, 'practised.drill');
+      number(count, 'practised.count', 1, Number.MAX_SAFE_INTEGER, true);
+    }
+  else if ('practised' in critter) corrupt('critter.practised');
 }
 
 function corrupt(path: string): never {

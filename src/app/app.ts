@@ -10,7 +10,7 @@ import {
   signal,
   computed,
 } from '@angular/core';
-import { AREAS } from './game/content';
+import { AREAS, DRILLS, ROUTINE } from './game/content';
 import { calendarDate, calendarView, capitalize, formatDate, weatherFor } from './game/calendar';
 import { createInitialState, LocalGameHost } from './game/host';
 import { OFFER_BEAT, OPENING, openingFarewell, stageOpening } from './game/opening';
@@ -79,6 +79,7 @@ const ACTIVITY_NAMES: Record<string, string> = {
   lift: 'BOULDER LIFT',
   pace: 'DISTANCE PACING',
   toss: 'LOG TOSS',
+  routine: 'A ROUTINE',
   exhibition: 'THE EXHIBITION',
 };
 const ITEM_NAMES: Record<string, [string, string]> = {
@@ -233,6 +234,10 @@ export class App implements AfterViewInit, OnDestroy {
     if (activity.kind === 'toss') return tossBand(activity, this.companion());
     return sweepBand(activity);
   });
+  /** How far through a routine the critter is, from 0 to 1. */
+  protected readonly routineProgress = computed(() =>
+    Math.min(1, (this.state().training?.elapsed ?? 0) / ROUTINE.seconds),
+  );
   protected readonly throwsSoFar = computed(() => {
     const activity = this.state().training;
     if (activity?.kind !== 'toss') return '';
@@ -257,6 +262,15 @@ export class App implements AfterViewInit, OnDestroy {
         button: 'Push, ' + name + '!',
         status: Math.round(activity.elapsed) + 's',
         gauge: 'lift' as const,
+      };
+    if (activity.kind === 'routine')
+      return {
+        eyebrow: DRILLS[activity.drill!].name.toUpperCase() + ' · ROUTINE',
+        heading: name + ' runs it alone',
+        instructions: '',
+        button: '',
+        status: 'You watch; there is nothing to press.',
+        gauge: 'routine' as const,
       };
     if (activity.kind === 'toss')
       return {

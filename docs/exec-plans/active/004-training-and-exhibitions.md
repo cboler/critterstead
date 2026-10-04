@@ -1,7 +1,7 @@
 # 004 — Training and exhibitions
 
 **Status:** authorized 2026-10-03 ([D47](../../DECISIONS.md#d47--raise-critters-for-the-colosseum-accepted-2026-10-03)).
-M1 complete ([evidence](#m1-evidence--2026-10-03)); M2 next.
+M1–M2 complete ([M1](#m1-evidence--2026-10-03), [M2](#m2-evidence--2026-10-03)); M3 next.
 
 ## Purpose
 
@@ -51,11 +51,16 @@ berry catch, shell game, sequence memory, tug of war, stacking.
       drill tests unchanged), browser test for the log toss, lint, build, PWA, inspected
       screenshots.
 
-### M2 — Routines
+### M2 — Routines (save v11)
 
-Every drill played together at least once can be run as a routine from its station: more
-critter energy, little of yours, a usually fair result with a chance of great or a flop on
-condition and bond. Same-day diminishing returns apply to both modes.
+- [x] Every drill played together at least once can be run as a routine from its station:
+      10 more critter energy, none of yours, a usually fair result with a chance of great
+      or a flop on condition and bond. Same-day diminishing returns apply to both modes.
+- [x] The critter is seen running the drill alone for a few seconds; nothing to press.
+- [x] Save v11 remembers practice per critter; v1–v10 saves migrate with what they had
+      already played together; damaged practice or routines fail validation untouched.
+- [x] Verification: unit tests, the browser log toss test running the routine, lint,
+      build, PWA, inspected screenshots.
 
 ### M3 — Balance beam and runner
 
@@ -99,6 +104,27 @@ settings and favouring different stats; entry fees and prizes.
   moved just inside the entrance. Provisional: toss timing (1.2 s rise, peak 0.82), sweet
   spot widths, throw distances, the assist's 40% widening.
 
+## M2 evidence — 2026-10-03
+
+- Host: `routineAction`, `routineScore` and the `routine` activity; `finishDrill` pays it
+  from the drawn score with half the bond. Save v11 with the v10 → v11 migration and a
+  frozen v10 fixture (Pip written out as data). Unit tests: 175 passed, including
+  `routines.spec.ts` (locking, cost, no input, mid-routine saves, payouts below a good
+  session together, outcome odds by condition, the v10 migration, damaged saves) and the
+  v1–v10 chain to v11.
+- Browser: the log toss test runs the toss as a routine after playing it. Inspected with
+  the GPU: [the station dock](../evidence/004-m2/dock-two-actions.png),
+  [a lift routine](../evidence/004-m2/routine-lift.png).
+- Gates: lint, production build, PWA check, and the browser suite (67 passed, 32 skipped by
+  project; the one failure, the exhibition on a phone, walked to a spot just out of the
+  moved booth's reach. It now walks into the entrance gap and passed four reruns).
+- Routine decisions: routines cost no player energy but still take the drill's game time;
+  a routine bonds +1 against +2 together; its result is drawn when it starts, so a save
+  mid-routine resumes the same outcome. Provisional: +10 energy, 3 seconds, scores
+  0.2/0.5/0.8, odds 5–20% flop and 10–25% great.
+- Test note: neighbouring small seeds give nearly the same first random draw, so the odds
+  test spreads its seeds; real saves start from large seeds.
+
 ## Current handoff
 
-M1 complete. Next: M2 — routines (every drill played together can be run from a menu).
+M2 complete. Next: M3 — the balance beam (END) and the runner (SPD).

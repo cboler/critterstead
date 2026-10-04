@@ -17,6 +17,7 @@ import {
   CROPS,
   DRILLS,
   EXHIBITION,
+  ROUTINE,
   GAME_CONFIG,
   PRODUCE_PRICES,
   initialMaterialNodes,
@@ -97,8 +98,9 @@ function clearance(point: Point, blocker: Blocker): number {
   return dx > 0 || dz > 0 ? Math.hypot(Math.max(dx, 0), Math.max(dz, 0)) : Math.max(dx, dz);
 }
 
-/** The drill a training activity belongs to; the Clover Cup and the exhibition are events. */
-export function drillOf(kind: Training['kind']): Drill | null {
+/** The drill an activity belongs to; the Clover Cup and the exhibition are events. */
+export function drillOf({ kind, drill }: Pick<Training, 'kind' | 'drill'>): Drill | null {
+  if (kind === 'routine') return drill ?? null;
   return kind === 'training' ? 'hoops' : kind === 'race' || kind === 'exhibition' ? null : kind;
 }
 const ROUTES: Record<GameState['areaId'], { label: string; description: string; arrival: string }> =
@@ -146,7 +148,7 @@ const hauling = BEHAVIORS['lumber-hauling'];
 /** A new household with its chosen first companion and the seed its offer was drawn from. */
 export function createInitialState(starter: StarterCandidate = MALLOW, seed = 240921): GameState {
   return {
-    version: 10,
+    version: 11,
     seed,
     day: 1,
     minute: 480,
@@ -185,6 +187,7 @@ export function createInitialState(starter: StarterCandidate = MALLOW, seed = 24
         learnedBehaviors: {},
         hauling: { enabled: false, phase: 'idle', cued: false },
         drills: { day: 1, sessions: {} },
+        practised: {},
         skills: { harvesting: 0, racing: 0 },
         visualTraits: { ...starter.visualTraits },
         pedigree: { parentIds: [] },
@@ -482,7 +485,9 @@ export class LocalGameHost {
     if (this.state.training) {
       const training = this.state.training;
       training.elapsed += dt;
-      if (training.kind === 'toss') {
+      if (training.kind === 'routine') {
+        if (training.elapsed >= ROUTINE.seconds) this.finishTraining();
+      } else if (training.kind === 'toss') {
         if (stepToss(training)) this.finishTraining();
       } else if (this.gauge(training)) {
         const done =
@@ -853,6 +858,7 @@ export class LocalGameHost {
                 ? `${critter.name} is too hungry to concentrate.`
                 : energy(5, GAME_CONFIG.practiceEnergy),
             ),
+            this.routineAction('hoops'),
           ],
         };
       case 'market':
@@ -931,6 +937,7 @@ export class LocalGameHost {
                 ? `${critter.name} is too hungry to concentrate.`
                 : energy(5, drill.energy),
             ),
+            this.routineAction(object.kind),
           ],
         };
       }
@@ -1199,6 +1206,24 @@ export class LocalGameHost {
         );
         return true;
       }
+      case 'routine': {
+        const station = AREAS[state.areaId].objects.find((item) => item.id === id)!;
+        const drill: Drill = station.kind === 'training' ? 'hoops' : (station.kind as Drill);
+        critter.stamina -= DRILLS[drill].energy + ROUTINE.extraEnergy;
+        state.training = {
+          critterId: critter.id,
+          phase: 0,
+          hits: [],
+          elapsed: 0,
+          kind: 'routine',
+          drill,
+          scores: [this.routineScore(critter)],
+        };
+        this.note(
+          `${critter.name} runs the ${DRILLS[drill].name.toLowerCase()} alone while you watch.`,
+        );
+        return true;
+      }
       case 'sell': {
         const amount = this.berryValue();
         state.player.coins += amount;
@@ -1329,6 +1354,7 @@ export class LocalGameHost {
     const training = state.training;
     if (
       !training ||
+      training.kind === 'routine' ||
       training.critterId !== state.activeCritterId ||
       training.elapsed - (training.lastHitAt ?? 0) <
         (this.gauge(training) || training.kind === 'toss' ? 0.08 : 0.3)
@@ -1384,7 +1410,7 @@ export class LocalGameHost {
     const accuracy = training.hits.reduce((sum, value) => sum + value, 0) / 3;
     const critter = activeCritter(state);
     const care = (critter.happiness + critter.bond + (100 - critter.hunger)) / 300;
-    const drill = drillOf(training.kind);
+    const drill = drillOf(training);
     if (drill) {
       this.finishDrill(drill, training, care);
       return;
@@ -1450,13 +1476,44 @@ export class LocalGameHost {
     state.training = null;
   }
 
+  /** A drill run alone from the menu, once it has been played together. */
+  private routineAction(drill: Drill): InteractionAction {
+    const critter = this.critter;
+    const cost = DRILLS[drill].energy + ROUTINE.extraEnergy;
+    const reason = !critter.practised[drill]
+      ? `Play it together once first; then ${critter.name} can run it alone.`
+      : critter.hunger > 80
+        ? `${critter.name} is too hungry to concentrate.`
+        : critter.stamina < cost
+          ? `${critter.name} needs some rest. Rest together at the nook or offer food.`
+          : undefined;
+    return {
+      id: 'routine',
+      label: `Run it as a routine · ${cost} ${critter.name} energy · ${DRILLS[drill].minutes} min${this.gainSuffix(drill)}`,
+      disabled: !!reason,
+      reason,
+    };
+  }
+
+  /** Usually a fair session; a happy, fed, close companion has more great days than flops. */
+  private routineScore(critter: Critter): number {
+    const care = (critter.happiness + critter.bond + (100 - critter.hunger)) / 300;
+    const roll = this.random();
+    const { flop, fair, great } = ROUTINE.scores;
+    if (roll < 0.2 - care * 0.15) return flop;
+    return roll > 0.9 - care * 0.15 ? great : fair;
+  }
+
   /** Every drill pays out the same way, shaped by its row in the drill table. */
   private finishDrill(drill: Drill, training: Training, care: number): void {
     const state = this.state;
     const critter = activeCritter(state);
     const definition = DRILLS[drill];
-    const score =
-      drill === 'lift'
+    const routine = training.kind === 'routine';
+    const score = routine
+      ? // Drawn as the routine started.
+        training.scores![0]
+      : drill === 'lift'
         ? liftScore(training, critter)
         : drill === 'pace'
           ? paceScore(training)
@@ -1479,18 +1536,20 @@ export class LocalGameHost {
       Math.round((critter.stats[side] + gain * definition.sideShare) * 100) / 100;
     critter.skills[definition.skill] = (critter.skills[definition.skill] ?? 0) + 1;
     recordDrill(critter, drill, state.day);
-    critter.bond = clamp(critter.bond + 2);
+    if (!routine) critter.practised[drill] = (critter.practised[drill] ?? 0) + 1;
+    // Training together builds more bond than a routine run alone.
+    critter.bond = clamp(critter.bond + (routine ? 1 : 2));
     critter.happiness = clamp(critter.happiness + 3);
     this.flag(definition.flag);
     state.training = null;
     this.advanceMinutes(definition.minutes);
     const [great, good, weak] = definition.praise;
     const best =
-      drill === 'toss'
+      drill === 'toss' && !routine
         ? ` Best throw ${throwDistance(Math.max(0, ...training.hits), critter)} m.`
         : '';
     this.note(
-      `${score > 0.75 ? great : score > 0.4 ? good : weak} ${critter.name} gains ${gain.toFixed(2)} ${stat}${multiplier < 1 ? ` (${Math.round(multiplier * 100)}% gains, repeated today)` : ''}.${best} ${Math.round(critter.stamina)} energy left${critter.stamina < 30 ? '; rest together at the nook to recover' : ''}.`,
+      `${score > 0.75 ? great : score > 0.4 ? good : weak} ${critter.name}${routine ? ' ran it alone and' : ''} gains ${gain.toFixed(2)} ${stat}${multiplier < 1 ? ` (${Math.round(multiplier * 100)}% gains, repeated today)` : ''}.${best} ${Math.round(critter.stamina)} energy left${critter.stamina < 30 ? '; rest together at the nook to recover' : ''}.`,
     );
   }
 

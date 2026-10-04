@@ -16,7 +16,8 @@ garden beds of seasonal crops, explore Clover Glade, teach berry gathering throu
 observation and cues, watch independent foraging, sell produce, improve the shed,
 run a small daily time trial, train strength at the boulder lift and the glade's log
 toss and endurance on its pacing loop (repeating a drill the same day gives less; the
-help panel offers wider timing windows), walk on to the
+help panel offers wider timing windows; a drill played together once can then be run as
+a routine from its station), walk on to the
 Colosseum grounds for a daily athletic exhibition, step into the cottage to read the
 120-day wall calendar and forecast, and sleep into another day. Rest together at the nook for two game hours to restore
 up to 30 of your energy and 35 for your companion. Independent foraging keeps 20 energy in reserve; an

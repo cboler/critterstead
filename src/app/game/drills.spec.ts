@@ -206,7 +206,7 @@ describe('save v8 training migration', () => {
     const before = structuredClone(legacyV7);
     const state = readSave(before);
     expect(before).toEqual(legacyV7);
-    expect(state.version).toBe(10);
+    expect(state.version).toBe(11);
     expect(kept(state.critters).map((critter) => critter.drills)).toEqual([
       { day: before.day, sessions: {} },
       { day: before.day, sessions: {} },

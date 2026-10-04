@@ -51,6 +51,7 @@ For sequencing, see [ROADMAP.md](ROADMAP.md) and [exec-plans/README.md](exec-pla
 | **D31** | Monster Rancher training minigames family                 | Accepted       | [Training](GAME-DESIGN.md#training-system)                                                                                     |
 | **D32** | Viewport decoupling from interaction dock UI              | Accepted       | [Architecture](ARCHITECTURE.md#1-viewport--canvas-decoupling)                                                                  |
 | **D33** | Restructured Campaign 001 vertical slice runway           | Accepted       | [Roadmap](ROADMAP.md)                                                                                                          |
+| **D51** | Routines unlock by practice together (save v11)           | Implemented    | [Plan 004](exec-plans/active/004-training-and-exhibitions.md)                                                                  |
 | **D50** | Lifespan is a family trait and is inherited               | Accepted       | [Aging](GAME-DESIGN.md#aging-and-respectful-mortality)                                                                         |
 | **D49** | Brindlekin is a chimera lineage                           | Accepted       | [Families](GAME-DESIGN.md#genetics-lineages-breeding-and-chimeras)                                                             |
 | **D48** | Two ways to train: together or as a routine               | Accepted       | [Training](GAME-DESIGN.md#training-system)                                                                                     |
@@ -359,6 +360,16 @@ families even the household cannot name. Pip remains its only member.
 Maximum age differs between families and is a primary trait offspring inherit. Aging
 stays a handful of modeling choices (youth, peak, elder) rather than a deep system.
 [Aging](GAME-DESIGN.md#aging-and-respectful-mortality).
+
+### D51 — Routines unlock by practice together (implemented 2026-10-03)
+
+Save v11 gives every critter `practised`, its lifetime count of drills played together; one
+session unlocks that drill's routine. Migration counts earlier lifts, pacing and log tosses
+from their skills, and gives hoops to the companion of a household with the `trained` flag;
+Grandpa's Pip starts empty. A routine draws its result as it starts (usually fair; great or
+a flop by condition and bond), runs for a few seconds without input, and counts toward the
+day's repeats but not toward practice.
+[Plan 004 M2](exec-plans/active/004-training-and-exhibitions.md#m2-evidence--2026-10-03).
 
 ---
 
