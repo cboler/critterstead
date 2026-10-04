@@ -3,6 +3,7 @@ import { activeCritter } from '../src/app/game/model';
 import { runCourse } from '../src/app/game/drills';
 import {
   crossBeam,
+  doubleJump,
   cues,
   developmentState,
   holdGauge,
@@ -187,10 +188,12 @@ test('crosses the balance beam and runs the hurdles in the glade', async ({ page
     .poll(async () => (await developmentState(page)).training?.elapsed ?? 0)
     .toBeGreaterThan(0.1);
   await page.mouse.down();
-  await expect.poll(async () => (await developmentState(page)).training?.stage).toBe(1);
+  await expect
+    .poll(async () => (await developmentState(page)).training?.lastHitAt ?? 0)
+    .toBeGreaterThan(0);
   await page.mouse.up();
-  await page.keyboard.press('Space');
-  await expect.poll(async () => (await developmentState(page)).training?.stage).toBe(2);
+  // Slow frames can land a jump before the next press arrives, so Space jumps twice in-page.
+  expect(await doubleJump(page)).toEqual([1, 2]);
   await page.screenshot({ path: info.outputPath('hurdle-run.png'), fullPage: true });
   const course = runCourse((await developmentState(page)).training!.seed!);
   await runHurdles(page, course);

@@ -151,8 +151,33 @@ test('controller leans on the balance beam and double jumps on the hurdle run', 
   await button(page, 0);
   await expect(page.getByRole('img', { name: /^Hurdle run:/ })).toBeVisible();
   await expect.poll(async () => (await training())?.elapsed ?? 0).toBeGreaterThan(0.1);
-  await button(page, 0); // A: jump
-  await expect.poll(async () => (await training())?.stage).toBeGreaterThanOrEqual(1);
-  await button(page, 0); // A again in the air: the second jump
-  await expect.poll(async () => (await training())?.stage).toBe(2);
+  // A, then A again in the air, pressed within a few frames so a slow frame cannot land the
+  // first jump in between.
+  const jumps = await page.evaluate(async () => {
+    const game = (
+      window as unknown as {
+        ng: { getComponent(element: Element): { host: { state: GameState } } };
+      }
+    ).ng.getComponent(document.querySelector('app-root')!);
+    const pad = (window as unknown as { testPad: { buttons: { pressed: boolean }[] } }).testPad;
+    const frame = () => new Promise((resolve) => requestAnimationFrame(resolve));
+    const training = () => game.host.state.training!;
+    const press = async () => {
+      // Two frames each way, so the polling frame sees both edges whatever the order.
+      pad.buttons[0].pressed = true;
+      await frame();
+      await frame();
+      pad.buttons[0].pressed = false;
+      await frame();
+      await frame();
+      return training().stage ?? 0;
+    };
+    while (training().stage !== 0 || training().elapsed - (training().lastHitAt ?? 0) < 0.1)
+      await frame();
+    const first = await press();
+    const pressed = training().elapsed;
+    while (training().elapsed - pressed < 0.1) await frame();
+    return [first, await press()];
+  });
+  expect(jumps).toEqual([1, 2]);
 });

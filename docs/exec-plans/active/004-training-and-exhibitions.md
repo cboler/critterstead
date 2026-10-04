@@ -157,6 +157,9 @@ settings and favouring different stats; entry fees and prizes.
 - Found while testing: the first test bot spent its double jump on a stump just before a
   hedge, which showed a stump-then-hedge gap of 1.3 s was tight for people too; hedges now
   get a 1.6 s run-up. The first beam spot sat behind two camera-side trees.
+- After push: the Pages run failed the desktop hurdle test. On CI's software rendering the
+  first jump landed before the test's next press, so both double-jump checks now press
+  twice inside the page within a few frames; they pass locally with the CPU throttled 6×.
 - Routine decisions: the drill is called the hurdle run; both stations are in the glade,
   the beam in its open middle and the lane south-west. Two south-edge trees moved further
   south so they no longer hide the lane, and a decorative stone made way for the beam.

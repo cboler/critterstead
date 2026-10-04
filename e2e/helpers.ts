@@ -155,7 +155,7 @@ export async function crossBeam(page: Page): Promise<void> {
         const game = (window as DebugGameWindow).ng!.getComponent(
           document.querySelector('app-root')!,
         );
-        const deadline = performance.now() + 60_000;
+        const deadline = performance.now() + 120_000;
         let held = '';
         const hold = (key: string) => {
           if (key === held) return;
@@ -190,7 +190,7 @@ export async function runHurdles(page: Page, course: Hurdle[]): Promise<void> {
         const game = (window as DebugGameWindow).ng!.getComponent(
           document.querySelector('app-root')!,
         );
-        const deadline = performance.now() + 60_000;
+        const deadline = performance.now() + 120_000;
         const tap = () => {
           for (const type of ['keydown', 'keyup'])
             window.dispatchEvent(new KeyboardEvent(type, { key: ' ', code: 'Space' }));
@@ -295,4 +295,32 @@ interface DebugHostWindow {
   ng?: {
     getComponent(element: Element): { host: { state: GameState }; save(): Promise<void> };
   };
+}
+
+/**
+ * Presses Space on the hurdle run once on the ground and again a moment later in the air,
+ * all inside the page so slow frames cannot land the first jump in between. Returns the
+ * jumps used after each press.
+ */
+export async function doubleJump(page: Page): Promise<number[]> {
+  return page.evaluate(async () => {
+    const game = (window as unknown as DebugHostWindow).ng!.getComponent(
+      document.querySelector('app-root')!,
+    );
+    const training = () => game.host.state.training!;
+    const frame = () => new Promise((resolve) => requestAnimationFrame(resolve));
+    const space = () => {
+      for (const type of ['keydown', 'keyup'])
+        window.dispatchEvent(new KeyboardEvent(type, { key: ' ', code: 'Space' }));
+    };
+    const ready = () =>
+      training().stage === 0 && training().elapsed - (training().lastHitAt ?? 0) > 0.1;
+    while (!ready()) await frame();
+    space();
+    const first = training().stage ?? 0;
+    const pressed = training().elapsed;
+    while (training().elapsed - pressed < 0.1) await frame();
+    space();
+    return [first, training().stage ?? 0];
+  });
 }
