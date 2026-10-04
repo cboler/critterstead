@@ -5,13 +5,13 @@ Read the relevant active plan, not every historical handoff.
 
 ## Index
 
-| Plan                                                                              | Status                                | Next action                                                                    |
-| :-------------------------------------------------------------------------------- | :------------------------------------ | :----------------------------------------------------------------------------- |
-| [004 — Training and exhibitions](active/004-training-and-exhibitions.md)          | Authorized 2026-10-03; M1 in progress | M1: drill table, log toss, timing assist, solid town and Colosseum.            |
-| [003 — Household and Opening](active/003-household-and-opening.md)                | Stage 2; M1–M3 complete               | M4 needs the story beats for the years with Grandpa.                           |
-| [001 — The First Living Stead](completed/001-deepen-one-critter-daily-loop.md)    | Completed; gate closed 2026-10-02     | Historical evidence.                                                           |
-| [002 — Living diorama presentation](completed/002-living-diorama-presentation.md) | Completed presentation overhaul       | Historical evidence; human visual review on the published page.                |
-| [000 — Repository memory bootstrap](completed/000-repository-memory-bootstrap.md) | Completed documentation conversion    | Historical audit and verification evidence; no further bootstrap work planned. |
+| Plan                                                                              | Status                             | Next action                                                                    |
+| :-------------------------------------------------------------------------------- | :--------------------------------- | :----------------------------------------------------------------------------- |
+| [004 — Training and exhibitions](active/004-training-and-exhibitions.md)          | M1 complete                        | M2: routines from a menu for every drill.                                      |
+| [003 — Household and Opening](active/003-household-and-opening.md)                | Stage 2; M1–M3 complete            | M4 needs the story beats for the years with Grandpa.                           |
+| [001 — The First Living Stead](completed/001-deepen-one-critter-daily-loop.md)    | Completed; gate closed 2026-10-02  | Historical evidence.                                                           |
+| [002 — Living diorama presentation](completed/002-living-diorama-presentation.md) | Completed presentation overhaul    | Historical evidence; human visual review on the published page.                |
+| [000 — Repository memory bootstrap](completed/000-repository-memory-bootstrap.md) | Completed documentation conversion | Historical audit and verification evidence; no further bootstrap work planned. |
 
 ## Working contract
 

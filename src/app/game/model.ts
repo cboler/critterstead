@@ -1,5 +1,5 @@
 export type AreaId = 'homestead' | 'glade' | 'cottage' | 'colosseum' | 'town';
-export type Drill = 'hoops' | 'lift' | 'pace';
+export type Drill = 'hoops' | 'lift' | 'pace' | 'toss';
 export type Season = 'spring' | 'summer' | 'autumn' | 'winter';
 export type Weather = 'sunny' | 'cloudy' | 'rain' | 'snow';
 export type CropId = 'feed' | 'turnip' | 'wheat' | 'sunberry';
@@ -157,13 +157,17 @@ export interface Training {
   hits: number[];
   elapsed: number;
   lastHitAt?: number;
-  kind: 'training' | 'race' | 'lift' | 'pace' | 'exhibition';
+  kind: 'training' | 'race' | 'lift' | 'pace' | 'toss' | 'exhibition';
+  // Wider timing windows, fixed when the activity starts.
+  assist?: boolean;
   // Gauge drills: meter is force or pace, progress is 0-1 toward done, reserve is breath.
+  // Log toss: meter is power, hits are throws, and chargeStart is when the charge began.
   meter?: number;
   progress?: number;
   reserve?: number;
-  // Exhibition: 0 sprint, 1 stone pull. Pacing: 1 while winded.
+  // Exhibition: 0 sprint, 1 stone pull. Pacing: 1 while winded. Log toss: 1 while charging.
   stage?: number;
+  chargeStart?: number;
   scores?: number[];
 }
 export interface GameState {
@@ -196,6 +200,7 @@ export type GameCommand =
   | { type: 'move'; x: number; z: number; seconds: number }
   | { type: 'interact'; targetId: string; action: string }
   | { type: 'training-hit' }
+  | { type: 'training-release' }
   | { type: 'drop-cargo' }
   | { type: 'debug'; action: 'next-day' | 'restore' };
 export interface InteractionAction {
@@ -226,6 +231,7 @@ export interface WorldObject {
     | 'counter'
     | 'lift'
     | 'pace'
+    | 'toss'
     | 'exhibition'
     | 'notices';
   name: string;
@@ -242,7 +248,12 @@ export interface AreaDefinition {
   halfSize: number;
   objects: WorldObject[];
   spawn: Point;
+  // Scenery that blocks walking, beyond the solid objects.
+  blockers?: Blocker[];
 }
+/** A circle (r) or an axis-aligned box (half sizes hx, hz) the rancher cannot walk into. */
+export type Blocker =
+  { x: number; z: number; r: number } | { x: number; z: number; hx: number; hz: number };
 
 /** The one currently playable companion. Other individuals remain dormant in this slice. */
 export function activeCritter(state: GameState): Critter {

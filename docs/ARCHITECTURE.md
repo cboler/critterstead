@@ -191,6 +191,20 @@ tavern bin and empties a hedge bush) and eases the rancher between marks. Nothin
 simulation or saves until the choice; the offer beat shows the M1 offer in the square, and
 choosing creates the household exactly as before (day 1, 08:00). Saved games never see it.
 
+## Current implementation additions — plan 004 M1 (2026-10-03)
+
+Drills are rows in `DRILLS` (`content.ts`): stat, side stat, energy, minutes, skill, flag,
+gain weights and result wording. `finishDrill` pays every drill from its row; the Clover
+Cup and the exhibition stay events. The log toss adds a press/release pair
+(`training-hit`, `training-release`): a held press throws on release, a quick tap leaves
+the charge running for a second tap. `Training.assist` fixes the device's wider-timing
+choice into an activity when it starts; `drills.ts` derives every green zone from it.
+v10 saves accept drill ids from the table, so new drills need no save version.
+Areas may declare `blockers` (circles and boxes); `move` keeps the rancher clear of them
+and of solid objects, glances along round ones, and lets anyone already inside walk out.
+The Colosseum's wall and stands and Oakhaven's footprints are shared data that the
+renderer draws from.
+
 ## Architectural reality audit (reconciliation baseline before M4)
 
 The following audit records the reconciled pre-M4 baseline. The dated additions

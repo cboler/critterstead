@@ -1,7 +1,19 @@
 import { backpack, satchel } from './model';
 import * as THREE from 'three';
 import { productionStatus, quantity } from './logistics';
-import { AREAS, CROPS } from './content';
+import {
+  AREAS,
+  arenaPosts,
+  arenaSeats,
+  CROPS,
+  EXHIBITION_BOOTH,
+  TAVERN_BIN,
+  TOSS_STATION,
+  TOWN_BUILDINGS,
+  TOWN_CARTS,
+  TOWN_WELL,
+} from './content';
+import { throwDistance } from './drills';
 import { plotReady } from './garden';
 import { calendarDate, weatherFor } from './calendar';
 import { buildSurroundings, type Surroundings } from './render/terrain';
@@ -67,6 +79,10 @@ export interface ViewInsets {
 // The camera always looks along the same diagonal, so screen-relative controls stay stable.
 const VIEW_DIRECTION = new THREE.Vector3(17, 22, 25).normalize();
 const SUN_OFFSET = new THREE.Vector3(-11, 22, 13);
+// World units per metre of a log toss throw, for the pegs and where logs land.
+const TOSS_SCALE = 0.33;
+// The thrower stands just behind the stump, so the stump stays in view in front of them.
+const TOSS_THROWER = { x: -0.2, z: -0.7 };
 const ZOOM_LIMITS = { min: 4.2, max: 12, standard: 6.6 } as const;
 const INDOOR_ZOOM = 4.6;
 // Narrow phone screens still show a useful width of the world around the rancher.
@@ -273,6 +289,11 @@ export class GameWorld {
   // Station props that animate with a gauge drill, plus the Colosseum crowd.
   private readonly liftStone = new THREE.Group();
   private readonly pullStone = new THREE.Group();
+  // The log toss: one log, held overhead while charging and flown to where it lands.
+  private readonly tossLog = new THREE.Group();
+  private tossThrows = 0;
+  private tossFlight = 1;
+  private tossLanding = TOSS_STATION.x;
   private readonly spectators = new THREE.Group();
   private readonly confetti = new THREE.Group();
   private fanfareTime = 0;
@@ -521,6 +542,11 @@ export class GameWorld {
     const gaugeMeter = activity?.meter ?? 0;
     if (activity?.kind === 'lift') {
       visualCritterPosition = { x: 4.3, z: 6.6 };
+    } else if (activity?.kind === 'toss') {
+      visualCritterPosition = {
+        x: TOSS_STATION.x + TOSS_THROWER.x,
+        z: TOSS_STATION.z + TOSS_THROWER.z,
+      };
     } else if (activity?.kind === 'pace') {
       const angle = (activity.progress ?? 0) * Math.PI * 2 - Math.PI / 2;
       visualCritterPosition = { x: 1.2 + Math.cos(angle) * 1.6, z: 6.8 + Math.sin(angle) * 1.6 };
@@ -573,6 +599,7 @@ export class GameWorld {
     this.critter.position.y = jumpHeight;
     // Gauge drills lift their stones with the force meter.
     this.liftStone.position.y = activity?.kind === 'lift' ? gaugeMeter * 0.6 : 0;
+    this.animateToss(state, companion, visualCritterPosition, dt);
     this.pullStone.position.x =
       activity?.kind === 'exhibition' && activity.stage === 1 ? (activity.progress ?? 0) * 1.5 : 0;
     const showings = companion.competitions.filter((item) => item.event === 'exhibition').length;
@@ -1193,6 +1220,7 @@ export class GameWorld {
     this.beds.clear();
     this.liftStone.clear();
     this.pullStone.clear();
+    this.tossLog.clear();
     this.spectators.clear();
     this.confetti.clear();
     this.smoke.clear();
@@ -1501,8 +1529,8 @@ export class GameWorld {
         this.scenery.add(group);
         if (index < 3) this.label('Sunberries', node.position.x, 1.7, node.position.z);
       });
+    this.tossStation(TOSS_STATION.x, TOSS_STATION.z);
     const stones: [number, number][] = [
-      [-5, -3.5],
       [4.3, 2.4],
       [5, 2.1],
       [-2, 5.2],
@@ -1787,6 +1815,74 @@ export class GameWorld {
     this.scenery.add(spout);
   }
 
+  /** A chopping stump, a few spare logs, and distance pegs running west for the log toss. */
+  private tossStation(x: number, z: number): void {
+    this.scenery.add(this.mesh(this.cylinder, '#8a6a48', [x, 0.22, z], [0.38, 0.44, 0.38]));
+    this.scenery.add(this.mesh(this.cylinder, '#d9b98a', [x, 0.45, z], [0.33, 0.02, 0.33]));
+    // Spare logs stacked beside the stump, lying across the throwing line.
+    for (const [dx, dz, y] of [
+      [0.8, -0.2, 0.13],
+      [0.8, 0.2, 0.13],
+      [0.8, 0, 0.36],
+    ]) {
+      const log = this.mesh(this.cylinder, '#9b7650', [x + dx, y, z + dz], [0.13, 0.9, 0.13]);
+      log.rotation.x = Math.PI / 2;
+      this.scenery.add(log);
+    }
+    // Pegs every three metres along the throwing line, at the scale the thrown log uses.
+    const line = z + TOSS_THROWER.z;
+    for (const metres of [5, 8, 11]) {
+      const peg = x + TOSS_THROWER.x - metres * TOSS_SCALE;
+      this.scenery.add(
+        this.mesh(this.cylinder, '#e7d8ac', [peg, 0.2, line + 0.45], [0.05, 0.4, 0.05]),
+      );
+      this.scenery.add(this.mesh(this.box, '#c8866a', [peg, 0.38, line + 0.45], [0.18, 0.1, 0.02]));
+    }
+    this.tossLog.add(this.mesh(this.cylinder, '#9b7650', [0, 0, 0], [0.13, 0.9, 0.13]));
+    this.tossLog.children[0].rotation.z = Math.PI / 2;
+    this.tossLog.visible = false;
+    this.scenery.add(this.tossLog);
+    this.label('Log toss', x, 0.95, z);
+  }
+
+  /** Overhead while charging, rising with power; then it flies west and lies where it landed. */
+  private animateToss(state: GameState, critter: Critter, at: Point, dt: number): void {
+    const activity = state.training;
+    if (activity?.kind !== 'toss') {
+      this.tossLog.visible = false;
+      this.tossThrows = 0;
+      this.tossFlight = 1;
+      return;
+    }
+    this.tossLog.visible = true;
+    const throws = activity.hits.length;
+    if (throws > this.tossThrows) {
+      this.tossFlight = this.reducedMotion ? 1 : 0;
+      this.tossLanding = at.x - throwDistance(activity.hits[throws - 1], critter) * TOSS_SCALE;
+    }
+    this.tossThrows = throws;
+    this.tossFlight = Math.min(1, this.tossFlight + dt * 1.6);
+    const log = this.tossLog;
+    if (activity.stage === 1) {
+      const power = activity.meter ?? 0;
+      log.position.set(at.x, 1.45 + power * 0.4, at.z);
+      log.rotation.set(0, Math.PI / 2, -0.4 * power);
+    } else if (throws > 0) {
+      const flight = this.tossFlight;
+      const reach = at.x - this.tossLanding;
+      log.position.set(
+        at.x - reach * flight,
+        0.13 + Math.sin(flight * Math.PI) * (0.6 + reach * 0.35) + (1 - flight) * 0.7,
+        at.z,
+      );
+      log.rotation.set(0, 0, flight < 1 ? flight * Math.PI * 3 : 0);
+    } else {
+      // Waiting for the first charge: the log lies ready at the critter's feet.
+      log.position.set(at.x + 0.3, 0.13, at.z + 0.35);
+      log.rotation.set(0, 0, 0);
+    }
+  }
+
   private liftStation(x: number, z: number): void {
     const base = this.mesh(
       this.cylinder,
@@ -1820,16 +1916,18 @@ export class GameWorld {
     this.scenery.add(arena);
     const lane = this.mesh(this.box, '#d2b887', [0.5, 0.07, -1], [8, 0.02, 0.8]);
     this.scenery.add(lane);
-    // Low arena wall, and tiered but unfinished stands around the far half.
-    for (let post = 0; post < 26; post++) {
-      const angle = (post / 26) * Math.PI * 2;
+    // Low arena wall, open where the path comes in, and tiered but unfinished stands around
+    // the far half. The walking rules use the same layout.
+    for (const post of arenaPosts()) {
+      // The two posts flanking the entrance stand taller, as gateposts.
+      const gatepost = post.index === 9 || post.index === 12;
       const block = this.mesh(
         this.box,
-        post % 2 ? '#bdb6a4' : '#cdc6b2',
-        [1 + Math.cos(angle) * 5.6, 0.26, -1 + Math.sin(angle) * 3.8],
-        [0.78, 0.52, 0.5],
+        gatepost ? '#b3a98f' : post.index % 2 ? '#bdb6a4' : '#cdc6b2',
+        [post.x, gatepost ? 0.6 : 0.26, post.z],
+        [gatepost ? 0.6 : 0.78, gatepost ? 1.2 : 0.52, 0.5],
       );
-      block.rotation.y = -angle;
+      block.rotation.y = -post.angle;
       this.scenery.add(block);
     }
     // Tall festival banners at the arena's ends.
@@ -1847,65 +1945,53 @@ export class GameWorld {
       this.scenery.add(this.mesh(this.cone, '#f0d27a', [x, 3.3, z], [0.12, 0.25, 0.12]));
     });
     const colors = ['#c8866a', '#6c938b', '#e0b35c', '#8e7bb0', '#d9a77f', '#5f8a6a'];
-    for (let tier = 0; tier < 3; tier++) {
-      const radiusX = 6.2 + tier * 0.8;
-      const radiusZ = 4.4 + tier * 0.75;
-      for (let seat = 0; seat < 16; seat++) {
-        // Only the back arc is built; gaps and bare scaffolding mark the unfinished shell.
-        const angle = Math.PI * 1.02 + (seat / 15) * Math.PI * 0.96;
-        const x = 1 + Math.cos(angle) * radiusX;
-        const z = -1 + Math.sin(angle) * radiusZ;
-        if ((seat + tier) % 5 === 4) {
-          this.scenery.add(
-            this.mesh(
-              this.box,
-              '#a38b60',
-              [x, 0.6 + tier * 0.45, z],
-              [0.08, 1.2 + tier * 0.9, 0.08],
-            ),
-          );
-          continue;
-        }
-        // Stone risers topped with wooden benches and the odd bright cushion.
-        const riser = this.mesh(
-          this.box,
-          tier % 2 ? '#b9ae96' : '#c7bca3',
-          [x, 0.25 + tier * 0.45, z],
-          [1.3, 0.5 + tier * 0.9, 0.9],
+    // Only the back arc is built; gaps and bare scaffolding mark the unfinished shell.
+    for (const { x, z, angle, tier, seat, scaffold } of arenaSeats()) {
+      if (scaffold) {
+        this.scenery.add(
+          this.mesh(this.box, '#a38b60', [x, 0.6 + tier * 0.45, z], [0.08, 1.2 + tier * 0.9, 0.08]),
         );
-        riser.rotation.y = -angle + Math.PI / 2;
-        this.scenery.add(riser);
-        const bench = this.mesh(
-          this.box,
-          seat % 2 ? '#a57e55' : '#b58c60',
-          [x, 0.54 + tier * 0.9, z],
-          [1.26, 0.1, 0.62],
-        );
-        bench.rotation.y = -angle + Math.PI / 2;
-        this.scenery.add(bench);
-        if (seat % 3 === 1) {
-          const cushion = this.mesh(
-            this.box,
-            colors[(seat + tier * 2) % colors.length],
-            [x, 0.61 + tier * 0.9, z],
-            [0.9, 0.05, 0.4],
-          );
-          cushion.rotation.y = -angle + Math.PI / 2;
-          this.scenery.add(cushion);
-        }
-        if ((seat * 7 + tier) % 3 === 0) continue;
-        const fan = new THREE.Group();
-        fan.add(
-          this.mesh(
-            this.sphere,
-            colors[(seat + tier) % colors.length],
-            [x, 0.85 + tier * 0.9, z],
-            [0.2, 0.26, 0.2],
-          ),
-        );
-        fan.add(this.mesh(this.sphere, '#e3b48d', [x, 1.2 + tier * 0.9, z], [0.14, 0.14, 0.14]));
-        this.spectators.add(fan);
+        continue;
       }
+      // Stone risers topped with wooden benches and the odd bright cushion.
+      const riser = this.mesh(
+        this.box,
+        tier % 2 ? '#b9ae96' : '#c7bca3',
+        [x, 0.25 + tier * 0.45, z],
+        [1.3, 0.5 + tier * 0.9, 0.9],
+      );
+      riser.rotation.y = -angle + Math.PI / 2;
+      this.scenery.add(riser);
+      const bench = this.mesh(
+        this.box,
+        seat % 2 ? '#a57e55' : '#b58c60',
+        [x, 0.54 + tier * 0.9, z],
+        [1.26, 0.1, 0.62],
+      );
+      bench.rotation.y = -angle + Math.PI / 2;
+      this.scenery.add(bench);
+      if (seat % 3 === 1) {
+        const cushion = this.mesh(
+          this.box,
+          colors[(seat + tier * 2) % colors.length],
+          [x, 0.61 + tier * 0.9, z],
+          [0.9, 0.05, 0.4],
+        );
+        cushion.rotation.y = -angle + Math.PI / 2;
+        this.scenery.add(cushion);
+      }
+      if ((seat * 7 + tier) % 3 === 0) continue;
+      const fan = new THREE.Group();
+      fan.add(
+        this.mesh(
+          this.sphere,
+          colors[(seat + tier) % colors.length],
+          [x, 0.85 + tier * 0.9, z],
+          [0.2, 0.26, 0.2],
+        ),
+      );
+      fan.add(this.mesh(this.sphere, '#e3b48d', [x, 1.2 + tier * 0.9, z], [0.14, 0.14, 0.14]));
+      this.spectators.add(fan);
     }
     this.scenery.add(this.spectators);
     for (let piece = 0; piece < 30; piece++) {
@@ -1928,7 +2014,7 @@ export class GameWorld {
     this.scenery.add(this.pullStone);
     this.pennants(-4, -4.8, 6, -4.8, 3.2);
     const booth = new THREE.Group();
-    booth.position.set(-3, 0, 1);
+    booth.position.set(EXHIBITION_BOOTH.x, 0, EXHIBITION_BOOTH.z);
     booth.add(this.mesh(this.box, '#9b714b', [0, 0.45, 0], [1.2, 0.9, 0.7]));
     booth.add(this.mesh(this.box, '#e7d8ac', [0, 0.93, 0], [1.3, 0.06, 0.8]));
     booth.add(this.mesh(this.cylinder, '#b59569', [-0.55, 1.2, -0.25], [0.05, 1.3, 0.05]));
@@ -1995,6 +2081,7 @@ export class GameWorld {
     }
     // The well at the heart of the square.
     const well = new THREE.Group();
+    well.position.set(TOWN_WELL.x, 0, TOWN_WELL.z);
     well.add(this.mesh(this.cylinder, '#b9b1a0', [0, 0.35, 0], [0.85, 0.7, 0.85]));
     well.add(this.mesh(this.cylinder, '#5f8a8a', [0, 0.66, 0], [0.68, 0.05, 0.68]));
     for (const side of [-1, 1])
@@ -2003,16 +2090,20 @@ export class GameWorld {
     well.add(this.mesh(this.cylinder, '#7d6448', [0, 1.55, 0], [0.06, 1.4, 0.06]));
     well.children.at(-1)!.rotation.z = Math.PI / 2;
     this.scenery.add(well);
-    this.townhouse(-5.2, -5.2, 3.2, 2.4, '#efd9b0', '#7f8f6a', 'General store');
-    this.townhouse(0, -5.8, 3.4, 2.4, '#f3ece0', '#6f8ea0', 'Clinic');
-    this.townhouse(5.2, -5.2, 3.4, 2.6, '#e6c9a1', '#a0604a', 'Tavern');
-    this.townhouse(-8.2, -5.6, 2.2, 2.2, '#e9dcc0', '#b76e54');
-    this.townhouse(8.4, -5.4, 2, 2.2, '#f0e2c4', '#8a7660');
+    const plaster: [string, string][] = [
+      ['#efd9b0', '#7f8f6a'],
+      ['#f3ece0', '#6f8ea0'],
+      ['#e6c9a1', '#a0604a'],
+      ['#e9dcc0', '#b76e54'],
+      ['#f0e2c4', '#8a7660'],
+    ];
+    TOWN_BUILDINGS.forEach(({ x, z, width, depth, name }, index) =>
+      this.townhouse(x, z, width, depth, plaster[index][0], plaster[index][1], name),
+    );
     // Covered carts wait along the south side of the square.
-    for (const [x, z, color] of [
-      [-4.6, 6, '#c8866a'],
-      [5, 6, '#5f8a6a'],
-    ] as [number, number, string][]) {
+    const covers = ['#c8866a', '#5f8a6a'];
+    for (const [index, { x, z }] of TOWN_CARTS.entries()) {
+      const color = covers[index];
       const cart = new THREE.Group();
       cart.position.set(x, 0, z);
       cart.add(this.mesh(this.box, '#9b714b', [0, 0.65, 0], [1.9, 0.45, 1.1]));
@@ -2065,7 +2156,7 @@ export class GameWorld {
       this.scenery.add(bush);
     }
     const bin = new THREE.Group();
-    bin.position.set(3.3, 0, -3.3);
+    bin.position.set(TAVERN_BIN.x, 0, TAVERN_BIN.z);
     const can = new THREE.Group();
     can.add(this.mesh(this.cylinder, '#7d8a86', [0, 0.42, 0], [0.38, 0.84, 0.38]));
     can.add(this.mesh(this.cylinder, '#6a7672', [0, 0.87, 0], [0.42, 0.06, 0.42]));

@@ -108,7 +108,38 @@ export const SPOTS = {
   firstBed: [-5.6, 1.4],
   secondBed: [-2.9, 1.3],
   lift: [5.2, 7.4],
+  toss: [-5.4, -2.6],
 } as const;
+
+/**
+ * Throws the remaining logs from inside the page: Space goes down to charge and up once the
+ * power passes the target, in step with the frame rate however slow rendering is.
+ */
+export async function tossLogs(page: Page, target: number): Promise<void> {
+  const finished = await page.evaluate(
+    (goal) =>
+      new Promise<boolean>((resolve) => {
+        const game = (window as DebugGameWindow).ng!.getComponent(
+          document.querySelector('app-root')!,
+        );
+        const deadline = performance.now() + 60_000;
+        const key = (type: string) =>
+          window.dispatchEvent(new KeyboardEvent(type, { key: ' ', code: 'Space' }));
+        const frame = (): void => {
+          const training = game.state().training;
+          if (!training) return resolve(true);
+          if (performance.now() > deadline) return resolve(false);
+          if (training.stage !== 1 && training.elapsed - (training.lastHitAt ?? 0) > 0.1)
+            key('keydown');
+          else if (training.stage === 1 && (training.meter ?? 0) >= goal) key('keyup');
+          requestAnimationFrame(frame);
+        };
+        requestAnimationFrame(frame);
+      }),
+    target,
+  );
+  if (!finished) throw new Error('The log toss did not finish.');
+}
 
 export async function walk(page: Page, x: number, z: number): Promise<void> {
   const directions = [

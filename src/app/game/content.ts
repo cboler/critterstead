@@ -3,11 +3,14 @@ import {
   AreaId,
   BehaviorDefinition,
   BehaviorId,
+  Blocker,
   CropDefinition,
   CropId,
+  Drill,
   MaterialNode,
   Point,
   SoilPlot,
+  Stats,
 } from './model';
 
 export const GAME_CONFIG = {
@@ -28,11 +31,78 @@ export const GAME_CONFIG = {
 
 // M8 provisional training tuning: share of gains for the 1st, 2nd, 3rd and later same-day session.
 export const DRILL_GAIN_STEPS = [1, 0.55, 0.3, 0.15];
-export const DRILLS = {
-  hoops: { energy: 30, minutes: 40 },
-  lift: { energy: 25, minutes: 30 },
-  pace: { energy: 30, minutes: 45 },
-} as const;
+export interface DrillDefinition {
+  name: string;
+  stat: keyof Stats;
+  // A smaller share of the gain goes to a second stat.
+  side: keyof Stats;
+  sideShare: number;
+  energy: number;
+  minutes: number;
+  skill: string;
+  flag: string;
+  // Gain before repeats: base + score × score + care × care (+ a stat × weight).
+  gain: {
+    base: number;
+    score: number;
+    care: number;
+    bonus?: { stat: keyof Stats; weight: number };
+  };
+  // Result headings for a great, a good and a weak session.
+  praise: readonly [string, string, string];
+}
+// Plan 004 drill table; tuning is provisional.
+export const DRILLS: Record<Drill, DrillDefinition> = {
+  hoops: {
+    name: 'Practice hoops',
+    stat: 'speed',
+    side: 'endurance',
+    sideShare: 0.35,
+    energy: 30,
+    minutes: 40,
+    skill: 'racing',
+    flag: 'trained',
+    gain: { base: 0.25, score: 0.8, care: 0.35, bonus: { stat: 'endurance', weight: 0.008 } },
+    praise: ['Lovely rhythm!', 'Good practice!', 'Every little try counts.'],
+  },
+  lift: {
+    name: 'Boulder lift',
+    stat: 'strength',
+    side: 'endurance',
+    sideShare: 0.3,
+    energy: 25,
+    minutes: 30,
+    skill: 'lifting',
+    flag: 'lifted',
+    gain: { base: 0.2, score: 0.7, care: 0.3 },
+    praise: ['Superb effort!', 'Solid work!', 'A brave try.'],
+  },
+  pace: {
+    name: 'Distance pacing',
+    stat: 'endurance',
+    side: 'speed',
+    sideShare: 0.3,
+    energy: 30,
+    minutes: 45,
+    skill: 'pacing',
+    flag: 'paced',
+    gain: { base: 0.2, score: 0.7, care: 0.3 },
+    praise: ['Superb effort!', 'Solid work!', 'A brave try.'],
+  },
+  toss: {
+    name: 'Log toss',
+    stat: 'strength',
+    side: 'speed',
+    sideShare: 0.3,
+    energy: 25,
+    minutes: 30,
+    skill: 'tossing',
+    flag: 'tossed',
+    gain: { base: 0.2, score: 0.7, care: 0.3 },
+    praise: ['What a throw!', 'Good distance!', 'A brave try.'],
+  },
+};
+export const DRILL_IDS = Object.keys(DRILLS) as Drill[];
 export const EXHIBITION = {
   energy: 40,
   minutes: 60,
@@ -119,6 +189,98 @@ export const BEHAVIORS: Record<BehaviorId, BehaviorDefinition> = {
     ],
   },
 };
+
+// The Colosseum's low wall and back-arc stands, shared by the renderer and walking.
+export const ARENA = {
+  center: { x: 1, z: -1 },
+  wall: { rx: 5.6, rz: 3.8, posts: 26 },
+  // Posts left out where the path from the gate enters, beside the steward's booth.
+  entrance: [10, 11],
+  stands: { tiers: 3, seats: 16 },
+} as const;
+
+export function arenaPosts(): { x: number; z: number; angle: number; index: number }[] {
+  const { center, wall } = ARENA;
+  return Array.from({ length: wall.posts }, (_, index) => {
+    const angle = (index / wall.posts) * Math.PI * 2;
+    return {
+      index,
+      angle,
+      x: center.x + Math.cos(angle) * wall.rx,
+      z: center.z + Math.sin(angle) * wall.rz,
+    };
+  }).filter((post) => !(ARENA.entrance as readonly number[]).includes(post.index));
+}
+
+/** Seats around the far half; every fifth is bare scaffolding in the unfinished shell. */
+export function arenaSeats(): {
+  x: number;
+  z: number;
+  angle: number;
+  tier: number;
+  seat: number;
+  scaffold: boolean;
+}[] {
+  const { center, stands } = ARENA;
+  const seats = [];
+  for (let tier = 0; tier < stands.tiers; tier++)
+    for (let seat = 0; seat < stands.seats; seat++) {
+      const angle = Math.PI * 1.02 + (seat / (stands.seats - 1)) * Math.PI * 0.96;
+      seats.push({
+        tier,
+        seat,
+        angle,
+        scaffold: (seat + tier) % 5 === 4,
+        x: center.x + Math.cos(angle) * (6.2 + tier * 0.8),
+        z: center.z + Math.sin(angle) * (4.4 + tier * 0.75),
+      });
+    }
+  return seats;
+}
+
+// Logs are thrown west from the stump, away from the glade's paths.
+export const TOSS_STATION: Point = { x: -5, z: -3.4 };
+export const EXHIBITION_BOOTH: Point = { x: -1.8, z: 0.4 };
+
+// Oakhaven's buildings along the north of the square (footprints, without the plinth).
+export const TOWN_BUILDINGS: {
+  x: number;
+  z: number;
+  width: number;
+  depth: number;
+  name?: string;
+}[] = [
+  { x: -5.2, z: -5.2, width: 3.2, depth: 2.4, name: 'General store' },
+  { x: 0, z: -5.8, width: 3.4, depth: 2.4, name: 'Clinic' },
+  { x: 5.2, z: -5.2, width: 3.4, depth: 2.6, name: 'Tavern' },
+  { x: -8.2, z: -5.6, width: 2.2, depth: 2.2 },
+  { x: 8.4, z: -5.4, width: 2, depth: 2.2 },
+];
+export const TOWN_CARTS: Point[] = [
+  { x: -4.6, z: 6 },
+  { x: 5, z: 6 },
+];
+export const TOWN_WELL: Point = { x: 0, z: 0 };
+export const TAVERN_BIN: Point = { x: 3.3, z: -3.3 };
+
+const COLOSSEUM_BLOCKERS: Blocker[] = [
+  ...arenaPosts().map(({ x, z }) => ({ x, z, r: 0.45 })),
+  ...arenaSeats().map(({ x, z }) => ({ x, z, r: 0.65 })),
+  { ...EXHIBITION_BOOTH, hx: 0.65, hz: 0.4 },
+  { x: 2.9, z: -1, r: 0.65 },
+];
+const TOWN_BLOCKERS: Blocker[] = [
+  ...TOWN_BUILDINGS.map(({ x, z, width, depth }) => ({
+    x,
+    z,
+    hx: (width + 0.3) / 2,
+    hz: (depth + 0.3) / 2,
+  })),
+  ...TOWN_CARTS.map(({ x, z }) => ({ x, z, hx: 0.95, hz: 0.6 })),
+  { ...TOWN_WELL, r: 0.9 },
+  { ...TAVERN_BIN, r: 0.42 },
+  { x: 2.6, z: 2.6, hx: 0.7, hz: 0.15 },
+];
 
 export const AREAS: Record<AreaId, AreaDefinition> = {
   homestead: {
@@ -239,6 +401,13 @@ export const AREAS: Record<AreaId, AreaDefinition> = {
         position: { x: 1.2, z: 6.8 },
         radius: 1.1,
       },
+      {
+        id: 'toss',
+        kind: 'toss',
+        name: 'Log toss',
+        position: TOSS_STATION,
+        radius: 1.1,
+      },
     ],
   },
   colosseum: {
@@ -261,10 +430,11 @@ export const AREAS: Record<AreaId, AreaDefinition> = {
         id: 'exhibition',
         kind: 'exhibition',
         name: 'Exhibition steward',
-        position: { x: -3, z: 1 },
+        position: EXHIBITION_BOOTH,
         radius: 1,
       },
     ],
+    blockers: COLOSSEUM_BLOCKERS,
   },
   town: {
     id: 'town',
@@ -299,6 +469,7 @@ export const AREAS: Record<AreaId, AreaDefinition> = {
         radius: 0.8,
       },
     ],
+    blockers: TOWN_BLOCKERS,
   },
 };
 

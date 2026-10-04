@@ -1,7 +1,7 @@
 # 004 — Training and exhibitions
 
 **Status:** authorized 2026-10-03 ([D47](../../DECISIONS.md#d47--raise-critters-for-the-colosseum-accepted-2026-10-03)).
-M1 in progress.
+M1 complete ([evidence](#m1-evidence--2026-10-03)); M2 next.
 
 ## Purpose
 
@@ -38,17 +38,18 @@ berry catch, shell game, sequence memory, tug of war, stacking.
 
 ### M1 — Drill table, log toss, timing assist, solid town and Colosseum
 
-- [ ] Drills come from one host table (stat, side stat, energy, minutes, pattern settings);
+- [x] Drills come from one host table (stat, side stat, energy, minutes, gain weights);
       hoops, lift and pacing move onto it with unchanged results.
-- [ ] Log toss in the yard: hold to charge, release at the peak; the sweet spot widens with
-      strength. Builds STR, a little SPD.
-- [ ] A "wider timing windows" assist widens every drill's green zone, stored on the device
+- [x] Log toss in the glade: hold to charge, release at the peak (or tap, tap); the sweet
+      spot widens with strength. Builds STR, a little SPD.
+- [x] A "wider timing windows" assist widens every drill's green zone, stored on the device
       like the quality setting.
-- [ ] Oakhaven's buildings, well, carts and notice board and the Colosseum's wall and stands
-      block walking; the Colosseum keeps an open entrance on the path from the gate.
-- [ ] Verification: unit tests (table parity for the old drills, log toss scoring, assist,
-      blockers), browser test for the log toss and walking into a wall, lint, build, PWA,
-      inspected screenshots.
+- [x] Oakhaven's buildings, well, carts, bin and notice board and the Colosseum's wall,
+      stands, booth and pull stone block walking; the Colosseum keeps an open entrance on
+      the path from the gate.
+- [x] Verification: unit tests (log toss scoring and input, assist, blockers; the existing
+      drill tests unchanged), browser test for the log toss, lint, build, PWA, inspected
+      screenshots.
 
 ### M2 — Routines
 
@@ -76,6 +77,28 @@ settings and favouring different stats; entry fees and prizes.
 - The assist is a device preference passed to the host, not part of the save, like the
   rendering quality.
 
+## M1 evidence — 2026-10-03
+
+- Host: the `DRILLS` table and `finishDrill`; the log toss in `drills.ts` (`tossPower`,
+  `tossBand`, `throwLog`) with `training-release`; area `blockers` and glancing movement.
+  Unit tests: 167 passed. The 158 earlier tests pass unchanged, so hoops, lift and pacing
+  still pay as before; `toss.spec.ts` covers scoring, hold and tap input, time-out,
+  mid-throw saves and the assist; `walking.spec.ts` covers the arena wall, stands and
+  entrance, Oakhaven's buildings and well, and walking out of scenery from an older save.
+- Browser: `e2e/training.spec.ts` throws three logs on desktop and phone (button taps, a
+  held Space, then in-page timing); the exhibition test still walks through Oakhaven and in
+  at the new entrance. Inspected with the GPU:
+  [Colosseum entrance](../evidence/004-m1/colosseum-entrance.png),
+  [charging a throw](../evidence/004-m1/log-toss-charging.png).
+- Gates: lint, production build, PWA check, and the browser suite (68 passed, 32 skipped by
+  project). The suite caught a glade test spot that now sits by the log toss; moved.
+- Found while testing: a new charge kept the previous throw's power for a frame, and
+  walking straight at the well stopped instead of sliding round it. Both fixed.
+- Routine decisions: the log toss sits in the glade (the yard is full), replacing a
+  decorative stone, and throws west along pegs at 5, 8 and 11 m; the steward's booth
+  moved just inside the entrance. Provisional: toss timing (1.2 s rise, peak 0.82), sweet
+  spot widths, throw distances, the assist's 40% widening.
+
 ## Current handoff
 
-M1 in progress.
+M1 complete. Next: M2 — routines (every drill played together can be run from a menu).

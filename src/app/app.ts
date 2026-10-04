@@ -33,6 +33,7 @@ import {
 import { nextObjective, objectives } from './game/objectives';
 import { IndexedDbStorage } from './game/storage';
 import { encumbrance } from './game/checks';
+import { liftBand, paceBand, sweepBand, throwDistance, tossBand } from './game/drills';
 import { GameWorld } from './game/world';
 import {
   storedQualityChoice,
@@ -40,6 +41,24 @@ import {
   type Quality,
   type QualityChoice,
 } from './game/render/quality';
+
+// Wider timing windows are a device preference, like the visual quality.
+const ASSIST_KEY = 'critterstead-wide-timing';
+function storedAssist(): boolean {
+  try {
+    return localStorage.getItem(ASSIST_KEY) === 'on';
+  } catch {
+    return false;
+  }
+}
+function storeAssist(on: boolean): void {
+  try {
+    if (on) localStorage.setItem(ASSIST_KEY, 'on');
+    else localStorage.removeItem(ASSIST_KEY);
+  } catch {
+    // Private browsing: the choice lasts for this visit.
+  }
+}
 
 type Panel = 'journal' | 'help' | 'developer' | 'calendar';
 type JournalTab = 'quests' | 'history' | 'supplies';
@@ -59,6 +78,7 @@ const ACTIVITY_NAMES: Record<string, string> = {
   race: 'THE CLOVER CUP',
   lift: 'BOULDER LIFT',
   pace: 'DISTANCE PACING',
+  toss: 'LOG TOSS',
   exhibition: 'THE EXHIBITION',
 };
 const ITEM_NAMES: Record<string, [string, string]> = {
@@ -203,6 +223,26 @@ export class App implements AfterViewInit, OnDestroy {
   protected readonly date = computed(() => calendarDate(this.state().day));
   protected readonly weatherIcons = { sunny: '☀', cloudy: '☁', rain: '☂', snow: '❄' } as const;
   protected readonly capitalize = capitalize;
+  /** The current activity's green zone, as left and right edges from 0 to 1. */
+  protected readonly activityBand = computed((): [number, number] => {
+    const activity = this.state().training;
+    if (!activity) return [0.4, 0.6];
+    if (activity.kind === 'lift' || (activity.kind === 'exhibition' && activity.stage === 1))
+      return liftBand(activity);
+    if (activity.kind === 'pace') return paceBand(activity);
+    if (activity.kind === 'toss') return tossBand(activity, this.companion());
+    return sweepBand(activity);
+  });
+  protected readonly throwsSoFar = computed(() => {
+    const activity = this.state().training;
+    if (activity?.kind !== 'toss') return '';
+    return activity.hits.map((hit) => throwDistance(hit, this.companion()) + ' m').join(' · ');
+  });
+  protected readonly assist = signal(storedAssist());
+  protected setAssist(on: boolean): void {
+    this.assist.set(on);
+    storeAssist(on);
+  }
   protected readonly activityCopy = computed(() => {
     const activity = this.state().training;
     const name = this.companion().name;
@@ -217,6 +257,16 @@ export class App implements AfterViewInit, OnDestroy {
         button: 'Push, ' + name + '!',
         status: Math.round(activity.elapsed) + 's',
         gauge: 'lift' as const,
+      };
+    if (activity.kind === 'toss')
+      return {
+        eyebrow: 'LOG TOSS',
+        heading: 'Charge, and let go at the peak',
+        instructions:
+          'and hold to charge the throw; let go in the green. Or tap once to start and again to throw.',
+        button: 'Throw, ' + name + '!',
+        status: activity.hits.length + ' / 3 throws',
+        gauge: 'toss' as const,
       };
     if (activity.kind === 'pace')
       return {
@@ -622,7 +672,10 @@ export class App implements AfterViewInit, OnDestroy {
     const pressed = pad.buttons.map((button) => button.pressed);
     const newlyPressed = pressed.map((value, index) => value && !this.gamepadButtons[index]);
     const edge = (index: number) => newlyPressed[index];
+    const letGo = !pressed[0] && this.gamepadButtons[0];
     this.gamepadButtons = pressed;
+    if (letGo && this.host.state.training?.kind === 'toss')
+      this.zone.run(() => this.releaseDrill());
     if (this.offer()) {
       if (edge(12) || edge(14)) this.zone.run(() => this.moveOfferFocus(-1));
       if (edge(13) || edge(15)) this.zone.run(() => this.moveOfferFocus(1));
@@ -869,8 +922,21 @@ export class App implements AfterViewInit, OnDestroy {
       if (done && selected === 'read-calendar') this.openPanel('calendar');
     }
   }
+  /** The log toss charges while held: press on pointer down, throw on release. */
+  protected pressDrill(event: PointerEvent): void {
+    (event.currentTarget as Element).setPointerCapture?.(event.pointerId);
+    this.act();
+  }
+  protected releaseDrill(): void {
+    if (this.host.state.training?.kind === 'toss') this.command({ type: 'training-release' });
+  }
+  /** Pointer clicks already pressed on pointer down; only a keyboard click (detail 0) acts. */
+  protected clickDrill(event: MouseEvent): void {
+    if (event.detail === 0) this.act();
+  }
   private command(command: GameCommand): boolean {
     this.walkTo = null;
+    this.host.assist = this.assist();
     const before = this.snapshot();
     const training = !!this.host.state.training;
     const working = !!this.host.state.work;
@@ -930,6 +996,12 @@ export class App implements AfterViewInit, OnDestroy {
       if (!event.repeat && key === 'escape') this.zone.run(() => this.skipOpening());
       return;
     }
+    // The log toss owns its keys, even on a focused button, so a held key can charge it.
+    if (this.host.state.training?.kind === 'toss' && [' ', 'e', 'enter'].includes(key)) {
+      event.preventDefault();
+      if (!event.repeat) this.zone.run(() => this.act());
+      return;
+    }
     if (
       ['w', 'a', 's', 'd', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' ', 'e'].includes(
         key,
@@ -958,7 +1030,12 @@ export class App implements AfterViewInit, OnDestroy {
     }
   };
   private readonly keyUp = (event: KeyboardEvent): void => {
-    this.keys.delete(event.key.toLowerCase());
+    const key = event.key.toLowerCase();
+    this.keys.delete(key);
+    if (this.host.state.training?.kind === 'toss' && [' ', 'e', 'enter'].includes(key)) {
+      event.preventDefault();
+      this.zone.run(() => this.releaseDrill());
+    }
   };
   private readonly blur = (): void => {
     this.keys.clear();

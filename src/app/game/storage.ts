@@ -1,7 +1,7 @@
 import { Critter, GameState, Training } from './model';
 import { CRITTER_KINDS } from './families';
 import { createPip, GRANDPA, PIP_ID } from './household';
-import { BEHAVIORS, CROPS, initialMaterialNodes, initialPlots } from './content';
+import { BEHAVIORS, CROPS, DRILL_IDS, initialMaterialNodes, initialPlots } from './content';
 import { nextDawn } from './calendar';
 import { initialContainers, ITEM_IDS, LEGACY_ITEM_IDS, MILL_MINUTES } from './logistics';
 
@@ -593,7 +593,11 @@ function validateState(value: unknown, version: SaveVersion): void {
     if (training['lastHitAt'] !== undefined) number(training['lastHitAt'], 'training.lastHitAt');
     choice(
       training['kind'],
-      version >= 8 ? ['training', 'race', 'lift', 'pace', 'exhibition'] : ['training', 'race'],
+      version >= 10
+        ? ['training', 'race', 'lift', 'pace', 'toss', 'exhibition']
+        : version >= 8
+          ? ['training', 'race', 'lift', 'pace', 'exhibition']
+          : ['training', 'race'],
       'training.kind',
     );
     for (const key of ['meter', 'progress', 'reserve'])
@@ -603,14 +607,16 @@ function validateState(value: unknown, version: SaveVersion): void {
     if (training['scores'] !== undefined)
       for (const score of array(training['scores'], 'training.scores'))
         number(score, 'training.score', 0, 1);
+    if (training['assist'] !== undefined) boolean(training['assist'], 'training.assist');
+    if (training['chargeStart'] !== undefined)
+      number(training['chargeStart'], 'training.chargeStart');
     if (
       version >= 8 &&
-      training['kind'] !== 'training' &&
-      training['kind'] !== 'race' &&
-      training['kind'] !== 'exhibition' &&
+      (training['kind'] === 'lift' || training['kind'] === 'pace') &&
       (training['meter'] === undefined || training['progress'] === undefined)
     )
       corrupt('training gauge');
+    if (training['kind'] === 'toss' && training['meter'] === undefined) corrupt('training toss');
     const hits = array(training['hits'], 'training.hits');
     for (const hit of hits) number(hit, 'training.hit', 0, 1);
     if (
@@ -715,7 +721,8 @@ function validateCritter(critter: Record<string, unknown>, version: SaveVersion)
     const drills = record(critter['drills'], 'critter.drills');
     number(drills['day'], 'drills.day', 1, Number.MAX_SAFE_INTEGER, true);
     for (const [drill, count] of Object.entries(record(drills['sessions'], 'drills.sessions'))) {
-      choice(drill, ['hoops', 'lift', 'pace'], 'drills.drill');
+      // v10 saves widen with the drill table (plan 004); earlier saves knew three drills.
+      choice(drill, version >= 10 ? DRILL_IDS : ['hoops', 'lift', 'pace'], 'drills.drill');
       number(count, 'drills.count', 0, 10000, true);
     }
   }

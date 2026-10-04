@@ -104,27 +104,40 @@
             <p>
               Press <kbd>{{ controllerConnected() ? 'A' : 'Space' }}</kbd> {{ copy.instructions }}
             </p>
+            @let band = activityBand();
             @if (copy.gauge) {
               <div
                 class="timing-track"
                 role="meter"
-                [attr.aria-label]="copy.gauge === 'lift' ? 'Force gauge' : 'Pace'"
+                [attr.aria-label]="
+                  copy.gauge === 'lift'
+                    ? 'Force gauge'
+                    : copy.gauge === 'toss'
+                      ? 'Throw power'
+                      : 'Pace'
+                "
                 aria-valuemin="0"
                 aria-valuemax="100"
                 [attr.aria-valuenow]="round((activity.meter ?? 0) * 100)"
               >
                 <span
                   class="sweet-spot"
-                  [style.left.%]="copy.gauge === 'lift' ? 55 : 50"
-                  [style.width.%]="copy.gauge === 'lift' ? 25 : 15"
+                  [style.left.%]="band[0] * 100"
+                  [style.width.%]="(band[1] - band[0]) * 100"
                 ></span
                 ><i [style.left.%]="(activity.meter ?? 0) * 100"></i>
               </div>
-              <div class="meter-label">
-                <span>{{ copy.gauge === 'lift' ? 'Held' : 'Lap' }}</span
-                ><strong>{{ round((activity.progress ?? 0) * 100) }}%</strong>
-              </div>
-              <div class="meter"><i [style.width.%]="(activity.progress ?? 0) * 100"></i></div>
+              @if (copy.gauge === 'toss') {
+                <div class="meter-label">
+                  <span>Throws</span><strong>{{ throwsSoFar() || '—' }}</strong>
+                </div>
+              } @else {
+                <div class="meter-label">
+                  <span>{{ copy.gauge === 'lift' ? 'Held' : 'Lap' }}</span
+                  ><strong>{{ round((activity.progress ?? 0) * 100) }}%</strong>
+                </div>
+                <div class="meter"><i [style.width.%]="(activity.progress ?? 0) * 100"></i></div>
+              }
               @if (copy.gauge === 'pace') {
                 <div class="meter-label">
                   <span>Breath{{ activity.stage === 1 ? ' · winded!' : '' }}</span
@@ -134,15 +147,33 @@
               }
             } @else {
               <div class="timing-track">
-                <span class="sweet-spot"></span><i [style.left.%]="activity.phase * 100"></i>
+                <span
+                  class="sweet-spot"
+                  [style.left.%]="band[0] * 100"
+                  [style.width.%]="(band[1] - band[0]) * 100"
+                ></span
+                ><i [style.left.%]="activity.phase * 100"></i>
               </div>
             }
             <div class="training-footer">
-              <span>{{ copy.gauge ? copy.status : activity.hits.length + ' / 3 beats' }}</span
-              ><button class="primary" (click)="act()">
-                {{ copy.button }}
-                <kbd>{{ controllerConnected() ? 'A' : 'Space' }}</kbd>
-              </button>
+              <span>{{ copy.gauge ? copy.status : activity.hits.length + ' / 3 beats' }}</span>
+              @if (copy.gauge === 'toss') {
+                <button
+                  class="primary hold-button"
+                  (pointerdown)="pressDrill($event)"
+                  (pointerup)="releaseDrill()"
+                  (pointercancel)="releaseDrill()"
+                  (click)="clickDrill($event)"
+                >
+                  {{ copy.button }}
+                  <kbd>{{ controllerConnected() ? 'A' : 'Space' }}</kbd>
+                </button>
+              } @else {
+                <button class="primary" (click)="act()">
+                  {{ copy.button }}
+                  <kbd>{{ controllerConnected() ? 'A' : 'Space' }}</kbd>
+                </button>
+              }
             </div>
           </div>
         } @else if (result(); as card) {
@@ -715,6 +746,23 @@
               {{ option.label }}
             </button>
           }
+        </div>
+        <div class="quality-setting">
+          <span>Drill timing windows</span>
+          <button
+            [class.primary]="!assist()"
+            [attr.aria-pressed]="!assist()"
+            (click)="setAssist(false)"
+          >
+            Standard
+          </button>
+          <button
+            [class.primary]="assist()"
+            [attr.aria-pressed]="assist()"
+            (click)="setAssist(true)"
+          >
+            Wider
+          </button>
         </div>
       } @else if (currentPanel === 'calendar') {
         @let view = calendar();

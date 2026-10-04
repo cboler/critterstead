@@ -54,13 +54,20 @@ import {
   push,
   recordDrill,
   startGauge,
+  startToss,
   stepLift,
   stepPace,
+  stepToss,
+  sweepAccuracy,
+  throwDistance,
+  throwLog,
+  TOSS_HOLD,
 } from './drills';
 import {
   activeCritter,
   BehaviorDefinition,
   BehaviorStage,
+  Blocker,
   CropId,
   Critter,
   Drill,
@@ -73,11 +80,27 @@ import {
   Point,
   ResourceNode,
   SoilPlot,
+  Training,
 } from './model';
 
 const RESIDENT_REACH = 1.4;
 const clamp = (value: number, min = 0, max = 100) => Math.max(min, Math.min(max, value));
 const COTTAGE_COMPANION_SPOT: Point = { x: 0.5, z: 3.4 };
+// The rancher keeps this much space from anything solid.
+const BODY_RADIUS = 0.3;
+
+/** Distance from a point to a blocker's edge; negative inside it. */
+function clearance(point: Point, blocker: Blocker): number {
+  if ('r' in blocker) return distance(point, blocker) - blocker.r;
+  const dx = Math.abs(point.x - blocker.x) - blocker.hx;
+  const dz = Math.abs(point.z - blocker.z) - blocker.hz;
+  return dx > 0 || dz > 0 ? Math.hypot(Math.max(dx, 0), Math.max(dz, 0)) : Math.max(dx, dz);
+}
+
+/** The drill a training activity belongs to; the Clover Cup and the exhibition are events. */
+export function drillOf(kind: Training['kind']): Drill | null {
+  return kind === 'training' ? 'hoops' : kind === 'race' || kind === 'exhibition' ? null : kind;
+}
 const ROUTES: Record<GameState['areaId'], { label: string; description: string; arrival: string }> =
   {
     homestead: {
@@ -228,6 +251,9 @@ export function haulingPace(critter: Critter): number {
 /** The sole owner of game rules. Rendering and persistence consume its state. */
 export class LocalGameHost {
   private readonly current: GameState;
+
+  /** Wider timing windows: a device preference, fixed into each activity as it starts. */
+  assist = false;
 
   constructor(state: GameState = createInitialState()) {
     this.current = structuredClone(state);
@@ -436,6 +462,7 @@ export class LocalGameHost {
       return true;
     }
     if (command.type === 'training-hit') return this.trainingHit();
+    if (command.type === 'training-release') return this.trainingRelease();
     if (this.state.training || this.state.work) return false;
     if (command.type === 'drop-cargo') return this.dropCargo();
     if (command.type === 'move') return this.move(command.x, command.z, command.seconds);
@@ -455,7 +482,9 @@ export class LocalGameHost {
     if (this.state.training) {
       const training = this.state.training;
       training.elapsed += dt;
-      if (this.gauge(training)) {
+      if (training.kind === 'toss') {
+        if (stepToss(training)) this.finishTraining();
+      } else if (this.gauge(training)) {
         const done =
           training.kind === 'pace'
             ? stepPace(training, this.critter, dt)
@@ -881,21 +910,23 @@ export class LocalGameHost {
         };
       }
       case 'lift':
-      case 'pace': {
+      case 'pace':
+      case 'toss': {
         const drill = DRILLS[object.kind];
-        const lift = object.kind === 'lift';
         return {
           id,
-          title: lift ? 'Boulder lift' : 'Pacing loop',
+          title: object.name,
           description: `${
-            lift
-              ? 'Tap to push the force gauge up; the boulder pushes it back down. Hold it in the green for three seconds. Builds strength.'
-              : 'Tap to set the pace. Faster laps spend breath; run dry and you are winded. Builds endurance and a little speed.'
+            {
+              lift: 'Tap to push the force gauge up; the boulder pushes it back down. Hold it in the green for three seconds. Builds strength.',
+              pace: 'Tap to set the pace. Faster laps spend breath; run dry and you are winded. Builds endurance and a little speed.',
+              toss: 'Hold to charge the throw and let go at the peak, or tap once to start and again to throw. Three throws; strength widens the sweet spot. Builds strength and a little speed.',
+            }[object.kind]
           } ${this.drillCopy(object.kind)}`,
           actions: [
             action(
               object.kind,
-              `${lift ? 'Boulder lift' : 'Distance pacing'} · ${drill.energy} ${critter.name} energy · 5 yours · ${drill.minutes} min${this.gainSuffix(object.kind)}`,
+              `${drill.name} · ${drill.energy} ${critter.name} energy · 5 yours · ${drill.minutes} min${this.gainSuffix(object.kind)}`,
               critter.hunger > 80
                 ? `${critter.name} is too hungry to concentrate.`
                 : energy(5, drill.energy),
@@ -1131,6 +1162,7 @@ export class LocalGameHost {
           elapsed: 0,
           lastHitAt: 0,
           kind: action === 'train' ? 'training' : 'race',
+          assist: this.assist,
         };
         this.note(
           action === 'train'
@@ -1140,6 +1172,7 @@ export class LocalGameHost {
         return true;
       case 'lift':
       case 'pace':
+      case 'toss':
       case 'exhibit': {
         const kind = action === 'exhibit' ? 'exhibition' : action;
         state.player.stamina -= 5;
@@ -1151,15 +1184,18 @@ export class LocalGameHost {
           elapsed: 0,
           lastHitAt: 0,
           kind,
+          assist: this.assist,
         };
         if (kind === 'exhibition') state.training.stage = 0;
+        else if (kind === 'toss') startToss(state.training);
         else startGauge(state.training);
         this.note(
-          kind === 'lift'
-            ? `${critter.name} braces against the boulder. Keep the gauge in the green!`
-            : kind === 'pace'
-              ? `${critter.name} sets off around the loop. Find a pace you can keep.`
-              : `The crowd hushes. First, the sprint: three cues near the center!`,
+          {
+            lift: `${critter.name} braces against the boulder. Keep the gauge in the green!`,
+            pace: `${critter.name} sets off around the loop. Find a pace you can keep.`,
+            toss: `${critter.name} squares up to the log. Charge the throw and let go at the peak!`,
+            exhibition: `The crowd hushes. First, the sprint: three cues near the center!`,
+          }[kind],
         );
         return true;
       }
@@ -1243,16 +1279,32 @@ export class LocalGameHost {
       x: clamp(position.x + (x / length) * step, -edge, edge),
       z: clamp(position.z + (z / length) * step, -edge, edge),
     };
-    const solid = AREAS[this.state.areaId].objects.filter((item) =>
-      ['house', 'shed', 'bed', 'hearth', 'counter'].includes(item.kind),
-    );
+    const area = AREAS[this.state.areaId];
+    const solid: Blocker[] = [
+      ...area.objects
+        .filter((item) => ['house', 'shed', 'bed', 'hearth', 'counter'].includes(item.kind))
+        .map((item) => ({ ...item.position, r: item.radius })),
+      ...(area.blockers ?? []),
+    ];
     const clear = (point: Point) =>
-      solid.every((item) => distance(point, item.position) >= item.radius + 0.3);
-    if (clear(next)) this.state.player.position = next;
-    else if (clear({ x: next.x, z: position.z }))
-      this.state.player.position = { x: next.x, z: position.z };
-    else if (clear({ x: position.x, z: next.z }))
-      this.state.player.position = { x: position.x, z: next.z };
+      solid.every((blocker) => clearance(point, blocker) >= BODY_RADIUS);
+    // Glance off round things: keep the part of the step that runs along their edge.
+    const glance = solid
+      .filter((blocker) => 'r' in blocker && clearance(next, blocker) < BODY_RADIUS)
+      .slice(0, 1)
+      .map((blocker) => {
+        const away = { x: position.x - blocker.x, z: position.z - blocker.z };
+        const size = Math.hypot(away.x, away.z) || 1;
+        const normal = { x: away.x / size, z: away.z / size };
+        const into = (next.x - position.x) * normal.x + (next.z - position.z) * normal.z;
+        return { x: next.x - normal.x * into, z: next.z - normal.z * into };
+      });
+    const landing = [next, ...glance, { x: next.x, z: position.z }, { x: position.x, z: next.z }]
+      .filter((point) => distance(point, position) > 1e-6)
+      .find(clear);
+    // Someone already standing inside new scenery (an older save) can always walk out.
+    if (landing) this.state.player.position = landing;
+    else if (!clear(position)) this.state.player.position = next;
     const moved = distance(position, this.state.player.position);
     if (moved > 0 && load.drain) {
       this.state.player.stamina = Math.max(0, this.state.player.stamina - moved * load.drain);
@@ -1278,15 +1330,25 @@ export class LocalGameHost {
     if (
       !training ||
       training.critterId !== state.activeCritterId ||
-      training.elapsed - (training.lastHitAt ?? 0) < (this.gauge(training) ? 0.08 : 0.3)
+      training.elapsed - (training.lastHitAt ?? 0) <
+        (this.gauge(training) || training.kind === 'toss' ? 0.08 : 0.3)
     )
       return false;
     training.lastHitAt = training.elapsed;
+    if (training.kind === 'toss') {
+      // The first press starts the charge; a second press (tap, tap) throws.
+      if (training.stage !== 1) {
+        training.stage = 1;
+        training.chargeStart = training.elapsed;
+        training.meter = 0;
+      } else if (throwLog(training, this.critter)) this.finishTraining();
+      return true;
+    }
     if (this.gauge(training)) {
       push(training);
       return true;
     }
-    training.hits.push(clamp(1 - Math.abs(training.phase - 0.5) * 2, 0, 1));
+    training.hits.push(sweepAccuracy(training.phase, training.assist));
     if (training.hits.length < 3) return true;
     if (training.kind === 'exhibition') {
       // The sprint is scored; the heavy stone pull follows in the same paid showing.
@@ -1301,36 +1363,30 @@ export class LocalGameHost {
     return true;
   }
 
+  /** Letting go after holding a charge throws the log; a quick tap keeps it charging. */
+  private trainingRelease(): boolean {
+    const training = this.state.training;
+    if (
+      !training ||
+      training.kind !== 'toss' ||
+      training.stage !== 1 ||
+      training.critterId !== this.state.activeCritterId ||
+      training.elapsed - (training.chargeStart ?? training.elapsed) < TOSS_HOLD
+    )
+      return false;
+    if (throwLog(training, this.critter)) this.finishTraining();
+    return true;
+  }
+
   private finishTraining(): void {
     const state = this.state;
     const training = state.training!;
     const accuracy = training.hits.reduce((sum, value) => sum + value, 0) / 3;
     const critter = activeCritter(state);
     const care = (critter.happiness + critter.bond + (100 - critter.hunger)) / 300;
-    if (training.kind === 'lift' || training.kind === 'pace') {
-      const lift = training.kind === 'lift';
-      const score = lift ? liftScore(training, critter) : paceScore(training);
-      const multiplier = drillMultiplier(critter, training.kind, state.day);
-      const gain = Math.round((0.2 + score * 0.7 + care * 0.3) * multiplier * 100) / 100;
-      const side = Math.round(gain * 0.3 * 100) / 100;
-      if (lift) {
-        critter.stats.strength = Math.round((critter.stats.strength + gain) * 100) / 100;
-        critter.stats.endurance = Math.round((critter.stats.endurance + side) * 100) / 100;
-      } else {
-        critter.stats.endurance = Math.round((critter.stats.endurance + gain) * 100) / 100;
-        critter.stats.speed = Math.round((critter.stats.speed + side) * 100) / 100;
-      }
-      critter.skills[training.kind === 'lift' ? 'lifting' : 'pacing'] =
-        (critter.skills[training.kind === 'lift' ? 'lifting' : 'pacing'] ?? 0) + 1;
-      recordDrill(critter, training.kind, state.day);
-      critter.bond = clamp(critter.bond + 2);
-      critter.happiness = clamp(critter.happiness + 3);
-      this.flag(lift ? 'lifted' : 'paced');
-      state.training = null;
-      this.advanceMinutes(DRILLS[training.kind].minutes);
-      this.note(
-        `${score > 0.75 ? 'Superb effort!' : score > 0.4 ? 'Solid work!' : 'A brave try.'} ${critter.name} gains ${gain.toFixed(2)} ${lift ? 'strength' : 'endurance'}${multiplier < 1 ? ` (${Math.round(multiplier * 100)}% gains, repeated today)` : ''}. ${Math.round(critter.stamina)} energy left.`,
-      );
+    const drill = drillOf(training.kind);
+    if (drill) {
+      this.finishDrill(drill, training, care);
       return;
     }
     if (training.kind === 'exhibition') {
@@ -1365,25 +1421,7 @@ export class LocalGameHost {
       );
       return;
     }
-    if (training.kind === 'training') {
-      const multiplier = drillMultiplier(critter, 'hoops', state.day);
-      const gain =
-        Math.round(
-          (0.25 + accuracy * 0.8 + care * 0.35 + critter.stats.endurance * 0.008) *
-            multiplier *
-            100,
-        ) / 100;
-      recordDrill(critter, 'hoops', state.day);
-      critter.stats.speed = Math.round((critter.stats.speed + gain) * 100) / 100;
-      critter.stats.endurance = Math.round((critter.stats.endurance + gain * 0.35) * 100) / 100;
-      critter.skills.racing += 1;
-      critter.bond = clamp(critter.bond + 2);
-      this.flag('trained');
-      this.advanceMinutes(40);
-      this.note(
-        `${accuracy > 0.75 ? 'Lovely rhythm!' : accuracy > 0.4 ? 'Good practice!' : 'Every little try counts.'} ${critter.name} gains ${gain.toFixed(2)} speed${multiplier < 1 ? ` (${Math.round(multiplier * 100)}% gains, repeated today)` : ''}. ${Math.round(critter.stamina)} energy left; rest together at the nook to recover.`,
-      );
-    } else {
+    {
       const time =
         Math.round(
           Math.max(
@@ -1410,6 +1448,50 @@ export class LocalGameHost {
     }
     critter.happiness = clamp(critter.happiness + 3);
     state.training = null;
+  }
+
+  /** Every drill pays out the same way, shaped by its row in the drill table. */
+  private finishDrill(drill: Drill, training: Training, care: number): void {
+    const state = this.state;
+    const critter = activeCritter(state);
+    const definition = DRILLS[drill];
+    const score =
+      drill === 'lift'
+        ? liftScore(training, critter)
+        : drill === 'pace'
+          ? paceScore(training)
+          : // Hoops cues and log throws: the average of three.
+            training.hits.reduce((sum, value) => sum + value, 0) / 3;
+    const multiplier = drillMultiplier(critter, drill, state.day);
+    const { base, score: weight, care: careWeight, bonus } = definition.gain;
+    const gain =
+      Math.round(
+        (base +
+          score * weight +
+          care * careWeight +
+          (bonus ? critter.stats[bonus.stat] * bonus.weight : 0)) *
+          multiplier *
+          100,
+      ) / 100;
+    const { stat, side } = definition;
+    critter.stats[stat] = Math.round((critter.stats[stat] + gain) * 100) / 100;
+    critter.stats[side] =
+      Math.round((critter.stats[side] + gain * definition.sideShare) * 100) / 100;
+    critter.skills[definition.skill] = (critter.skills[definition.skill] ?? 0) + 1;
+    recordDrill(critter, drill, state.day);
+    critter.bond = clamp(critter.bond + 2);
+    critter.happiness = clamp(critter.happiness + 3);
+    this.flag(definition.flag);
+    state.training = null;
+    this.advanceMinutes(definition.minutes);
+    const [great, good, weak] = definition.praise;
+    const best =
+      drill === 'toss'
+        ? ` Best throw ${throwDistance(Math.max(0, ...training.hits), critter)} m.`
+        : '';
+    this.note(
+      `${score > 0.75 ? great : score > 0.4 ? good : weak} ${critter.name} gains ${gain.toFixed(2)} ${stat}${multiplier < 1 ? ` (${Math.round(multiplier * 100)}% gains, repeated today)` : ''}.${best} ${Math.round(critter.stamina)} energy left${critter.stamina < 30 ? '; rest together at the nook to recover' : ''}.`,
+    );
   }
 
   private gauge(training: GameState['training']): boolean {

@@ -406,8 +406,8 @@ test('walks home exhausted, recovers without supplies, and feeds through ordinar
   await page.getByRole('button', { name: /Explore Clover Glade/ }).click();
   await walk(page, -3, -2);
   await page.getByRole('button', { name: /^Gather ·/ }).click();
-  // Step away from the bush so the companion care interaction is available.
-  await walk(page, -5, -5);
+  // Step away from the bush (and the log toss) so the companion care interaction is available.
+  await walk(page, -2, -5);
   await page.getByRole('button', { name: /Berry treat/ }).click();
   await page.getByRole('button', { name: /Berry treat/ }).click();
   await expect(page.locator('.recent-note')).toContainText('+3 energy; hunger now');
@@ -428,7 +428,7 @@ test('walks home exhausted, recovers without supplies, and feeds through ordinar
   await expect(page.locator('.learning-status')).toContainText('keeping 20 energy in reserve');
   expect(activeCritter(await developmentState(page)).stamina).toBe(29);
   expect(backpack(await developmentState(page)).items).toEqual(backpack(stopped).items);
-  await walk(page, -5, -5);
+  await walk(page, -2, -5);
   await page.getByRole('button', { name: /^Take 1 berry/ }).click();
   await page.getByRole('button', { name: /Berry treat/ }).click();
   await walk(page, -8, 0);

@@ -4,7 +4,29 @@ import { Critter, Drill, Training } from './model';
 // M8 provisional gauge tuning. Physics are pure so tests can step them with fixed time.
 export const LIFT_BAND = [0.55, 0.8] as const;
 export const PACE_STEADY = [0.5, 0.65] as const;
+// Plan 004 provisional log toss tuning: power rises for TOSS_RISE seconds, then falls back.
+export const TOSS_RISE = 1.2;
+export const TOSS_PEAK = 0.82;
+export const TOSS_LIMIT = 25;
+// A press held at least this long throws on release; a shorter tap leaves the charge running.
+export const TOSS_HOLD = 0.25;
 const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
+
+/** The wider-timing assist grows every green zone by 40% of its width. */
+function widen(band: readonly [number, number], assist?: boolean): [number, number] {
+  const extra = assist ? (band[1] - band[0]) * 0.2 : 0;
+  return [clamp01(band[0] - extra), clamp01(band[1] + extra)];
+}
+export const liftBand = (training: Training) => widen(LIFT_BAND, training.assist);
+export const paceBand = (training: Training) => widen(PACE_STEADY, training.assist);
+
+/** Cue accuracy for a marker sweeping 0..1: full at the center, zero at either end. */
+export function sweepAccuracy(phase: number, assist?: boolean): number {
+  return clamp01(1 - Math.max(0, Math.abs(phase - 0.5) - (assist ? 0.06 : 0)) * 2);
+}
+/** Where a cue scores at least 80%, drawn as the green patch. */
+export const sweepBand = (training: Training): [number, number] =>
+  training.assist ? [0.34, 0.66] : [0.4, 0.6];
 
 export function drillMultiplier(critter: Critter, drill: Drill, day: number): number {
   const done = critter.drills.day === day ? (critter.drills.sessions[drill] ?? 0) : 0;
@@ -40,7 +62,8 @@ export function startGauge(training: Training): void {
 export function stepLift(training: Training, critter: Critter, dt: number, heavy = false): boolean {
   const settings = liftSettings(critter, heavy);
   training.meter = clamp01((training.meter ?? 0) - settings.decay * dt);
-  if (training.meter >= LIFT_BAND[0] && training.meter <= LIFT_BAND[1])
+  const band = liftBand(training);
+  if (training.meter >= band[0] && training.meter <= band[1])
     training.progress = Math.min(1, (training.progress ?? 0) + dt / settings.hold);
   return (training.progress ?? 0) >= 1 || training.elapsed >= settings.limit;
 }
@@ -65,10 +88,11 @@ export function stepPace(training: Training, critter: Critter, dt: number): bool
   let pace = Math.max(0, (training.meter ?? 0) - 0.25 * dt);
   if (winded) pace = Math.min(pace, 0.35);
   training.meter = pace;
+  const steady = paceBand(training);
   const drain =
-    pace > PACE_STEADY[1]
-      ? (pace - PACE_STEADY[1]) * 1.6 * (1 - Math.min(0.5, critter.stats.endurance * 0.03))
-      : pace < PACE_STEADY[0]
+    pace > steady[1]
+      ? (pace - steady[1]) * 1.6 * (1 - Math.min(0.5, critter.stats.endurance * 0.03))
+      : pace < steady[0]
         ? -0.08
         : 0;
   training.reserve = clamp01((training.reserve ?? 1) - drain * dt);
@@ -90,4 +114,50 @@ export function paceScore(training: Training): number {
 export function push(training: Training): void {
   const cap = training.kind === 'pace' && training.stage === 1 ? 0.35 : 1;
   training.meter = Math.min(cap, (training.meter ?? 0) + (training.kind === 'pace' ? 0.1 : 0.12));
+}
+
+/** The log toss's sweet spot around the peak; strength widens it. */
+export function tossBand(training: Training, critter: Critter): [number, number] {
+  const half = Math.min(0.12, 0.04 + critter.stats.strength * 0.006) * (training.assist ? 1.4 : 1);
+  return [TOSS_PEAK - half, Math.min(1, TOSS_PEAK + half)];
+}
+
+/** Power while charging: up over TOSS_RISE seconds, then back down, and again. */
+export function tossPower(training: Training): number {
+  const held = (training.elapsed - (training.chargeStart ?? training.elapsed)) % (TOSS_RISE * 2);
+  return held <= TOSS_RISE ? held / TOSS_RISE : 2 - held / TOSS_RISE;
+}
+
+/** Inside the sweet spot a throw scores 80–100%; outside it falls away quickly. */
+export function tossAccuracy(power: number, band: readonly [number, number]): number {
+  const center = (band[0] + band[1]) / 2;
+  const half = (band[1] - band[0]) / 2;
+  const off = Math.abs(power - center);
+  return off <= half ? 0.8 + 0.2 * (1 - off / half) : Math.max(0, 0.8 - (off - half) * 4);
+}
+
+export function startToss(training: Training): void {
+  training.meter = 0;
+  training.stage = 0;
+  training.lastHitAt = 0;
+}
+
+/** Advances the charge; returns true when time runs out. */
+export function stepToss(training: Training): boolean {
+  if (training.stage === 1) training.meter = tossPower(training);
+  return training.elapsed >= TOSS_LIMIT;
+}
+
+/** Releases the log at the current power; returns true after the third throw. */
+export function throwLog(training: Training, critter: Critter): boolean {
+  training.meter = tossPower(training);
+  training.hits.push(tossAccuracy(training.meter, tossBand(training, critter)));
+  training.stage = 0;
+  training.chargeStart = undefined;
+  return training.hits.length >= 3;
+}
+
+/** How far a throw flies, in metres, for the result note and the landing marker. */
+export function throwDistance(accuracy: number, critter: Critter): number {
+  return Math.round((3 + accuracy * 7 + critter.stats.strength * 0.25) * 10) / 10;
 }

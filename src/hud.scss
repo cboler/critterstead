@@ -849,6 +849,12 @@
   margin-top: 12px;
   font-size: 12px;
 }
+// Held to charge: no text selection, callout menu or scrolling while pressed.
+.hold-button {
+  touch-action: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
 .walk-prompt {
   position: absolute;
   z-index: 8;
