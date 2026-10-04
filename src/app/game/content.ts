@@ -101,6 +101,30 @@ export const DRILLS: Record<Drill, DrillDefinition> = {
     gain: { base: 0.2, score: 0.7, care: 0.3 },
     praise: ['What a throw!', 'Good distance!', 'A brave try.'],
   },
+  beam: {
+    name: 'Balance beam',
+    stat: 'endurance',
+    side: 'strength',
+    sideShare: 0.3,
+    energy: 25,
+    minutes: 30,
+    skill: 'balancing',
+    flag: 'balanced',
+    gain: { base: 0.2, score: 0.7, care: 0.3 },
+    praise: ['Steady as a stone!', 'Nicely balanced!', 'A wobbly try.'],
+  },
+  run: {
+    name: 'Hurdle run',
+    stat: 'speed',
+    side: 'endurance',
+    sideShare: 0.3,
+    energy: 30,
+    minutes: 35,
+    skill: 'running',
+    flag: 'ran',
+    gain: { base: 0.2, score: 0.75, care: 0.3 },
+    praise: ['A clean run!', 'Good hopping!', 'A tumbly try.'],
+  },
 };
 export const DRILL_IDS = Object.keys(DRILLS) as Drill[];
 // Plan 004 provisional routine tuning: a drill run from the menu, without you playing it.
@@ -250,6 +274,12 @@ export function arenaSeats(): {
 // Logs are thrown west from the stump, away from the glade's paths.
 export const TOSS_STATION: Point = { x: -5, z: -3.4 };
 export const EXHIBITION_BOOTH: Point = { x: -1.8, z: 0.4 };
+// The balance beam runs east–west on two trestles in the middle of the glade; the hurdle
+// run's lane lies south-west, where no tree stands between it and the camera.
+export const BEAM_STATION: Point = { x: 2.7, z: 2.3 };
+export const BEAM_HALF_LENGTH = 1.3;
+export const RUN_LANE: Point = { x: -4.6, z: 3.4 };
+export const RUN_HALF_LENGTH = 2.2;
 
 // Oakhaven's buildings along the north of the square (footprints, without the plinth).
 export const TOWN_BUILDINGS: {
@@ -416,6 +446,20 @@ export const AREAS: Record<AreaId, AreaDefinition> = {
         name: 'Log toss',
         position: TOSS_STATION,
         radius: 1.1,
+      },
+      {
+        id: 'beam',
+        kind: 'beam',
+        name: 'Balance beam',
+        position: BEAM_STATION,
+        radius: 1.3,
+      },
+      {
+        id: 'run',
+        kind: 'run',
+        name: 'Hurdle run',
+        position: RUN_LANE,
+        radius: 1.3,
       },
     ],
   },

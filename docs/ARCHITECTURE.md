@@ -213,6 +213,19 @@ the `drill` and one pre-drawn score in `scores`, finished by `update` after
 `ROUTINE.seconds` and paid by the same `finishDrill`. The renderer's `rehearse` turns a
 routine into a stand-in activity of its drill, so each station replays its own animation.
 
+## Current implementation additions — plan 004 M3 (2026-10-03)
+
+The balance beam and the hurdle run draw a `seed` when they start, so a save mid-drill
+resumes the same drift or course. The beam is steered, not pressed: `training-steer`
+sets a held lean (-1 to 1) that the host keeps outside the save, and the app sends it
+every frame from keys, the controller and the card's held buttons. `beamZone` moves the
+steady zone from the seed and elapsed time; `stepBeam` crosses at full pace inside it and
+a third of the pace outside. `runCourse(seed)` lays out the hurdles; `stepRun` moves the
+jump (`meter` height, `rise` speed, `stage` jumps used) in sixtieth-of-a-second steps and
+pushes one result per hurdle into `hits`. The card draws the run from the same course;
+the renderer shuttles the critter along the glade lane and lays the coming hurdles where
+it will meet them.
+
 ## Architectural reality audit (reconciliation baseline before M4)
 
 The following audit records the reconciled pre-M4 baseline. The dated additions

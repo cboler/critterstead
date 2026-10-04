@@ -161,3 +161,146 @@ export function throwLog(training: Training, critter: Critter): boolean {
 export function throwDistance(accuracy: number, critter: Critter): number {
   return Math.round((3 + accuracy * 7 + critter.stats.strength * 0.25) * 10) / 10;
 }
+
+// Plan 004 provisional balance beam tuning: a crossing takes BEAM_CROSSING seconds in the
+// zone; outside it the critter wobbles and creeps on at a third of the pace.
+export const BEAM_CROSSING = 10;
+export const BEAM_LIMIT = 20;
+export const BEAM_STEER = 0.6;
+const BEAM_WOBBLE_PACE = 0.35;
+
+/** Where the steady zone sits: two slow swells, offset per session by the seed. */
+export function beamZone(training: Training): number {
+  const turn = (training.seed ?? 0) * Math.PI * 2;
+  const t = training.elapsed;
+  return clamp01(0.5 + 0.22 * Math.sin(t * 0.9 + turn) + 0.12 * Math.sin(t * 2.1 + turn * 3));
+}
+
+/** The steady zone around its drifting centre; endurance widens it. */
+export function beamBand(training: Training, critter: Critter): [number, number] {
+  const half = Math.min(0.16, 0.08 + critter.stats.endurance * 0.004) * (training.assist ? 1.4 : 1);
+  return [clamp01(training.phase - half), clamp01(training.phase + half)];
+}
+
+export function startBeam(training: Training, seed: number): void {
+  training.seed = seed;
+  training.phase = beamZone(training);
+  training.meter = training.phase;
+  training.progress = 0;
+  training.stage = 0;
+  training.lastHitAt = 0;
+}
+
+/** Leans with the steering and crosses; returns true when across or out of time. */
+export function stepBeam(training: Training, critter: Critter, dt: number, steer: number): boolean {
+  const lean = Math.max(-1, Math.min(1, steer));
+  training.meter = clamp01((training.meter ?? 0.5) + lean * BEAM_STEER * dt);
+  training.phase = beamZone(training);
+  const [low, high] = beamBand(training, critter);
+  const steady = training.meter >= low && training.meter <= high;
+  training.stage = steady ? 0 : 1;
+  training.progress = Math.min(
+    1,
+    (training.progress ?? 0) + (dt / BEAM_CROSSING) * (steady ? 1 : BEAM_WOBBLE_PACE),
+  );
+  return training.progress >= 1 || training.elapsed >= BEAM_LIMIT;
+}
+
+export function beamScore(training: Training): number {
+  const progress = training.progress ?? 0;
+  if (progress < 1) return progress * 0.5;
+  return Math.max(0.4, Math.min(1, 1 - Math.max(0, training.elapsed - BEAM_CROSSING - 0.5) / 12));
+}
+
+// Plan 004 provisional runner tuning, in seconds of running and jump heights from 0 to 1.
+export const RUN_SECONDS = 24;
+export const RUN_GRAVITY = 5.2;
+export const RUN_JUMP = 2.1;
+export const HURDLE_HEIGHT = { low: 0.2, tall: 0.6 } as const;
+// A frame's worth of running, so a slow frame never steps over a hurdle unseen.
+const RUN_STEP = 1 / 60;
+
+export interface Hurdle {
+  // Seconds into the run.
+  at: number;
+  // Tall hedges need a double jump; low stumps clear with one.
+  tall: boolean;
+}
+
+/** The course a seed lays out: low stumps, and tall hedges once the run is under way. */
+export function runCourse(seed: number): Hurdle[] {
+  let state = (Math.floor(seed * 4294967296) ^ 0x9e3779b9) >>> 0;
+  const random = () => {
+    state = (Math.imul(1664525, state) + 1013904223) >>> 0;
+    return state / 4294967296;
+  };
+  const hurdles: Hurdle[] = [];
+  // A hedge gets a longer run-up: land from the last hurdle, then jump twice.
+  for (let at = 2.5, tall = false; at < RUN_SECONDS - 1.5;) {
+    hurdles.push({ at: Math.round(at * 100) / 100, tall });
+    tall = hurdles.length >= 2 && random() < 0.35;
+    at += (tall ? 1.6 : 1.3) + random() * 0.9;
+  }
+  return hurdles;
+}
+
+/** Half a hurdle's width, in seconds of running; the assist narrows it. */
+export const hurdleHalf = (training: Training) => (training.assist ? 0.055 : 0.09);
+
+/** Upward speed of a jump; speed springs a little higher. */
+export const runJump = (critter: Critter) =>
+  RUN_JUMP * (1 + Math.min(0.12, critter.stats.speed * 0.008));
+
+export function startRun(training: Training, seed: number): void {
+  training.seed = seed;
+  training.meter = 0;
+  training.rise = 0;
+  training.progress = 0;
+  training.stage = 0;
+  training.lastHitAt = 0;
+}
+
+/** A press jumps, and a second press in the air jumps again; returns false after two. */
+export function jump(training: Training, critter: Critter): boolean {
+  if ((training.stage ?? 0) >= 2) return false;
+  training.rise = runJump(critter);
+  training.stage = (training.stage ?? 0) + 1;
+  return true;
+}
+
+/** Runs, falls and meets hurdles in small steps; returns true at the end of the course. */
+export function stepRun(training: Training, dt: number): boolean {
+  const course = runCourse(training.seed ?? 0);
+  const half = hurdleHalf(training);
+  for (let left = dt; left > 1e-9; left -= RUN_STEP) {
+    const step = Math.min(left, RUN_STEP);
+    const before = training.rise ?? 0;
+    const rise = before - RUN_GRAVITY * step;
+    let height = (training.meter ?? 0) + ((before + rise) / 2) * step;
+    training.rise = rise;
+    if (height <= 0) {
+      height = 0;
+      training.rise = 0;
+      training.stage = 0;
+    } else if (height >= 1) {
+      height = 1;
+      training.rise = Math.min(0, rise);
+    }
+    training.meter = height;
+    training.progress = Math.min(1, (training.progress ?? 0) + step / RUN_SECONDS);
+    const run = training.progress * RUN_SECONDS;
+    const next = course[training.hits.length];
+    if (next && run >= next.at - half) {
+      if (height < HURDLE_HEIGHT[next.tall ? 'tall' : 'low']) training.hits.push(0);
+      else if (run > next.at + half) training.hits.push(1);
+    }
+    if (training.progress >= 1) return true;
+  }
+  return false;
+}
+
+/** The share of the course's hurdles cleared. */
+export function runScore(training: Training): number {
+  const course = runCourse(training.seed ?? 0);
+  return course.length ? training.hits.reduce((sum, hit) => sum + hit, 0) / course.length : 0;
+}

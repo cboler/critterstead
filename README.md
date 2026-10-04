@@ -15,7 +15,8 @@ Choose a first companion from three critters of different families, practice tim
 garden beds of seasonal crops, explore Clover Glade, teach berry gathering through
 observation and cues, watch independent foraging, sell produce, improve the shed,
 run a small daily time trial, train strength at the boulder lift and the glade's log
-toss and endurance on its pacing loop (repeating a drill the same day gives less; the
+toss, endurance on its pacing loop and balance beam, and speed on its hurdle run
+(repeating a drill the same day gives less; the
 help panel offers wider timing windows; a drill played together once can then be run as
 a routine from its station), walk on to the
 Colosseum grounds for a daily athletic exhibition, step into the cottage to read the
@@ -50,7 +51,8 @@ npm start
 ```
 
 Open `http://localhost:4200/`. WASD or arrow keys move; **E** interacts; **Space**
-cues the companion during training and racing; **J** opens the journal; **Esc**
+cues the companion during training and racing (and jumps on the hurdle run; **A**/**D** lean
+on the balance beam); **J** opens the journal; **Esc**
 pauses or closes a menu. Click/tap the ground to walk there, or hold a finger (or the
 mouse button) on the world to walk toward it; releasing stops. Scroll, pinch, **+**/**−**
 or the on-screen buttons zoom the camera. Small screens show a details chip; Help has a
@@ -59,7 +61,8 @@ quests, the longer journey, and each day's history. Backtick opens developer sav
 including deliberate reset.
 
 A standard gamepad uses the left stick to move, **A** to interact/cue, the D-pad to
-select actions/menu buttons, **B** to close, **X** for help, **Y** for the journal,
+select actions/menu buttons (on the balance beam, the D-pad or stick leans), **B** to
+close, **X** for help, **Y** for the journal,
 and Menu to pause. On-screen hints adapt to a connected controller. Automated
 controller coverage uses a mocked Gamepad API; physical hardware still needs a
 playtest.

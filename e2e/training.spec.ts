@@ -1,10 +1,13 @@
 import { expect, test } from '@playwright/test';
 import { activeCritter } from '../src/app/game/model';
+import { runCourse } from '../src/app/game/drills';
 import {
+  crossBeam,
   cues,
   developmentState,
   holdGauge,
   PACE,
+  runHurdles,
   savedState,
   SPOTS,
   tossLogs,
@@ -133,5 +136,72 @@ test('throws logs in the glade by tapping twice or holding and letting go', asyn
   const routined = await savedState(page);
   expect(activeCritter(routined).drills.sessions).toEqual({ toss: 2 });
   expect(activeCritter(routined).practised).toEqual({ toss: 1 });
+  expect(errors).toEqual([]);
+});
+
+test('crosses the balance beam and runs the hurdles in the glade', async ({ page }, info) => {
+  test.skip(!['desktop', 'phone-portrait'].includes(info.project.name));
+  test.setTimeout(180_000 * PACE);
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto('/');
+  await takeStarterHome(page);
+  await walk(page, 8, 0);
+  await page.getByRole('button', { name: /Explore Clover Glade/ }).click();
+  await expect(page.locator('.location-tag')).toContainText('Clover Glade');
+
+  await walk(page, ...SPOTS.beam);
+  const start = activeCritter(await developmentState(page)).stats;
+  await page.getByRole('button', { name: /^Balance beam · 25 Mallow energy/ }).click();
+  await expect(page.getByRole('meter', { name: 'Balance' })).toBeVisible();
+  // Holding the lean button and D both move the critter right.
+  const lean = async () => (await developmentState(page)).training?.meter ?? 0;
+  const before = await lean();
+  const right = page.getByRole('button', { name: 'Lean right' });
+  const box = (await right.boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await expect.poll(lean).toBeGreaterThan(before + 0.05);
+  await page.mouse.up();
+  await page.keyboard.down('a');
+  const leaned = await lean();
+  await expect.poll(lean).toBeLessThan(leaned - 0.05);
+  await page.keyboard.up('a');
+  await page.screenshot({ path: info.outputPath('balance-beam.png'), fullPage: true });
+  await crossBeam(page);
+  await expect(page.locator('.result-card')).toContainText(/gains [\d.]+ endurance/);
+  const crossed = await savedState(page);
+  expect(activeCritter(crossed).stats.endurance).toBeGreaterThan(start.endurance + 0.3);
+  expect(crossed.flags).toContain('balanced');
+
+  await walk(page, ...SPOTS.run);
+  await page.getByRole('button', { name: /^Hurdle run · 30 Mallow energy/ }).click();
+  await expect(
+    page.getByRole('img', { name: /^Hurdle run: 0 of \d+ hurdles cleared/ }),
+  ).toBeVisible();
+  // The jump button jumps on the press, and a second press jumps again in the air.
+  const jump = page.getByRole('button', { name: /Jump!/ });
+  const jumpBox = (await jump.boundingBox())!;
+  await page.mouse.move(jumpBox.x + jumpBox.width / 2, jumpBox.y + jumpBox.height / 2);
+  await expect
+    .poll(async () => (await developmentState(page)).training?.elapsed ?? 0)
+    .toBeGreaterThan(0.1);
+  await page.mouse.down();
+  await expect.poll(async () => (await developmentState(page)).training?.stage).toBe(1);
+  await page.mouse.up();
+  await page.keyboard.press('Space');
+  await expect.poll(async () => (await developmentState(page)).training?.stage).toBe(2);
+  await page.screenshot({ path: info.outputPath('hurdle-run.png'), fullPage: true });
+  const course = runCourse((await developmentState(page)).training!.seed!);
+  await runHurdles(page, course);
+  await expect(page.locator('.result-card')).toContainText(/Cleared \d+ of \d+ hurdles/);
+  const ran = await savedState(page);
+  expect(ran.flags).toContain('ran');
+  expect(activeCritter(ran).drills.sessions).toEqual({ beam: 1, run: 1 });
+  // Frame timing in the page can cost a hurdle; most should still clear.
+  const result = await page.locator('.result-card').innerText();
+  const cleared = Number(/Cleared (\d+) of/.exec(result)![1]);
+  expect(cleared).toBeGreaterThanOrEqual(course.length - 2);
+  await page.screenshot({ path: info.outputPath('hurdle-run-result.png'), fullPage: true });
   expect(errors).toEqual([]);
 });

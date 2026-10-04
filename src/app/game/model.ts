@@ -1,5 +1,5 @@
 export type AreaId = 'homestead' | 'glade' | 'cottage' | 'colosseum' | 'town';
-export type Drill = 'hoops' | 'lift' | 'pace' | 'toss';
+export type Drill = 'hoops' | 'lift' | 'pace' | 'toss' | 'beam' | 'run';
 export type Season = 'spring' | 'summer' | 'autumn' | 'winter';
 export type Weather = 'sunny' | 'cloudy' | 'rain' | 'snow';
 export type CropId = 'feed' | 'turnip' | 'wheat' | 'sunberry';
@@ -159,19 +159,25 @@ export interface Training {
   hits: number[];
   elapsed: number;
   lastHitAt?: number;
-  kind: 'training' | 'race' | 'lift' | 'pace' | 'toss' | 'exhibition' | 'routine';
+  kind: 'training' | 'race' | 'lift' | 'pace' | 'toss' | 'beam' | 'run' | 'exhibition' | 'routine';
   // A routine: the drill the critter runs on its own; its score is drawn as it starts.
   drill?: Drill;
   // Wider timing windows, fixed when the activity starts.
   assist?: boolean;
   // Gauge drills: meter is force or pace, progress is 0-1 toward done, reserve is breath.
   // Log toss: meter is power, hits are throws, and chargeStart is when the charge began.
+  // Balance beam: meter is where the critter leans, phase the drifting zone's centre, and
+  // progress the crossing. Runner: meter is jump height, rise its upward speed, progress
+  // the course, and hits one per obstacle. Seed shapes the drift or lays out the course.
   meter?: number;
   progress?: number;
   reserve?: number;
   // Exhibition: 0 sprint, 1 stone pull. Pacing: 1 while winded. Log toss: 1 while charging.
+  // Balance beam: 1 while wobbling outside the zone. Runner: jumps used since landing.
   stage?: number;
   chargeStart?: number;
+  rise?: number;
+  seed?: number;
   scores?: number[];
 }
 export interface GameState {
@@ -205,6 +211,8 @@ export type GameCommand =
   | { type: 'interact'; targetId: string; action: string }
   | { type: 'training-hit' }
   | { type: 'training-release' }
+  // Balance beam: lean left (-1), right (1), or hold still (0).
+  | { type: 'training-steer'; direction: number }
   | { type: 'drop-cargo' }
   | { type: 'debug'; action: 'next-day' | 'restore' };
 export interface InteractionAction {
@@ -236,6 +244,8 @@ export interface WorldObject {
     | 'lift'
     | 'pace'
     | 'toss'
+    | 'beam'
+    | 'run'
     | 'exhibition'
     | 'notices';
   name: string;

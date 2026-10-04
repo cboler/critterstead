@@ -118,6 +118,63 @@
               >
                 <i [style.width.%]="routineProgress() * 100"></i>
               </div>
+            } @else if (copy.gauge === 'beam') {
+              <p>
+                Hold <kbd>◀</kbd> or <kbd>▶</kbd>
+                {{ controllerConnected() ? '(d-pad or stick)' : '(A or D on a keyboard)' }} to lean,
+                and keep {{ companion().name }} in the drifting green.
+              </p>
+              <div
+                class="timing-track"
+                [class.wobbling]="activity.stage === 1"
+                role="meter"
+                aria-label="Balance"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                [attr.aria-valuenow]="round((activity.meter ?? 0) * 100)"
+              >
+                <span
+                  class="sweet-spot"
+                  [style.left.%]="band[0] * 100"
+                  [style.width.%]="(band[1] - band[0]) * 100"
+                ></span
+                ><i [style.left.%]="(activity.meter ?? 0) * 100"></i>
+              </div>
+              <div class="meter-label">
+                <span>Across</span><strong>{{ round((activity.progress ?? 0) * 100) }}%</strong>
+              </div>
+              <div class="meter"><i [style.width.%]="(activity.progress ?? 0) * 100"></i></div>
+            } @else if (copy.gauge === 'run') {
+              @if (runView(); as view) {
+                <svg
+                  class="run-view"
+                  viewBox="0 0 300 90"
+                  role="img"
+                  [attr.aria-label]="
+                    'Hurdle run: ' + view.cleared + ' of ' + view.total + ' hurdles cleared'
+                  "
+                >
+                  <rect class="run-ground" x="0" y="74" width="300" height="16"></rect>
+                  @for (hurdle of view.hurdles; track hurdle.at) {
+                    <rect
+                      [class]="hurdle.tall ? 'run-hedge' : 'run-stump'"
+                      [class.knocked]="hurdle.result === 0"
+                      [attr.x]="hurdle.x - (hurdle.tall ? 7 : 6)"
+                      [attr.y]="hurdle.top"
+                      [attr.width]="hurdle.tall ? 14 : 12"
+                      [attr.height]="74 - hurdle.top"
+                      rx="3"
+                    ></rect>
+                  }
+                  <ellipse class="run-shadow" cx="56" cy="75" rx="9" ry="2.5"></ellipse>
+                  <g class="run-critter" [class.bumped]="view.bumped">
+                    <ellipse cx="52" [attr.cy]="view.height - 17" rx="2.5" ry="5"></ellipse>
+                    <ellipse cx="58" [attr.cy]="view.height - 17" rx="2.5" ry="5"></ellipse>
+                    <ellipse cx="56" [attr.cy]="view.height - 8" rx="10" ry="8"></ellipse>
+                    <circle cx="62" [attr.cy]="view.height - 10" r="1.6" class="run-eye"></circle>
+                  </g>
+                </svg>
+              }
             } @else if (copy.gauge) {
               <div
                 class="timing-track"
@@ -170,7 +227,21 @@
             }
             <div class="training-footer">
               <span>{{ copy.gauge ? copy.status : activity.hits.length + ' / 3 beats' }}</span>
-              @if (copy.gauge === 'toss') {
+              @if (copy.gauge === 'beam') {
+                <span class="lean-buttons">
+                  @for (side of [-1, 1]; track side) {
+                    <button
+                      class="primary hold-button"
+                      [attr.aria-label]="side < 0 ? 'Lean left' : 'Lean right'"
+                      (pointerdown)="leanDrill(side, $event)"
+                      (pointerup)="leanDrill(0)"
+                      (pointercancel)="leanDrill(0)"
+                    >
+                      {{ side < 0 ? '◀' : '▶' }}
+                    </button>
+                  }
+                </span>
+              } @else if (copy.gauge === 'toss' || copy.gauge === 'run') {
                 <button
                   class="primary hold-button"
                   (pointerdown)="pressDrill($event)"

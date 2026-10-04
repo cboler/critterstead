@@ -33,7 +33,17 @@ import {
 import { nextObjective, objectives } from './game/objectives';
 import { IndexedDbStorage } from './game/storage';
 import { encumbrance } from './game/checks';
-import { liftBand, paceBand, sweepBand, throwDistance, tossBand } from './game/drills';
+import {
+  beamBand,
+  HURDLE_HEIGHT,
+  liftBand,
+  paceBand,
+  runCourse,
+  RUN_SECONDS,
+  sweepBand,
+  throwDistance,
+  tossBand,
+} from './game/drills';
 import { GameWorld } from './game/world';
 import {
   storedQualityChoice,
@@ -73,12 +83,19 @@ function sidePanelLayout(): boolean {
 const NOTE_MS = 6500;
 const RESULT_MS = 2800;
 const MILESTONE_MS = 5200;
+// The hurdle run's side view, in SVG units: where the runner stands and the ground lies.
+const RUNNER_X = 56;
+const GROUND_Y = 74;
+const RUN_PIXELS = 64;
+const HEIGHT_PIXELS = 58;
 const ACTIVITY_NAMES: Record<string, string> = {
   training: 'PRACTICE HOOPS',
   race: 'THE CLOVER CUP',
   lift: 'BOULDER LIFT',
   pace: 'DISTANCE PACING',
   toss: 'LOG TOSS',
+  beam: 'BALANCE BEAM',
+  run: 'HURDLE RUN',
   routine: 'A ROUTINE',
   exhibition: 'THE EXHIBITION',
 };
@@ -153,6 +170,9 @@ export class App implements AfterViewInit, OnDestroy {
   private changedTimer = 0;
   private readonly keys = new Set<string>();
   private gamepadButtons: boolean[] = [];
+  // Balance beam leaning from the controller and the card's held buttons, -1 to 1.
+  private padLean = 0;
+  private touchLean = 0;
   private walkTo: Point | null = null;
   private destroyed = false;
   private saveBlocked = false;
@@ -232,7 +252,34 @@ export class App implements AfterViewInit, OnDestroy {
       return liftBand(activity);
     if (activity.kind === 'pace') return paceBand(activity);
     if (activity.kind === 'toss') return tossBand(activity, this.companion());
+    if (activity.kind === 'beam') return beamBand(activity, this.companion());
     return sweepBand(activity);
+  });
+  /**
+   * The hurdle run seen from the side: the runner stands at RUNNER_X and hurdles slide in
+   * from the right, RUN_PIXELS to a second of running.
+   */
+  protected readonly runView = computed(() => {
+    const activity = this.state().training;
+    if (activity?.kind !== 'run') return null;
+    const course = runCourse(activity.seed ?? 0);
+    const run = (activity.progress ?? 0) * RUN_SECONDS;
+    return {
+      height: GROUND_Y - (activity.meter ?? 0) * HEIGHT_PIXELS,
+      hurdles: course
+        .map((hurdle, index) => ({
+          at: hurdle.at,
+          x: RUNNER_X + (hurdle.at - run) * RUN_PIXELS,
+          tall: hurdle.tall,
+          top: GROUND_Y - HURDLE_HEIGHT[hurdle.tall ? 'tall' : 'low'] * HEIGHT_PIXELS,
+          result: activity.hits[index],
+        }))
+        .filter((hurdle) => hurdle.x > -20 && hurdle.x < 320),
+      // A bump on the last hurdle shows for a moment after it.
+      bumped: activity.hits.at(-1) === 0 && run - (course[activity.hits.length - 1]?.at ?? 0) < 0.5,
+      cleared: activity.hits.filter((hit) => hit > 0).length,
+      total: course.length,
+    };
   });
   /** How far through a routine the critter is, from 0 to 1. */
   protected readonly routineProgress = computed(() =>
@@ -282,6 +329,26 @@ export class App implements AfterViewInit, OnDestroy {
         status: activity.hits.length + ' / 3 throws',
         gauge: 'toss' as const,
       };
+    if (activity.kind === 'beam')
+      return {
+        eyebrow: 'BALANCE BEAM',
+        heading: activity.stage === 1 ? 'Wobbling! Lean back to the green' : 'Steady across',
+        instructions: '',
+        button: '',
+        status: Math.round(activity.elapsed) + 's',
+        gauge: 'beam' as const,
+      };
+    if (activity.kind === 'run') {
+      const view = this.runView();
+      return {
+        eyebrow: 'HURDLE RUN',
+        heading: view?.bumped ? 'Bump! Keep going' : 'Jump, ' + name + ', jump!',
+        instructions: 'to jump a stump; press again in the air to clear a tall hedge.',
+        button: 'Jump!',
+        status: (view?.cleared ?? 0) + ' / ' + (view?.total ?? 0) + ' cleared',
+        gauge: 'run' as const,
+      };
+    }
     if (activity.kind === 'pace')
       return {
         eyebrow: 'DISTANCE PACING',
@@ -572,6 +639,10 @@ export class App implements AfterViewInit, OnDestroy {
       const previousDay = this.host.state.day;
       const training = !!this.host.state.training;
       const working = !!this.host.state.work;
+      if (this.host.state.training?.kind === 'beam')
+        this.host.dispatch({ type: 'training-steer', direction: this.lean() });
+      // A held lean button removed with its card never sees its pointer come up.
+      else this.touchLean = 0;
       this.host.update(dt);
       if (training && !this.host.state.training) this.zone.run(() => this.finishActivity());
       if (working && !this.host.state.work) this.zone.run(() => this.finishWork());
@@ -681,6 +752,7 @@ export class App implements AfterViewInit, OnDestroy {
       this.zone.run(() => this.controllerConnected.set(!!pad));
     if (!pad) {
       this.gamepadButtons = [];
+      this.padLean = 0;
       return { x: 0, z: 0 };
     }
     const pressed = pad.buttons.map((button) => button.pressed);
@@ -690,6 +762,11 @@ export class App implements AfterViewInit, OnDestroy {
     this.gamepadButtons = pressed;
     if (letGo && this.host.state.training?.kind === 'toss')
       this.zone.run(() => this.releaseDrill());
+    const beam = this.host.state.training?.kind === 'beam';
+    const stick = pad.axes[0] ?? 0;
+    this.padLean = beam
+      ? (Math.abs(stick) > 0.18 ? stick : 0) + (pressed[15] ? 1 : 0) - (pressed[14] ? 1 : 0)
+      : 0;
     if (this.offer()) {
       if (edge(12) || edge(14)) this.zone.run(() => this.moveOfferFocus(-1));
       if (edge(13) || edge(15)) this.zone.run(() => this.moveOfferFocus(1));
@@ -715,8 +792,9 @@ export class App implements AfterViewInit, OnDestroy {
       });
     if (edge(2)) this.zone.run(() => this.openPanel(this.panel() === 'help' ? null : 'help'));
     if (edge(3)) this.zone.run(() => this.openPanel(this.panel() === 'journal' ? null : 'journal'));
-    if (edge(12) || edge(14)) this.zone.run(() => this.navigateGamepad(-1));
-    if (edge(13) || edge(15)) this.zone.run(() => this.navigateGamepad(1));
+    // On the beam the d-pad leans instead of moving focus.
+    if (!beam && (edge(12) || edge(14))) this.zone.run(() => this.navigateGamepad(-1));
+    if (!beam && (edge(13) || edge(15))) this.zone.run(() => this.navigateGamepad(1));
     if (edge(0)) this.zone.run(() => this.activateGamepad());
     if (this.paused() || this.panel() || this.host.state.training) return { x: 0, z: 0 };
     const horizontal = pad.axes[0] ?? 0;
@@ -944,6 +1022,17 @@ export class App implements AfterViewInit, OnDestroy {
   protected releaseDrill(): void {
     if (this.host.state.training?.kind === 'toss') this.command({ type: 'training-release' });
   }
+  /** The card's lean buttons steer the beam while held. */
+  protected leanDrill(direction: number, event?: PointerEvent): void {
+    if (event) (event.currentTarget as Element).setPointerCapture?.(event.pointerId);
+    this.touchLean = direction;
+  }
+  /** Balance beam steering from every input: keys, controller and held buttons together. */
+  private lean(): number {
+    const right = this.keys.has('d') || this.keys.has('arrowright') ? 1 : 0;
+    const left = this.keys.has('a') || this.keys.has('arrowleft') ? 1 : 0;
+    return Math.max(-1, Math.min(1, right - left + this.padLean + this.touchLean));
+  }
   /** Pointer clicks already pressed on pointer down; only a keyboard click (detail 0) acts. */
   protected clickDrill(event: MouseEvent): void {
     if (event.detail === 0) this.act();
@@ -1010,8 +1099,13 @@ export class App implements AfterViewInit, OnDestroy {
       if (!event.repeat && key === 'escape') this.zone.run(() => this.skipOpening());
       return;
     }
-    // The log toss owns its keys, even on a focused button, so a held key can charge it.
-    if (this.host.state.training?.kind === 'toss' && [' ', 'e', 'enter'].includes(key)) {
+    // The log toss and the hurdle run own their keys, even on a focused button, so a held key
+    // can charge a throw and a jump lands on the key going down.
+    const held = this.host.state.training?.kind;
+    if (
+      (held === 'toss' && [' ', 'e', 'enter'].includes(key)) ||
+      (held === 'run' && [' ', 'e', 'enter', 'w', 'arrowup'].includes(key))
+    ) {
       event.preventDefault();
       if (!event.repeat) this.zone.run(() => this.act());
       return;

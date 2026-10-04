@@ -5,16 +5,20 @@ import {
   AREAS,
   arenaPosts,
   arenaSeats,
+  BEAM_HALF_LENGTH,
+  BEAM_STATION,
   CROPS,
   EXHIBITION_BOOTH,
   ROUTINE,
+  RUN_HALF_LENGTH,
+  RUN_LANE,
   TAVERN_BIN,
   TOSS_STATION,
   TOWN_BUILDINGS,
   TOWN_CARTS,
   TOWN_WELL,
 } from './content';
-import { throwDistance } from './drills';
+import { HURDLE_HEIGHT, runCourse, RUN_SECONDS, throwDistance } from './drills';
 import { plotReady } from './garden';
 import { calendarDate, weatherFor } from './calendar';
 import { buildSurroundings, type Surroundings } from './render/terrain';
@@ -85,6 +89,11 @@ const SUN_OFFSET = new THREE.Vector3(-11, 22, 13);
 const TOSS_SCALE = 0.33;
 // The thrower stands just behind the stump, so the stump stays in view in front of them.
 const TOSS_THROWER = { x: -0.2, z: -0.7 };
+// The beam's walking surface, and how fast the runner covers the lane in world units.
+const BEAM_TOP = 0.5;
+const LANE_SPEED = 1.6;
+// How high a runner's jump (0 to 1) rises in world units.
+const JUMP_SCALE = 1.4;
 const ZOOM_LIMITS = { min: 4.2, max: 12, standard: 6.6 } as const;
 const INDOOR_ZOOM = 4.6;
 // Narrow phone screens still show a useful width of the world around the rancher.
@@ -296,6 +305,10 @@ export class GameWorld {
   private tossThrows = 0;
   private tossFlight = 1;
   private tossLanding = TOSS_STATION.x;
+  // The hurdle run: the next few hurdles on the course, laid out where the runner meets them.
+  private readonly hurdles: { stump: THREE.Object3D; hedge: THREE.Object3D }[] = [];
+  // How far the critter leans on the balance beam, added to its pose.
+  private beamLean = 0;
   private readonly spectators = new THREE.Group();
   private readonly confetti = new THREE.Group();
   private fanfareTime = 0;
@@ -549,6 +562,15 @@ export class GameWorld {
         x: TOSS_STATION.x + TOSS_THROWER.x,
         z: TOSS_STATION.z + TOSS_THROWER.z,
       };
+    } else if (activity?.kind === 'beam') {
+      visualCritterPosition = {
+        x: BEAM_STATION.x - BEAM_HALF_LENGTH + (activity.progress ?? 0) * BEAM_HALF_LENGTH * 2,
+        z: BEAM_STATION.z,
+      };
+      jumpHeight = BEAM_TOP;
+    } else if (activity?.kind === 'run') {
+      visualCritterPosition = this.lanePoint((activity.progress ?? 0) * RUN_SECONDS);
+      jumpHeight = (activity.meter ?? 0) * JUMP_SCALE;
     } else if (activity?.kind === 'pace') {
       const angle = (activity.progress ?? 0) * Math.PI * 2 - Math.PI / 2;
       visualCritterPosition = { x: 1.2 + Math.cos(angle) * 1.6, z: 6.8 + Math.sin(angle) * 1.6 };
@@ -600,6 +622,14 @@ export class GameWorld {
     // Gauge drills lift their stones with the force meter.
     this.liftStone.position.y = activity?.kind === 'lift' ? gaugeMeter * 0.6 : 0;
     this.animateToss(activity, companion, visualCritterPosition, dt);
+    this.placeHurdles(activity);
+    // On the beam the critter leans the way it is off the zone's centre, and sways a little.
+    const lean =
+      activity?.kind === 'beam'
+        ? ((activity.meter ?? 0.5) - activity.phase) * 1.6 +
+          (this.reducedMotion ? 0 : Math.sin(this.clock * 3) * 0.04)
+        : 0;
+    this.beamLean += (lean - this.beamLean) * Math.min(1, dt * 8);
     this.pullStone.position.x =
       activity?.kind === 'exhibition' && activity.stage === 1 ? (activity.progress ?? 0) * 1.5 : 0;
     const showings = companion.competitions.filter((item) => item.event === 'exhibition').length;
@@ -622,6 +652,7 @@ export class GameWorld {
     if (
       (activity?.kind === 'race' ||
         activity?.kind === 'pace' ||
+        activity?.kind === 'run' ||
         (activity?.kind === 'exhibition' && activity.stage !== 1)) &&
       !this.reducedMotion
     ) {
@@ -1221,6 +1252,7 @@ export class GameWorld {
     this.liftStone.clear();
     this.pullStone.clear();
     this.tossLog.clear();
+    this.hurdles.length = 0;
     this.spectators.clear();
     this.confetti.clear();
     this.smoke.clear();
@@ -1489,8 +1521,8 @@ export class GameWorld {
       [6.8, -6.2, 1.35],
       [7.8, -2.6, 1],
       [-7.4, 5.8, 0.85],
-      [-4, 7, 0.9],
-      [-0.8, 8, 0.85],
+      [-5.6, 8.9, 0.9],
+      [-2.2, 9.2, 0.85],
       [7, 7.2, 0.9],
       [8, 3.5, 1.1],
     ];
@@ -1530,8 +1562,9 @@ export class GameWorld {
         if (index < 3) this.label('Sunberries', node.position.x, 1.7, node.position.z);
       });
     this.tossStation(TOSS_STATION.x, TOSS_STATION.z);
+    this.beamStation();
+    this.runLane();
     const stones: [number, number][] = [
-      [4.3, 2.4],
       [5, 2.1],
       [-2, 5.2],
       [7.4, 0.8],
@@ -1825,6 +1858,21 @@ export class GameWorld {
     const beats = Math.min(3, Math.floor(share * 3.3));
     const within = (share * 3.3) % 1;
     const drill = training.drill!;
+    if (drill === 'beam')
+      return { ...training, kind: 'beam', progress: share, phase: 0.5, meter: 0.5 };
+    if (drill === 'run') {
+      // A stretch of the first course at a brisk pace, hopping each hurdle on cue.
+      const run = 1 + share * ROUTINE.seconds * 1.5;
+      const hop = Math.max(
+        0,
+        ...runCourse(0).map(
+          (hurdle) =>
+            (HURDLE_HEIGHT[hurdle.tall ? 'tall' : 'low'] + 0.2) *
+            (1 - ((run - hurdle.at) / (hurdle.tall ? 0.5 : 0.4)) ** 2),
+        ),
+      );
+      return { ...training, kind: 'run', seed: 0, progress: run / RUN_SECONDS, meter: hop };
+    }
     return {
       ...training,
       kind: drill === 'hoops' ? 'training' : drill,
@@ -1905,6 +1953,96 @@ export class GameWorld {
       log.position.set(at.x + 0.3, 0.13, at.z + 0.35);
       log.rotation.set(0, 0, 0);
     }
+  }
+
+  /** A smoothed log on two trestles, running east–west at the critter's walking height. */
+  private beamStation(): void {
+    const { x, z } = BEAM_STATION;
+    const beam = this.mesh(
+      this.box,
+      '#b08a5e',
+      [x, BEAM_TOP - 0.06, z],
+      [BEAM_HALF_LENGTH * 2 + 0.3, 0.12, 0.22],
+    );
+    this.scenery.add(beam);
+    for (const side of [-1, 1]) {
+      const end = x + side * BEAM_HALF_LENGTH;
+      for (const lean of [-1, 1]) {
+        const leg = this.mesh(
+          this.box,
+          '#8a6a48',
+          [end, (BEAM_TOP - 0.12) / 2, z + lean * 0.16],
+          [0.08, BEAM_TOP - 0.1, 0.08],
+        );
+        leg.rotation.x = lean * 0.35;
+        this.scenery.add(leg);
+      }
+    }
+    this.label('Balance beam', x, 1.2, z);
+  }
+
+  /** A trodden lane with a start post; its hurdles appear as the runner nears them. */
+  private runLane(): void {
+    const { x, z } = RUN_LANE;
+    this.path(
+      [
+        [x - RUN_HALF_LENGTH - 0.3, z],
+        [x + RUN_HALF_LENGTH + 0.3, z],
+      ],
+      0.9,
+      '#d9c38e',
+    );
+    for (const side of [-1, 1]) {
+      const post = x + side * (RUN_HALF_LENGTH + 0.45);
+      this.scenery.add(
+        this.mesh(this.cylinder, '#b59569', [post, 0.45, z - 0.55], [0.06, 0.9, 0.06]),
+      );
+      const pennant = this.mesh(
+        this.cone,
+        '#6c938b',
+        [post + 0.2, 0.8, z - 0.55],
+        [0.18, 0.4, 0.02],
+      );
+      pennant.rotation.z = -Math.PI / 2;
+      this.scenery.add(pennant);
+    }
+    for (let index = 0; index < 4; index++) {
+      const stump = this.mesh(this.cylinder, '#9b7650', [0, 0.12, 0], [0.12, 0.8, 0.12]);
+      stump.rotation.x = Math.PI / 2;
+      const hedge = new THREE.Group();
+      hedge.add(this.mesh(this.box, '#5f8a5c', [0, 0.3, 0], [0.32, 0.6, 0.8]));
+      hedge.add(this.mesh(this.sphere, '#6c8a58', [0, 0.6, 0], [0.2, 0.12, 0.4]));
+      stump.visible = hedge.visible = false;
+      this.scenery.add(stump, hedge);
+      this.hurdles.push({ stump, hedge });
+    }
+    this.label('Hurdle run', x, 1.3, z - 0.55);
+  }
+
+  /** Where the runner is along the lane: back and forth, end to end. */
+  private lanePoint(seconds: number): Point {
+    const length = RUN_HALF_LENGTH * 2;
+    const along = (seconds * LANE_SPEED) % (length * 2);
+    return {
+      x: RUN_LANE.x - RUN_HALF_LENGTH + (along <= length ? along : length * 2 - along),
+      z: RUN_LANE.z,
+    };
+  }
+
+  /** Lays the coming hurdles on the lane where the shuttling runner will meet them. */
+  private placeHurdles(activity: Training | null): void {
+    const course = activity?.kind === 'run' ? runCourse(activity.seed ?? 0) : [];
+    const run = (activity?.progress ?? 0) * RUN_SECONDS;
+    const coming = course.filter((hurdle) => hurdle.at > run - 0.4 && hurdle.at < run + 2.2);
+    this.hurdles.forEach(({ stump, hedge }, index) => {
+      const hurdle = coming[index];
+      stump.visible = !!hurdle && !hurdle.tall;
+      hedge.visible = !!hurdle?.tall;
+      if (!hurdle) return;
+      const at = this.lanePoint(hurdle.at);
+      stump.position.set(at.x, 0.12, at.z);
+      hedge.position.set(at.x, 0, at.z);
+    });
   }
 
   private liftStation(x: number, z: number): void {
@@ -2612,7 +2750,12 @@ export class GameWorld {
         (Math.abs(z) < 1.25 || (x < -2.7 && z > -6 && z < 6) || (x > 1.5 && x < 5.7 && z < 3.7))
       )
         continue;
-      if (this.area === 'glade' && Math.abs(z) < 1.4) continue;
+      if (
+        this.area === 'glade' &&
+        (Math.abs(z) < 1.4 ||
+          (Math.abs(z - RUN_LANE.z) < 0.6 && Math.abs(x - RUN_LANE.x) < RUN_HALF_LENGTH + 0.5))
+      )
+        continue;
       const size = 0.1 + random() * 0.1;
       transform.position.set(x, size * 0.4, z);
       transform.scale.set(size * 0.35, size, size * 0.35);
@@ -2985,7 +3128,7 @@ export class GameWorld {
       (1 + squash) * (1 + pose.tall),
       (1 - squash * 0.5) * (1 + pose.long),
     );
-    this.critterBody.rotation.set(pose.pitch, pose.yaw, pose.roll);
+    this.critterBody.rotation.set(pose.pitch, pose.yaw, pose.roll + this.beamLean);
     this.critter.position.y += pose.hop;
     const player = state.player.position;
     const gap = Math.hypot(player.x - companionView.x, player.z - companionView.z);

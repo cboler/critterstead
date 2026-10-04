@@ -855,6 +855,51 @@
   user-select: none;
   -webkit-touch-callout: none;
 }
+// The balance beam's marker warms while the critter wobbles outside the zone.
+.timing-track.wobbling i {
+  background: #a0603f;
+}
+.lean-buttons {
+  display: flex;
+  gap: 8px;
+}
+.lean-buttons button {
+  min-width: 56px;
+}
+// The hurdle run's side view: a lane of grass, stumps and hedges, and the runner.
+.run-view {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 10px 0 4px;
+  border-radius: 12px;
+  background: #e7e4d4;
+}
+.run-ground {
+  fill: #b9c79a;
+}
+.run-stump {
+  fill: #9b7650;
+}
+.run-hedge {
+  fill: #5f8a5c;
+}
+.run-stump.knocked,
+.run-hedge.knocked {
+  opacity: 0.45;
+}
+.run-shadow {
+  fill: #0002;
+}
+.run-critter ellipse {
+  fill: #c8866a;
+}
+.run-critter.bumped ellipse {
+  fill: #a0603f;
+}
+.run-eye {
+  fill: #2d2a24;
+}
 .walk-prompt {
   position: absolute;
   z-index: 8;

@@ -2,6 +2,7 @@ import { Critter, GameState, Training } from './model';
 import { CRITTER_KINDS } from './families';
 import { createPip, GRANDPA, PIP_ID } from './household';
 import { BEHAVIORS, CROPS, DRILL_IDS, initialMaterialNodes, initialPlots } from './content';
+import { runCourse } from './drills';
 import { nextDawn } from './calendar';
 import { initialContainers, ITEM_IDS, LEGACY_ITEM_IDS, MILL_MINUTES } from './logistics';
 
@@ -627,7 +628,7 @@ function validateState(value: unknown, version: SaveVersion): void {
     choice(
       training['kind'],
       version >= 11
-        ? ['training', 'race', 'lift', 'pace', 'toss', 'exhibition', 'routine']
+        ? ['training', 'race', 'lift', 'pace', 'toss', 'beam', 'run', 'exhibition', 'routine']
         : version >= 10
           ? ['training', 'race', 'lift', 'pace', 'toss', 'exhibition']
           : version >= 8
@@ -638,7 +639,18 @@ function validateState(value: unknown, version: SaveVersion): void {
     for (const key of ['meter', 'progress', 'reserve'])
       if (training[key] !== undefined) number(training[key], `training.${key}`, 0, 1);
     if (training['stage'] !== undefined)
-      choice(String(training['stage']), ['0', '1'], 'training.stage');
+      choice(
+        String(training['stage']),
+        training['kind'] === 'run' ? ['0', '1', '2'] : ['0', '1'],
+        'training.stage',
+      );
+    if (training['rise'] !== undefined) number(training['rise'], 'training.rise', -100, 100);
+    if (training['seed'] !== undefined) number(training['seed'], 'training.seed', 0, 1);
+    if (
+      (training['kind'] === 'beam' || training['kind'] === 'run') &&
+      [training['meter'], training['progress'], training['seed']].includes(undefined)
+    )
+      corrupt('training course');
     if (training['scores'] !== undefined)
       for (const score of array(training['scores'], 'training.scores'))
         number(score, 'training.score', 0, 1);
@@ -658,9 +670,11 @@ function validateState(value: unknown, version: SaveVersion): void {
     } else if (training['drill'] !== undefined) corrupt('training.drill');
     const hits = array(training['hits'], 'training.hits');
     for (const hit of hits) number(hit, 'training.hit', 0, 1);
+    // A run keeps one result per hurdle on its course; other activities at most two in play.
+    const hitLimit = training['kind'] === 'run' ? runCourse(training['seed'] as number).length : 2;
     if (
       version >= 2 &&
-      (hits.length > 2 ||
+      (hits.length > hitLimit ||
         ((training['lastHitAt'] as number) ?? 0) > (training['elapsed'] as number))
     )
       corrupt('training progress');

@@ -1,4 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
+import { type GameState } from '../src/app/game/model';
+import { developmentState } from './helpers';
 
 // A standard-mapping gamepad fixture exercises the same browser polling path as a physical pad.
 async function button(page: Page, index: number): Promise<void> {
@@ -83,4 +85,74 @@ test('standard controller moves, chooses actions, and navigates menus', async ({
   await page.keyboard.press('Backquote');
   const after = await page.locator('dl dd').nth(1).innerText();
   expect(after).not.toBe(before);
+});
+
+test('controller leans on the balance beam and double jumps on the hurdle run', async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop', 'Controller drills are checked at desktop size.');
+  await page.addInitScript(() => {
+    const buttons = Array.from({ length: 17 }, () => ({ pressed: false, value: 0 }));
+    const axes = [0, 0, 0, 0];
+    const pad = { id: 'Test pad', index: 0, connected: true, mapping: 'standard', buttons, axes };
+    Object.defineProperty(navigator, 'getGamepads', { configurable: true, value: () => [pad] });
+    (window as unknown as { testPad: typeof pad }).testPad = pad;
+  });
+  await page.goto('/');
+  await button(page, 9);
+  await button(page, 0);
+  await expect(page.locator('.starter-offer')).toHaveCount(0);
+  // Straight to a station in the glade; walking there is covered elsewhere.
+  const goTo = (x: number, z: number) =>
+    page.evaluate(
+      ({ x, z }) => {
+        const game = (
+          window as unknown as {
+            ng: { getComponent(element: Element): { host: { state: GameState } } };
+          }
+        ).ng.getComponent(document.querySelector('app-root')!);
+        const state = game.host.state;
+        state.training = null;
+        state.areaId = 'glade';
+        state.player.position = { x, z };
+      },
+      { x, z },
+    );
+  const training = () => developmentState(page).then((state) => state.training);
+  const hold = (index: number, pressed: boolean) =>
+    page.evaluate(
+      ({ index, pressed }) => {
+        (window as unknown as { testPad: { buttons: { pressed: boolean }[] } }).testPad.buttons[
+          index
+        ].pressed = pressed;
+      },
+      { index, pressed },
+    );
+
+  await goTo(2.7, 2.9);
+  await expect(page.locator('.interaction-dock')).toContainText('Balance beam');
+  await button(page, 0); // A: the first action, the beam itself
+  await expect(page.getByRole('meter', { name: 'Balance' })).toBeVisible();
+  const start = (await training())!.meter!;
+  await hold(15, true); // D-pad right leans right while held.
+  await expect.poll(async () => (await training())?.meter ?? 0).toBeGreaterThan(start + 0.1);
+  await hold(15, false);
+  const leaned = (await training())!.meter!;
+  await page.evaluate(() => {
+    (window as unknown as { testPad: { axes: number[] } }).testPad.axes[0] = -1;
+  });
+  await expect.poll(async () => (await training())?.meter ?? 1).toBeLessThan(leaned - 0.1);
+  await page.evaluate(() => {
+    (window as unknown as { testPad: { axes: number[] } }).testPad.axes[0] = 0;
+  });
+
+  await goTo(-4.6, 2.7);
+  await expect(page.locator('.interaction-dock')).toContainText('Hurdle run');
+  await button(page, 0);
+  await expect(page.getByRole('img', { name: /^Hurdle run:/ })).toBeVisible();
+  await expect.poll(async () => (await training())?.elapsed ?? 0).toBeGreaterThan(0.1);
+  await button(page, 0); // A: jump
+  await expect.poll(async () => (await training())?.stage).toBeGreaterThanOrEqual(1);
+  await button(page, 0); // A again in the air: the second jump
+  await expect.poll(async () => (await training())?.stage).toBe(2);
 });

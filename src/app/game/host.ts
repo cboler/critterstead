@@ -49,15 +49,23 @@ import {
 } from './household';
 import { nextObjective } from './objectives';
 import {
+  beamScore,
   drillMultiplier,
+  jump,
   liftScore,
   paceScore,
   push,
   recordDrill,
+  runCourse,
+  runScore,
+  startBeam,
   startGauge,
+  startRun,
   startToss,
+  stepBeam,
   stepLift,
   stepPace,
+  stepRun,
   stepToss,
   sweepAccuracy,
   throwDistance,
@@ -257,6 +265,8 @@ export class LocalGameHost {
 
   /** Wider timing windows: a device preference, fixed into each activity as it starts. */
   assist = false;
+  /** How the player is leaning on the balance beam: held input, not saved. */
+  private steer = 0;
 
   constructor(state: GameState = createInitialState()) {
     this.current = structuredClone(state);
@@ -465,6 +475,11 @@ export class LocalGameHost {
       return true;
     }
     if (command.type === 'training-hit') return this.trainingHit();
+    if (command.type === 'training-steer') {
+      if (this.state.training?.kind !== 'beam' || !Number.isFinite(command.direction)) return false;
+      this.steer = Math.max(-1, Math.min(1, command.direction));
+      return true;
+    }
     if (command.type === 'training-release') return this.trainingRelease();
     if (this.state.training || this.state.work) return false;
     if (command.type === 'drop-cargo') return this.dropCargo();
@@ -489,6 +504,10 @@ export class LocalGameHost {
         if (training.elapsed >= ROUTINE.seconds) this.finishTraining();
       } else if (training.kind === 'toss') {
         if (stepToss(training)) this.finishTraining();
+      } else if (training.kind === 'beam') {
+        if (stepBeam(training, this.critter, dt, this.steer)) this.finishTraining();
+      } else if (training.kind === 'run') {
+        if (stepRun(training, dt)) this.finishTraining();
       } else if (this.gauge(training)) {
         const done =
           training.kind === 'pace'
@@ -917,7 +936,9 @@ export class LocalGameHost {
       }
       case 'lift':
       case 'pace':
-      case 'toss': {
+      case 'toss':
+      case 'beam':
+      case 'run': {
         const drill = DRILLS[object.kind];
         return {
           id,
@@ -927,6 +948,8 @@ export class LocalGameHost {
               lift: 'Tap to push the force gauge up; the boulder pushes it back down. Hold it in the green for three seconds. Builds strength.',
               pace: 'Tap to set the pace. Faster laps spend breath; run dry and you are winded. Builds endurance and a little speed.',
               toss: 'Hold to charge the throw and let go at the peak, or tap once to start and again to throw. Three throws; strength widens the sweet spot. Builds strength and a little speed.',
+              beam: 'Lean left and right to keep steady in the drifting zone while the beam is crossed. Endurance widens the zone. Builds endurance and a little strength.',
+              run: 'Tap to jump the stumps; tap again in the air to clear the tall hedges. Builds speed and a little endurance.',
             }[object.kind]
           } ${this.drillCopy(object.kind)}`,
           actions: [
@@ -1180,6 +1203,8 @@ export class LocalGameHost {
       case 'lift':
       case 'pace':
       case 'toss':
+      case 'beam':
+      case 'run':
       case 'exhibit': {
         const kind = action === 'exhibit' ? 'exhibition' : action;
         state.player.stamina -= 5;
@@ -1195,12 +1220,17 @@ export class LocalGameHost {
         };
         if (kind === 'exhibition') state.training.stage = 0;
         else if (kind === 'toss') startToss(state.training);
+        else if (kind === 'beam') startBeam(state.training, this.random());
+        else if (kind === 'run') startRun(state.training, this.random());
         else startGauge(state.training);
+        this.steer = 0;
         this.note(
           {
             lift: `${critter.name} braces against the boulder. Keep the gauge in the green!`,
             pace: `${critter.name} sets off around the loop. Find a pace you can keep.`,
             toss: `${critter.name} squares up to the log. Charge the throw and let go at the peak!`,
+            beam: `${critter.name} steps onto the beam. Lean to keep steady in the zone!`,
+            run: `${critter.name} bounds down the lane. Jump the stumps; double jump the hedges!`,
             exhibition: `The crowd hushes. First, the sprint: three cues near the center!`,
           }[kind],
         );
@@ -1355,11 +1385,18 @@ export class LocalGameHost {
     if (
       !training ||
       training.kind === 'routine' ||
+      // The beam is steered, not pressed.
+      training.kind === 'beam' ||
       training.critterId !== state.activeCritterId ||
       training.elapsed - (training.lastHitAt ?? 0) <
-        (this.gauge(training) || training.kind === 'toss' ? 0.08 : 0.3)
+        (this.gauge(training) || training.kind === 'toss' || training.kind === 'run' ? 0.08 : 0.3)
     )
       return false;
+    if (training.kind === 'run') {
+      if (!jump(training, this.critter)) return false;
+      training.lastHitAt = training.elapsed;
+      return true;
+    }
     training.lastHitAt = training.elapsed;
     if (training.kind === 'toss') {
       // The first press starts the charge; a second press (tap, tap) throws.
@@ -1517,8 +1554,12 @@ export class LocalGameHost {
         ? liftScore(training, critter)
         : drill === 'pace'
           ? paceScore(training)
-          : // Hoops cues and log throws: the average of three.
-            training.hits.reduce((sum, value) => sum + value, 0) / 3;
+          : drill === 'beam'
+            ? beamScore(training)
+            : drill === 'run'
+              ? runScore(training)
+              : // Hoops cues and log throws: the average of three.
+                training.hits.reduce((sum, value) => sum + value, 0) / 3;
     const multiplier = drillMultiplier(critter, drill, state.day);
     const { base, score: weight, care: careWeight, bonus } = definition.gain;
     const gain =
@@ -1544,10 +1585,15 @@ export class LocalGameHost {
     state.training = null;
     this.advanceMinutes(definition.minutes);
     const [great, good, weak] = definition.praise;
-    const best =
-      drill === 'toss' && !routine
+    const best = routine
+      ? ''
+      : drill === 'toss'
         ? ` Best throw ${throwDistance(Math.max(0, ...training.hits), critter)} m.`
-        : '';
+        : drill === 'run'
+          ? ` Cleared ${training.hits.filter((hit) => hit > 0).length} of ${runCourse(training.seed ?? 0).length} hurdles.`
+          : drill === 'beam' && (training.progress ?? 0) >= 1
+            ? ` Across in ${training.elapsed.toFixed(1)} s.`
+            : '';
     this.note(
       `${score > 0.75 ? great : score > 0.4 ? good : weak} ${critter.name}${routine ? ' ran it alone and' : ''} gains ${gain.toFixed(2)} ${stat}${multiplier < 1 ? ` (${Math.round(multiplier * 100)}% gains, repeated today)` : ''}.${best} ${Math.round(critter.stamina)} energy left${critter.stamina < 30 ? '; rest together at the nook to recover' : ''}.`,
     );

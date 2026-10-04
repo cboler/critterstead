@@ -1,5 +1,6 @@
 import { expect, type Page } from '@playwright/test';
 import { type GameState } from '../src/app/game/model';
+import { type Hurdle, RUN_SECONDS } from '../src/app/game/drills';
 interface DebugGameWindow extends Window {
   ng?: {
     getComponent(element: Element): {
@@ -109,6 +110,8 @@ export const SPOTS = {
   secondBed: [-2.9, 1.3],
   lift: [5.2, 7.4],
   toss: [-5.4, -2.6],
+  beam: [2.7, 2.9],
+  run: [-4.6, 2.7],
 } as const;
 
 /**
@@ -139,6 +142,75 @@ export async function tossLogs(page: Page, target: number): Promise<void> {
     target,
   );
   if (!finished) throw new Error('The log toss did not finish.');
+}
+
+/**
+ * Crosses the balance beam from inside the page, holding A or D every frame the critter
+ * leans off the zone's centre, in step with the frame rate however slow rendering is.
+ */
+export async function crossBeam(page: Page): Promise<void> {
+  const finished = await page.evaluate(
+    () =>
+      new Promise<boolean>((resolve) => {
+        const game = (window as DebugGameWindow).ng!.getComponent(
+          document.querySelector('app-root')!,
+        );
+        const deadline = performance.now() + 60_000;
+        let held = '';
+        const hold = (key: string) => {
+          if (key === held) return;
+          if (held) window.dispatchEvent(new KeyboardEvent('keyup', { key: held }));
+          if (key) window.dispatchEvent(new KeyboardEvent('keydown', { key }));
+          held = key;
+        };
+        const frame = (): void => {
+          const training = game.state().training;
+          if (!training || performance.now() > deadline) {
+            hold('');
+            return resolve(!training);
+          }
+          const off = training.phase - (training.meter ?? 0);
+          hold(off > 0.02 ? 'd' : off < -0.02 ? 'a' : '');
+          requestAnimationFrame(frame);
+        };
+        requestAnimationFrame(frame);
+      }),
+  );
+  if (!finished) throw new Error('The balance beam did not finish.');
+}
+
+/**
+ * Runs the hurdles from inside the page, pressing Space as each one nears: once for a stump,
+ * and again near the top of the jump for a hedge. The course comes from the run's seed.
+ */
+export async function runHurdles(page: Page, course: Hurdle[]): Promise<void> {
+  const finished = await page.evaluate(
+    ({ hurdles, seconds }) =>
+      new Promise<boolean>((resolve) => {
+        const game = (window as DebugGameWindow).ng!.getComponent(
+          document.querySelector('app-root')!,
+        );
+        const deadline = performance.now() + 60_000;
+        const tap = () => {
+          for (const type of ['keydown', 'keyup'])
+            window.dispatchEvent(new KeyboardEvent(type, { key: ' ', code: 'Space' }));
+        };
+        const frame = (): void => {
+          const training = game.state().training;
+          if (!training) return resolve(true);
+          if (performance.now() > deadline) return resolve(false);
+          const next = hurdles[training.hits.length];
+          const lead = next ? next.at - (training.progress ?? 0) * seconds : Infinity;
+          const used = training.stage ?? 0;
+          if (used === 0 && lead < (next?.tall ? 0.6 : 0.3)) tap();
+          else if (used === 1 && next?.tall && lead < 0.45 && (training.rise ?? 0) < 0.4) tap();
+          requestAnimationFrame(frame);
+        };
+        requestAnimationFrame(frame);
+      }),
+    { hurdles: course, seconds: RUN_SECONDS },
+  );
+  if (!finished) throw new Error('The hurdle run did not finish.');
 }
 
 export async function walk(page: Page, x: number, z: number): Promise<void> {

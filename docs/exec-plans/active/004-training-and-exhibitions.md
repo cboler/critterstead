@@ -1,7 +1,8 @@
 # 004 — Training and exhibitions
 
 **Status:** authorized 2026-10-03 ([D47](../../DECISIONS.md#d47--raise-critters-for-the-colosseum-accepted-2026-10-03)).
-M1–M2 complete ([M1](#m1-evidence--2026-10-03), [M2](#m2-evidence--2026-10-03)); M3 next.
+M1–M3 complete ([M1](#m1-evidence--2026-10-03), [M2](#m2-evidence--2026-10-03),
+[M3](#m3-evidence--2026-10-03)); M4 next.
 
 ## Purpose
 
@@ -27,7 +28,7 @@ renderer. Only houses, the shed and cottage furniture block walking.
 | END  | Distance pacing  | Pace with a breath reserve                                              | Existing |
 | END  | Balance beam     | Track a drifting zone: steer left and right                             | M3       |
 | SPD  | Hoops            | Timing sweep: press in the green                                        | Existing |
-| SPD  | Runner           | Endless runner, 20–30 s, jump and double jump                           | M3       |
+| SPD  | Hurdle run       | Endless runner, 24 s, jump and double jump                              | M3       |
 | INT  | Rhythm routine   | Notes in three or four lanes                                            | M4       |
 | INT  | Chess or reading | The critter plays; you cheer at the right moments, or shoo distractions | M4       |
 
@@ -62,9 +63,20 @@ berry catch, shell game, sequence memory, tug of war, stacking.
 - [x] Verification: unit tests, the browser log toss test running the routine, lint,
       build, PWA, inspected screenshots.
 
-### M3 — Balance beam and runner
+### M3 — Balance beam and hurdle run
 
-Two new patterns, playable on keyboard, gamepad and touch.
+- [x] Balance beam in the glade: lean left and right to keep the critter in a zone that
+      drifts from a per-session seed; outside it the critter wobbles and slows. Endurance
+      widens the zone. Builds END, a little STR.
+- [x] Hurdle run in the glade: a 24-second course of stumps (one jump) and hedges (a
+      double jump), laid out from a per-session seed. Speed jumps a little higher. Builds
+      SPD, a little END.
+- [x] Both play on keyboard (A/D or arrows; Space, W or ↑), gamepad (d-pad or stick; A)
+      and touch (held lean buttons; the jump button on press), run as routines, and save
+      and resume mid-drill.
+- [x] Verification: unit tests (scoring, steering, double jump, course layout, saves,
+      routine), browser tests (both drills on desktop and phone, controller), lint, build,
+      PWA, inspected screenshots.
 
 ### M4 — Rhythm routine and chess or reading
 
@@ -125,6 +137,35 @@ settings and favouring different stats; entry fees and prizes.
 - Test note: neighbouring small seeds give nearly the same first random draw, so the odds
   test spreads its seeds; real saves start from large seeds.
 
+## M3 evidence — 2026-10-03
+
+- Host: `beamZone`, `beamBand`, `stepBeam`, `beamScore`; `runCourse`, `jump`, `stepRun`,
+  `runScore` in `drills.ts`; the `training-steer` command; both drills on the drill table
+  and as glade stations. No save version: v11 saves accept the new kinds and fields, and a
+  run may hold one result per hurdle. Unit tests: 186 passed, including `agility.spec.ts`
+  (beam scoring, steering only on the beam, wobble and time-out, seeded drift, endurance
+  and assist widths, mid-crossing save; course layout, a bot clearing every hurdle,
+  single jumps missing every hedge, two jumps at most, mid-run save, the run routine).
+- Browser: `e2e/training.spec.ts` leans with the held button and A, crosses the beam,
+  jumps by button and Space, and runs a course (desktop and phone; the in-page bot
+  cleared 11 of 11 and 12 of 12); `e2e/controller.spec.ts` leans with the d-pad and stick
+  and double jumps with A. Inspected: [the beam](../evidence/004-m3/balance-beam.png),
+  [the hurdle run on a phone](../evidence/004-m3/hurdle-run-phone.png).
+- Gates: lint, unit tests, production build, PWA check, and the browser suite (71 passed,
+  37 skipped by project). The build's initial-bundle budget warning predates M3 (35.6 kB
+  over before, 46.6 kB now).
+- Found while testing: the first test bot spent its double jump on a stump just before a
+  hedge, which showed a stump-then-hedge gap of 1.3 s was tight for people too; hedges now
+  get a 1.6 s run-up. The first beam spot sat behind two camera-side trees.
+- Routine decisions: the drill is called the hurdle run; both stations are in the glade,
+  the beam in its open middle and the lane south-west. Two south-edge trees moved further
+  south so they no longer hide the lane, and a decorative stone made way for the beam.
+  The runner's side view lives in the drill card; the world shows the critter shuttling
+  along the lane with the coming hurdles laid out where it will meet them. Provisional:
+  10 s crossing (20 s limit), lean 0.6/s, zone half-width 0.08–0.16, 24 s course, jump
+  2.1 against gravity 5.2 (+12% at most from speed), stumps 0.2 and hedges 0.6 high,
+  35% hedges after the second hurdle, 30 energy and 35 minutes for the run.
+
 ## Current handoff
 
-M2 complete. Next: M3 — the balance beam (END) and the runner (SPD).
+M3 complete. Next: M4 — the rhythm routine and chess or reading (INT).
