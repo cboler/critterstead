@@ -9,7 +9,8 @@ export function kept<T extends { id: string }>(items: T[]): T[] {
     .filter((item) => item.id !== PIP_ID && item.id !== `satchel-${PIP_ID}`)
     .map((item) => {
       if (!('practised' in item)) return item;
-      const { practised: _, ...rest } = item as T & { practised: unknown };
+      const rest: Partial<T & { practised: unknown }> = { ...item };
+      delete rest.practised;
       return rest as unknown as T;
     });
 }
