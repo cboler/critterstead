@@ -49,24 +49,34 @@ import {
 } from './household';
 import { nextObjective } from './objectives';
 import {
+  answerMoment,
   beamScore,
+  chessMoments,
+  chessScore,
   drillMultiplier,
   jump,
   liftScore,
   paceScore,
   push,
   recordDrill,
+  rhythmScore,
+  rhythmSong,
   runCourse,
   runScore,
   startBeam,
+  startChess,
   startGauge,
   startRun,
+  startRhythm,
   startToss,
   stepBeam,
+  stepChess,
   stepLift,
   stepPace,
+  stepRhythm,
   stepRun,
   stepToss,
+  stepToNote,
   sweepAccuracy,
   throwDistance,
   throwLog,
@@ -474,7 +484,8 @@ export class LocalGameHost {
       } else return false;
       return true;
     }
-    if (command.type === 'training-hit') return this.trainingHit();
+    if (command.type === 'training-hit') return this.trainingHit(command.lane);
+    if (command.type === 'training-shoo') return this.trainingShoo();
     if (command.type === 'training-steer') {
       if (this.state.training?.kind !== 'beam' || !Number.isFinite(command.direction)) return false;
       this.steer = Math.max(-1, Math.min(1, command.direction));
@@ -508,6 +519,10 @@ export class LocalGameHost {
         if (stepBeam(training, this.critter, dt, this.steer)) this.finishTraining();
       } else if (training.kind === 'run') {
         if (stepRun(training, dt)) this.finishTraining();
+      } else if (training.kind === 'rhythm') {
+        if (stepRhythm(training, this.critter)) this.finishTraining();
+      } else if (training.kind === 'chess') {
+        if (stepChess(training, this.critter)) this.finishTraining();
       } else if (this.gauge(training)) {
         const done =
           training.kind === 'pace'
@@ -938,7 +953,9 @@ export class LocalGameHost {
       case 'pace':
       case 'toss':
       case 'beam':
-      case 'run': {
+      case 'run':
+      case 'rhythm':
+      case 'chess': {
         const drill = DRILLS[object.kind];
         return {
           id,
@@ -950,15 +967,19 @@ export class LocalGameHost {
               toss: 'Hold to charge the throw and let go at the peak, or tap once to start and again to throw. Three throws; strength widens the sweet spot. Builds strength and a little speed.',
               beam: 'Lean left and right to keep steady in the drifting zone while the beam is crossed. Endurance widens the zone. Builds endurance and a little strength.',
               run: 'Tap to jump the stumps; tap again in the air to clear the tall hedges. Builds speed and a little endurance.',
+              rhythm: `Notes slide down three lanes to the gramophone’s tune; step in each lane as its note reaches the line. Intelligence widens the beat. Builds intelligence and a little speed.`,
+              chess: `A puzzle from Grandpa’s chess book. Cheer when ${critter.name} spots a move, and shoo the moths that drift in. Builds intelligence and a little endurance.`,
             }[object.kind]
           } ${this.drillCopy(object.kind)}`,
           actions: [
             action(
               object.kind,
               `${drill.name} · ${drill.energy} ${critter.name} energy · 5 yours · ${drill.minutes} min${this.gainSuffix(object.kind)}`,
-              critter.hunger > 80
-                ? `${critter.name} is too hungry to concentrate.`
-                : energy(5, drill.energy),
+              !this.companionHere()
+                ? `${critter.name} is out in the yard.`
+                : critter.hunger > 80
+                  ? `${critter.name} is too hungry to concentrate.`
+                  : energy(5, drill.energy),
             ),
             this.routineAction(object.kind),
           ],
@@ -1205,6 +1226,8 @@ export class LocalGameHost {
       case 'toss':
       case 'beam':
       case 'run':
+      case 'rhythm':
+      case 'chess':
       case 'exhibit': {
         const kind = action === 'exhibit' ? 'exhibition' : action;
         state.player.stamina -= 5;
@@ -1222,6 +1245,8 @@ export class LocalGameHost {
         else if (kind === 'toss') startToss(state.training);
         else if (kind === 'beam') startBeam(state.training, this.random());
         else if (kind === 'run') startRun(state.training, this.random());
+        else if (kind === 'rhythm') startRhythm(state.training, this.random());
+        else if (kind === 'chess') startChess(state.training, this.random());
         else startGauge(state.training);
         this.steer = 0;
         this.note(
@@ -1231,6 +1256,8 @@ export class LocalGameHost {
             toss: `${critter.name} squares up to the log. Charge the throw and let go at the peak!`,
             beam: `${critter.name} steps onto the beam. Lean to keep steady in the zone!`,
             run: `${critter.name} bounds down the lane. Jump the stumps; double jump the hedges!`,
+            rhythm: `The gramophone crackles into a tune. Step with ${critter.name} in time!`,
+            chess: `${critter.name} settles at the chessboard. Cheer the good ideas; shoo the moths.`,
             exhibition: `The crowd hushes. First, the sprint: three cues near the center!`,
           }[kind],
         );
@@ -1379,7 +1406,7 @@ export class LocalGameHost {
     return moved > 0;
   }
 
-  private trainingHit(): boolean {
+  private trainingHit(lane?: number): boolean {
     const state = this.state;
     const training = state.training;
     if (
@@ -1389,9 +1416,21 @@ export class LocalGameHost {
       training.kind === 'beam' ||
       training.critterId !== state.activeCritterId ||
       training.elapsed - (training.lastHitAt ?? 0) <
-        (this.gauge(training) || training.kind === 'toss' || training.kind === 'run' ? 0.08 : 0.3)
+        (this.gauge(training) || ['toss', 'run', 'rhythm', 'chess'].includes(training.kind)
+          ? 0.08
+          : 0.3)
     )
       return false;
+    if (training.kind === 'rhythm') {
+      training.lastHitAt = training.elapsed;
+      const step =
+        lane === undefined || !Number.isInteger(lane) ? 1 : Math.max(0, Math.min(2, lane));
+      return stepToNote(training, this.critter, step);
+    }
+    if (training.kind === 'chess') {
+      training.lastHitAt = training.elapsed;
+      return answerMoment(training, 'idea');
+    }
     if (training.kind === 'run') {
       if (!jump(training, this.critter)) return false;
       training.lastHitAt = training.elapsed;
@@ -1424,6 +1463,29 @@ export class LocalGameHost {
     }
     this.finishTraining();
     return true;
+  }
+
+  /** How the sitting went: ideas cheered and moths shooed, each of its kind. */
+  private chessTally(training: Training): string {
+    const moments = chessMoments(training.seed ?? 0);
+    const count = (kind: string, answered: boolean) =>
+      moments.filter(
+        (moment, index) => moment.kind === kind && (!answered || training.hits[index] > 0),
+      ).length;
+    return `${count('idea', true)} of ${count('idea', false)} ideas cheered, ${count('moth', true)} of ${count('moth', false)} moths shooed`;
+  }
+
+  /** Shooing a moth from the chessboard; at any other time it breaks concentration. */
+  private trainingShoo(): boolean {
+    const training = this.state.training;
+    if (
+      training?.kind !== 'chess' ||
+      training.critterId !== this.state.activeCritterId ||
+      training.elapsed - (training.lastHitAt ?? 0) < 0.08
+    )
+      return false;
+    training.lastHitAt = training.elapsed;
+    return answerMoment(training, 'moth');
   }
 
   /** Letting go after holding a charge throws the log; a quick tap keeps it charging. */
@@ -1519,11 +1581,13 @@ export class LocalGameHost {
     const cost = DRILLS[drill].energy + ROUTINE.extraEnergy;
     const reason = !critter.practised[drill]
       ? `Play it together once first; then ${critter.name} can run it alone.`
-      : critter.hunger > 80
-        ? `${critter.name} is too hungry to concentrate.`
-        : critter.stamina < cost
-          ? `${critter.name} needs some rest. Rest together at the nook or offer food.`
-          : undefined;
+      : !this.companionHere()
+        ? `${critter.name} is out in the yard.`
+        : critter.hunger > 80
+          ? `${critter.name} is too hungry to concentrate.`
+          : critter.stamina < cost
+            ? `${critter.name} needs some rest. Rest together at the nook or offer food.`
+            : undefined;
     return {
       id: 'routine',
       label: `Run it as a routine · ${cost} ${critter.name} energy · ${DRILLS[drill].minutes} min${this.gainSuffix(drill)}`,
@@ -1547,19 +1611,18 @@ export class LocalGameHost {
     const critter = activeCritter(state);
     const definition = DRILLS[drill];
     const routine = training.kind === 'routine';
-    const score = routine
-      ? // Drawn as the routine started.
-        training.scores![0]
-      : drill === 'lift'
-        ? liftScore(training, critter)
-        : drill === 'pace'
-          ? paceScore(training)
-          : drill === 'beam'
-            ? beamScore(training)
-            : drill === 'run'
-              ? runScore(training)
-              : // Hoops cues and log throws: the average of three.
-                training.hits.reduce((sum, value) => sum + value, 0) / 3;
+    const scores: Partial<Record<Drill, (played: Training) => number>> = {
+      lift: (played) => liftScore(played, critter),
+      pace: paceScore,
+      beam: beamScore,
+      run: runScore,
+      rhythm: rhythmScore,
+      chess: chessScore,
+    };
+    // Hoops cues and log throws score the average of three.
+    const threes = (played: Training) => played.hits.reduce((sum, value) => sum + value, 0) / 3;
+    // A routine's score was drawn as it started.
+    const score = routine ? training.scores![0] : (scores[drill] ?? threes)(training);
     const multiplier = drillMultiplier(critter, drill, state.day);
     const { base, score: weight, care: careWeight, bonus } = definition.gain;
     const gain =
@@ -1593,7 +1656,11 @@ export class LocalGameHost {
           ? ` Cleared ${training.hits.filter((hit) => hit > 0).length} of ${runCourse(training.seed ?? 0).length} hurdles.`
           : drill === 'beam' && (training.progress ?? 0) >= 1
             ? ` Across in ${training.elapsed.toFixed(1)} s.`
-            : '';
+            : drill === 'rhythm'
+              ? ` ${training.hits.filter((hit) => hit === 1).length} perfect and ${training.hits.filter((hit) => hit > 0 && hit < 1).length} good steps of ${rhythmSong(training.seed ?? 0).length}.`
+              : drill === 'chess'
+                ? ` ${this.chessTally(training)}.`
+                : '';
     this.note(
       `${score > 0.75 ? great : score > 0.4 ? good : weak} ${critter.name}${routine ? ' ran it alone and' : ''} gains ${gain.toFixed(2)} ${stat}${multiplier < 1 ? ` (${Math.round(multiplier * 100)}% gains, repeated today)` : ''}.${best} ${Math.round(critter.stamina)} energy left${critter.stamina < 30 ? '; rest together at the nook to recover' : ''}.`,
     );

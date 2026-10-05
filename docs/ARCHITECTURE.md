@@ -226,6 +226,16 @@ pushes one result per hurdle into `hits`. The card draws the run from the same c
 the renderer shuttles the critter along the glade lane and lays the coming hurdles where
 it will meet them.
 
+## Current implementation additions — plan 004 M4 (2026-10-04)
+
+Rhythm steps and chess puzzles live in the cottage and need the companion indoors.
+`rhythmSong(seed)` writes sixteen notes in three lanes; `training-hit` carries an optional
+`lane`, and `stepToNote` scores the first unplayed note in that lane within reach, missing
+any it skipped. `chessMoments(seed)` lays out ideas and moths; a plain `training-hit`
+cheers and `training-shoo` shoos, answering the waiting moment in order. Both keep one
+result per note or moment in `hits`, and `reserve` is composure that stray presses spend.
+`drills.ts` shares one seeded stream for courses, songs and sittings.
+
 ## Architectural reality audit (reconciliation baseline before M4)
 
 The following audit records the reconciled pre-M4 baseline. The dated additions

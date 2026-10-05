@@ -7,7 +7,7 @@ Read the relevant active plan, not every historical handoff.
 
 | Plan                                                                              | Status                             | Next action                                                                    |
 | :-------------------------------------------------------------------------------- | :--------------------------------- | :----------------------------------------------------------------------------- |
-| [004 — Training and exhibitions](active/004-training-and-exhibitions.md)          | M1–M3 complete                     | M4: rhythm routine and chess or reading.                                       |
+| [004 — Training and exhibitions](active/004-training-and-exhibitions.md)          | M1–M4 complete                     | M5: exhibition schedule.                                                       |
 | [003 — Household and Opening](active/003-household-and-opening.md)                | Stage 2; M1–M3 complete            | M4 needs the story beats for the years with Grandpa.                           |
 | [001 — The First Living Stead](completed/001-deepen-one-critter-daily-loop.md)    | Completed; gate closed 2026-10-02  | Historical evidence.                                                           |
 | [002 — Living diorama presentation](completed/002-living-diorama-presentation.md) | Completed presentation overhaul    | Historical evidence; human visual review on the published page.                |

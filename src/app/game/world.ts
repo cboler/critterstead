@@ -7,9 +7,12 @@ import {
   arenaSeats,
   BEAM_HALF_LENGTH,
   BEAM_STATION,
+  CHESS_TABLE,
   CROPS,
   EXHIBITION_BOOTH,
   ROUTINE,
+  RHYTHM_FLOOR,
+  RHYTHM_STATION,
   RUN_HALF_LENGTH,
   RUN_LANE,
   TAVERN_BIN,
@@ -18,7 +21,15 @@ import {
   TOWN_CARTS,
   TOWN_WELL,
 } from './content';
-import { HURDLE_HEIGHT, runCourse, RUN_SECONDS, throwDistance } from './drills';
+import {
+  activeMoment,
+  chessMoments,
+  HURDLE_HEIGHT,
+  rhythmSong,
+  runCourse,
+  RUN_SECONDS,
+  throwDistance,
+} from './drills';
 import { plotReady } from './garden';
 import { calendarDate, weatherFor } from './calendar';
 import { buildSurroundings, type Surroundings } from './render/terrain';
@@ -309,6 +320,11 @@ export class GameWorld {
   private readonly hurdles: { stump: THREE.Object3D; hedge: THREE.Object3D }[] = [];
   // How far the critter leans on the balance beam, added to its pose.
   private beamLean = 0;
+  // The thinking drills: a moth and an idea's glow at the chessboard, and the dance's hops.
+  private readonly chessMoth = new THREE.Group();
+  private readonly chessIdea = new THREE.Group();
+  private danceSteps = 0;
+  private danceTime = 10;
   private readonly spectators = new THREE.Group();
   private readonly confetti = new THREE.Group();
   private fanfareTime = 0;
@@ -571,6 +587,17 @@ export class GameWorld {
     } else if (activity?.kind === 'run') {
       visualCritterPosition = this.lanePoint((activity.progress ?? 0) * RUN_SECONDS);
       jumpHeight = (activity.meter ?? 0) * JUMP_SCALE;
+    } else if (activity?.kind === 'rhythm') {
+      visualCritterPosition = this.dancePoint(activity);
+      // Each played note is a hop; a missed one is a stumble with no hop.
+      if (activity.hits.length !== this.danceSteps) this.danceTime = 0;
+      this.danceSteps = activity.hits.length;
+      this.danceTime += dt;
+      const hop = Math.min(1, this.danceTime / 0.3);
+      jumpHeight = this.reducedMotion || !activity.hits.at(-1) ? 0 : Math.sin(hop * Math.PI) * 0.3;
+    } else if (activity?.kind === 'chess') {
+      // Seated on the far stool, facing the board and the camera.
+      visualCritterPosition = { x: CHESS_TABLE.x, z: CHESS_TABLE.z - 0.7 };
     } else if (activity?.kind === 'pace') {
       const angle = (activity.progress ?? 0) * Math.PI * 2 - Math.PI / 2;
       visualCritterPosition = { x: 1.2 + Math.cos(angle) * 1.6, z: 6.8 + Math.sin(angle) * 1.6 };
@@ -623,6 +650,7 @@ export class GameWorld {
     this.liftStone.position.y = activity?.kind === 'lift' ? gaugeMeter * 0.6 : 0;
     this.animateToss(activity, companion, visualCritterPosition, dt);
     this.placeHurdles(activity);
+    this.animateChess(activity, visualCritterPosition);
     // On the beam the critter leans the way it is off the zone's centre, and sways a little.
     const lean =
       activity?.kind === 'beam'
@@ -1253,6 +1281,8 @@ export class GameWorld {
     this.pullStone.clear();
     this.tossLog.clear();
     this.hurdles.length = 0;
+    this.chessMoth.clear();
+    this.chessIdea.clear();
     this.spectators.clear();
     this.confetti.clear();
     this.smoke.clear();
@@ -1860,6 +1890,18 @@ export class GameWorld {
     const drill = training.drill!;
     if (drill === 'beam')
       return { ...training, kind: 'beam', progress: share, phase: 0.5, meter: 0.5 };
+    if (drill === 'rhythm') {
+      // The first bars of the first song, every note stepped on the beat.
+      const elapsed = 2 + share * ROUTINE.seconds * 1.5;
+      const played = rhythmSong(0).filter((note) => note.at <= elapsed).length;
+      return { ...training, kind: 'rhythm', seed: 0, elapsed, hits: Array(played).fill(1) };
+    }
+    if (drill === 'chess') {
+      // The first sitting at pace: each moment shows a moment, then is answered.
+      const elapsed = 1.5 + share * ROUTINE.seconds * 2;
+      const answered = chessMoments(0).filter((moment) => moment.at + 0.7 <= elapsed).length;
+      return { ...training, kind: 'chess', seed: 0, elapsed, hits: Array(answered).fill(1) };
+    }
     if (drill === 'run') {
       // A stretch of the first course at a brisk pace, hopping each hurdle on cue.
       const run = 1 + share * ROUTINE.seconds * 1.5;
@@ -2463,6 +2505,91 @@ export class GameWorld {
     this.atmosphere.lamp(new THREE.Vector3(x + 0.34, 1.42, z), 1.6);
   }
 
+  /** A gramophone on a stand by the rug, and a little chess table with two stools. */
+  private thinkingCorner(): void {
+    const { x, z } = RHYTHM_STATION;
+    this.scenery.add(this.mesh(this.box, '#8c603e', [x, 0.3, z], [0.5, 0.6, 0.5]));
+    this.scenery.add(this.mesh(this.box, '#6b4a33', [x, 0.7, z], [0.42, 0.2, 0.42]));
+    this.scenery.add(this.mesh(this.cylinder, '#3f3530', [x, 0.81, z], [0.17, 0.02, 0.17]));
+    const horn = this.mesh(this.cone, '#c9a24f', [x + 0.08, 1.08, z - 0.05], [0.2, 0.42, 0.2]);
+    horn.rotation.z = -0.5;
+    this.scenery.add(horn);
+    const table = CHESS_TABLE;
+    this.scenery.add(
+      this.mesh(this.cylinder, '#8c603e', [table.x, 0.3, table.z], [0.08, 0.6, 0.08]),
+    );
+    this.scenery.add(
+      this.mesh(this.cylinder, '#a7774c', [table.x, 0.62, table.z], [0.48, 0.05, 0.48]),
+    );
+    // A board of four by four squares: enough to read as chess at this size.
+    for (let row = 0; row < 4; row++)
+      for (let column = 0; column < 4; column++)
+        this.scenery.add(
+          this.mesh(
+            this.box,
+            (row + column) % 2 ? '#3f3530' : '#f3e8c5',
+            [table.x - 0.18 + column * 0.12, 0.66, table.z - 0.18 + row * 0.12],
+            [0.12, 0.02, 0.12],
+          ),
+        );
+    for (const [dx, dz, color] of [
+      [-0.1, -0.06, '#f3e8c5'],
+      [0.1, 0.06, '#3f3530'],
+    ] as const)
+      this.scenery.add(
+        this.mesh(this.cylinder, color, [table.x + dx, 0.73, table.z + dz], [0.035, 0.12, 0.035]),
+      );
+    for (const side of [-1, 1])
+      this.scenery.add(
+        this.mesh(
+          this.cylinder,
+          '#9b714b',
+          [table.x, 0.22, table.z + side * 0.7],
+          [0.2, 0.44, 0.2],
+        ),
+      );
+    this.chessMoth.add(this.mesh(this.sphere, '#7a6a58', [0, 0, 0], [0.04, 0.04, 0.09]));
+    for (const side of [-1, 1])
+      this.chessMoth.add(
+        this.mesh(this.sphere, '#efe6d2', [side * 0.09, 0.02, 0], [0.09, 0.015, 0.07]),
+      );
+    this.chessIdea.add(this.mesh(this.sphere, '#ffd75e', [0, 0, 0], [0.17, 0.17, 0.17]));
+    this.chessIdea.add(this.mesh(this.cylinder, '#c9a24f', [0, -0.15, 0], [0.06, 0.08, 0.06]));
+    this.chessMoth.visible = this.chessIdea.visible = false;
+    this.scenery.add(this.chessMoth, this.chessIdea);
+  }
+
+  /** Where the dancer stands: the rug's middle, a little toward the lane it last stepped. */
+  private dancePoint(activity: Training): Point {
+    const lane = rhythmSong(activity.seed ?? 0)[activity.hits.length - 1]?.lane ?? 1;
+    // Screen right runs along x and against z, as the camera's diagonal looks.
+    const offset = (lane - 1) * 0.5;
+    return { x: RHYTHM_FLOOR.x + offset * 0.8, z: RHYTHM_FLOOR.z - offset * 0.6 };
+  }
+
+  /** The chessboard's moment: an idea glows over the critter, or a moth flutters at a side. */
+  private animateChess(activity: Training | null, at: Point): void {
+    const moment = activity?.kind === 'chess' ? activeMoment(activity) : undefined;
+    this.chessIdea.visible = moment?.kind === 'idea';
+    this.chessMoth.visible = moment?.kind === 'moth';
+    const bob = this.reducedMotion ? 0 : Math.sin(this.clock * 6) * 0.05;
+    // Out to the critter's right on screen, at head height, clear of its body and name tag.
+    this.chessIdea.position.set(at.x + 0.6, 1.3 + bob, at.z - 0.45);
+    if (moment?.kind === 'moth') {
+      const flutter = this.reducedMotion ? 0 : this.clock * 5;
+      this.chessMoth.position.set(
+        at.x + moment.side * (0.7 + Math.sin(flutter) * 0.15),
+        1 + Math.sin(flutter * 1.7) * 0.15,
+        at.z + Math.cos(flutter) * 0.2,
+      );
+      this.chessMoth.children
+        .slice(1)
+        .forEach(
+          (wing, index) => (wing.rotation.z = (index ? -1 : 1) * Math.sin(flutter * 6) * 0.6),
+        );
+    }
+  }
+
   private cottageInterior(): void {
     const floor = this.mesh(this.box, '#c89f6e', [0, -0.1, 0], [10.4, 0.2, 10.4]);
     this.scenery.add(floor);
@@ -2531,6 +2658,7 @@ export class GameWorld {
     calendar.add(this.mesh(this.box, '#b76e54', [0, 0.46, 0.04], [1.1, 0.1, 0.02]));
     this.scenery.add(calendar);
     this.scenery.add(this.mesh(this.box, '#b39c6c', [1.6, 0.02, 4.6], [1.3, 0.04, 0.6]));
+    this.thinkingCorner();
     const heights: Partial<Record<string, number>> = {
       door: 1.2,
       bed: 1.6,

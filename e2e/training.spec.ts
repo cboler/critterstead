@@ -3,6 +3,7 @@ import { activeCritter } from '../src/app/game/model';
 import { runCourse } from '../src/app/game/drills';
 import {
   crossBeam,
+  danceSteps,
   doubleJump,
   cues,
   developmentState,
@@ -10,6 +11,7 @@ import {
   PACE,
   runHurdles,
   savedState,
+  sitChess,
   SPOTS,
   tossLogs,
   walk,
@@ -206,5 +208,51 @@ test('crosses the balance beam and runs the hurdles in the glade', async ({ page
   const cleared = Number(/Cleared (\d+) of/.exec(result)![1]);
   expect(cleared).toBeGreaterThanOrEqual(course.length - 2);
   await page.screenshot({ path: info.outputPath('hurdle-run-result.png'), fullPage: true });
+  expect(errors).toEqual([]);
+});
+
+test('steps to the gramophone and cheers a chess puzzle in the cottage', async ({ page }, info) => {
+  test.skip(!['desktop', 'phone-portrait'].includes(info.project.name));
+  test.setTimeout(180_000 * PACE);
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto('/');
+  await takeStarterHome(page);
+  await walk(page, -4.2, -2);
+  await page.getByRole('button', { name: /^Step inside/ }).click();
+  await expect(page.locator('.location-tag')).toContainText('Inside your cottage');
+
+  await walk(page, ...SPOTS.rhythm);
+  const start = activeCritter(await developmentState(page)).stats.intelligence;
+  await page.getByRole('button', { name: /^Rhythm steps · 20 Mallow energy/ }).click();
+  await expect(page.getByRole('img', { name: /^Rhythm steps: 0 of 16 notes/ })).toBeVisible();
+  // A tap on a lane button with no note near is a stray step: it costs a little composure.
+  // The drill ignores taps in its first 0.08 s, so wait for it to get going.
+  await expect
+    .poll(async () => (await developmentState(page)).training?.elapsed ?? 0)
+    .toBeGreaterThan(0.2);
+  await page.getByRole('button', { name: 'Step in the left lane' }).click();
+  await expect.poll(async () => (await developmentState(page)).training?.reserve).toBeLessThan(1);
+  await expect
+    .poll(async () => (await developmentState(page)).training?.elapsed ?? 0, { timeout: 15_000 })
+    .toBeGreaterThan(1.4);
+  await page.screenshot({ path: info.outputPath('rhythm-steps.png'), fullPage: true });
+  await danceSteps(page);
+  await expect(page.locator('.result-card')).toContainText(/perfect and \d+ good steps of 16/);
+  const danced = await savedState(page);
+  expect(activeCritter(danced).stats.intelligence).toBeGreaterThan(start + 0.4);
+  expect(danced.flags).toContain('danced');
+
+  await walk(page, ...SPOTS.chess);
+  await page.getByRole('button', { name: /^Chess puzzles · 15 Mallow energy/ }).click();
+  await expect(page.locator('.training-card')).toContainText('Mallow is thinking…');
+  await expect(page.locator('.chess-moment')).toHaveClass(/idea|moth/, { timeout: 15_000 });
+  await page.screenshot({ path: info.outputPath('chess-puzzles.png'), fullPage: true });
+  await sitChess(page);
+  await expect(page.locator('.result-card')).toContainText(/ideas cheered, \d+ of \d+ moths/);
+  const sat = await savedState(page);
+  expect(activeCritter(sat).drills.sessions).toEqual({ rhythm: 1, chess: 1 });
+  expect(sat.flags).toContain('puzzled');
+  await page.screenshot({ path: info.outputPath('chess-result.png'), fullPage: true });
   expect(errors).toEqual([]);
 });

@@ -229,11 +229,7 @@ export interface Hurdle {
 
 /** The course a seed lays out: low stumps, and tall hedges once the run is under way. */
 export function runCourse(seed: number): Hurdle[] {
-  let state = (Math.floor(seed * 4294967296) ^ 0x9e3779b9) >>> 0;
-  const random = () => {
-    state = (Math.imul(1664525, state) + 1013904223) >>> 0;
-    return state / 4294967296;
-  };
+  const random = seeded(seed);
   const hurdles: Hurdle[] = [];
   // A hedge gets a longer run-up: land from the last hurdle, then jump twice.
   for (let at = 2.5, tall = false; at < RUN_SECONDS - 1.5;) {
@@ -303,4 +299,174 @@ export function stepRun(training: Training, dt: number): boolean {
 export function runScore(training: Training): number {
   const course = runCourse(training.seed ?? 0);
   return course.length ? training.hits.reduce((sum, hit) => sum + hit, 0) / course.length : 0;
+}
+
+/** A small seeded random stream for laying out a course, a song or a puzzle session. */
+function seeded(seed: number): () => number {
+  let state = (Math.floor(seed * 4294967296) ^ 0x9e3779b9) >>> 0;
+  return () => {
+    state = (Math.imul(1664525, state) + 1013904223) >>> 0;
+    return state / 4294967296;
+  };
+}
+
+// Plan 004 provisional rhythm tuning: 100 beats a minute, three lanes, sixteen notes.
+export const RHYTHM_BEAT = 0.6;
+export const RHYTHM_NOTES = 16;
+export const RHYTHM_LANES = 3;
+
+export interface Note {
+  // Seconds into the song.
+  at: number;
+  lane: number;
+}
+
+/** The song a seed writes: notes on beats and half beats, rarely the same lane twice fast. */
+export function rhythmSong(seed: number): Note[] {
+  const random = seeded(seed);
+  const notes: Note[] = [];
+  let at = 2;
+  let lane = 1;
+  for (let index = 0; index < RHYTHM_NOTES; index++) {
+    notes.push({ at: Math.round(at * 100) / 100, lane });
+    const roll = random();
+    const gap = index > 3 && roll < 0.22 ? 0.5 : roll > 0.85 ? 2 : 1;
+    // A half-beat step always moves to a neighbouring lane, so it reads as a step.
+    lane =
+      gap === 0.5
+        ? lane === 1
+          ? random() < 0.5
+            ? 0
+            : 2
+          : 1
+        : Math.floor(random() * RHYTHM_LANES);
+    at += gap * RHYTHM_BEAT;
+  }
+  return notes;
+}
+
+/** Seconds either side of a note for a perfect and a good step; intelligence widens good. */
+export function rhythmWindow(training: Training, critter: Critter) {
+  const scale = training.assist ? 1.4 : 1;
+  return {
+    perfect: 0.07 * scale,
+    good: (0.14 + Math.min(0.06, critter.stats.intelligence * 0.004)) * scale,
+  };
+}
+
+export function startRhythm(training: Training, seed: number): void {
+  training.seed = seed;
+  training.reserve = 1;
+  training.lastHitAt = 0;
+}
+
+/** A step in a lane: the first unplayed note there in reach is scored, any skipped are missed. */
+export function stepToNote(training: Training, critter: Critter, lane: number): boolean {
+  const song = rhythmSong(training.seed ?? 0);
+  const { perfect, good } = rhythmWindow(training, critter);
+  const index = song.findIndex(
+    (note, at) =>
+      at >= training.hits.length &&
+      note.lane === lane &&
+      Math.abs(note.at - training.elapsed) <= good,
+  );
+  if (index < 0) {
+    // A stray step costs a little composure.
+    training.reserve = clamp01((training.reserve ?? 1) - 0.08);
+    return false;
+  }
+  while (training.hits.length < index) training.hits.push(0);
+  const off = Math.abs(song[index].at - training.elapsed);
+  training.hits.push(off <= perfect ? 1 : 0.6);
+  return true;
+}
+
+/** Misses notes that have gone by; returns true when the song is over. */
+export function stepRhythm(training: Training, critter: Critter): boolean {
+  const song = rhythmSong(training.seed ?? 0);
+  const { good } = rhythmWindow(training, critter);
+  while (
+    training.hits.length < song.length &&
+    training.elapsed > song[training.hits.length].at + good
+  )
+    training.hits.push(0);
+  return training.hits.length >= song.length && training.elapsed > song.at(-1)!.at + 0.6;
+}
+
+export function rhythmScore(training: Training): number {
+  const song = rhythmSong(training.seed ?? 0);
+  const hits = training.hits.reduce((sum, hit) => sum + hit, 0) / song.length;
+  return hits * (0.7 + 0.3 * (training.reserve ?? 1));
+}
+
+// Plan 004 provisional chess tuning: a twenty-second sitting of ideas to cheer and moths.
+export const CHESS_SECONDS = 20;
+
+export interface Moment {
+  at: number;
+  // An idea to cheer, or a moth to shoo from the left (-1) or right (1).
+  kind: 'idea' | 'moth';
+  side: number;
+}
+
+/** The sitting a seed lays out: mostly ideas, with a moth now and then. */
+export function chessMoments(seed: number): Moment[] {
+  const random = seeded(seed);
+  const moments: Moment[] = [];
+  for (let at = 1.5; at < CHESS_SECONDS - 1.5; at += 1.8 + random() * 0.9) {
+    const moth = moments.length > 0 && random() < 0.4;
+    moments.push({
+      at: Math.round(at * 100) / 100,
+      kind: moth ? 'moth' : 'idea',
+      side: random() < 0.5 ? -1 : 1,
+    });
+  }
+  return moments;
+}
+
+/** How long an idea or a moth waits for you; intelligence holds an idea a little longer. */
+export function momentWindow(training: Training, critter: Critter, kind: Moment['kind']): number {
+  const base = kind === 'idea' ? 1 + Math.min(0.4, critter.stats.intelligence * 0.025) : 1.4;
+  return base * (training.assist ? 1.4 : 1);
+}
+
+export function startChess(training: Training, seed: number): void {
+  training.seed = seed;
+  training.reserve = 1;
+  training.lastHitAt = 0;
+}
+
+/** The moment waiting on you now, if one has begun and not been answered. */
+export function activeMoment(training: Training): Moment | undefined {
+  const next = chessMoments(training.seed ?? 0)[training.hits.length];
+  return next && training.elapsed >= next.at ? next : undefined;
+}
+
+/** Cheering or shooing: right for the moment scores it; at the wrong time it breaks focus. */
+export function answerMoment(training: Training, kind: Moment['kind']): boolean {
+  const moment = activeMoment(training);
+  if (moment?.kind === kind) {
+    training.hits.push(1);
+    return true;
+  }
+  training.reserve = clamp01((training.reserve ?? 1) - (kind === 'idea' ? 0.15 : 0.1));
+  return false;
+}
+
+/** Lets unanswered moments pass; returns true when the sitting is over. */
+export function stepChess(training: Training, critter: Critter): boolean {
+  const moments = chessMoments(training.seed ?? 0);
+  for (
+    let moment = activeMoment(training);
+    moment && training.elapsed > moment.at + momentWindow(training, critter, moment.kind);
+    moment = activeMoment(training)
+  )
+    training.hits.push(0);
+  return training.hits.length >= moments.length || training.elapsed >= CHESS_SECONDS;
+}
+
+export function chessScore(training: Training): number {
+  const moments = chessMoments(training.seed ?? 0);
+  const answered = training.hits.reduce((sum, hit) => sum + hit, 0) / moments.length;
+  return answered * (0.7 + 0.3 * (training.reserve ?? 1));
 }

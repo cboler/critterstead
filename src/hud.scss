@@ -859,12 +859,66 @@
 .timing-track.wobbling i {
   background: #a0603f;
 }
-.lean-buttons {
+.lean-buttons,
+.lane-buttons {
   display: flex;
   gap: 8px;
 }
-.lean-buttons button {
+.lean-buttons button,
+.lane-buttons button {
   min-width: 56px;
+}
+// Rhythm steps from above: three lanes, the line, and notes coloured by lane.
+.rhythm-view {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 10px 0 4px;
+  border-radius: 12px;
+  background: #e7e4d4;
+}
+.rhythm-lane {
+  fill: #fff6;
+}
+.rhythm-line {
+  fill: #385741;
+  opacity: 0.55;
+}
+.rhythm-note {
+  stroke: #fff9;
+  stroke-width: 2;
+}
+.rhythm-note.lane-0 {
+  fill: #c8866a;
+}
+.rhythm-note.lane-1 {
+  fill: #6c938b;
+}
+.rhythm-note.lane-2 {
+  fill: #b59a4e;
+}
+// The chess sitting's current moment, with the time it waits shrinking beneath.
+.chess-moment {
+  position: relative;
+  overflow: hidden;
+  margin: 12px 0 8px;
+  padding: 10px 12px 14px;
+  border-radius: 12px;
+  background: #e7e4d4;
+  font-weight: 600;
+}
+.chess-moment.idea {
+  background: #dfe9c9;
+}
+.chess-moment.moth {
+  background: #f1dccd;
+}
+.chess-moment i {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 5px;
+  background: #385741;
 }
 // The hurdle run's side view: a lane of grass, stumps and hedges, and the runner.
 .run-view {

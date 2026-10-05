@@ -1,6 +1,6 @@
 import { expect, type Page } from '@playwright/test';
 import { type GameState } from '../src/app/game/model';
-import { type Hurdle, RUN_SECONDS } from '../src/app/game/drills';
+import { chessMoments, type Hurdle, rhythmSong, RUN_SECONDS } from '../src/app/game/drills';
 interface DebugGameWindow extends Window {
   ng?: {
     getComponent(element: Element): {
@@ -112,6 +112,8 @@ export const SPOTS = {
   toss: [-5.4, -2.6],
   beam: [2.7, 2.9],
   run: [-4.6, 2.7],
+  rhythm: [-1.2, 1.2],
+  chess: [2.6, 1.4],
 } as const;
 
 /**
@@ -323,4 +325,69 @@ export async function doubleJump(page: Page): Promise<number[]> {
     space();
     return [first, training().stage ?? 0];
   });
+}
+
+/**
+ * Plays rhythm steps from inside the page: each note's lane key goes down as the note
+ * reaches the line. The song comes from the session's seed.
+ */
+export async function danceSteps(page: Page): Promise<void> {
+  const seed = (await developmentState(page)).training!.seed!;
+  const finished = await page.evaluate(
+    ({ song }) =>
+      new Promise<boolean>((resolve) => {
+        const game = (window as unknown as DebugHostWindow).ng!.getComponent(
+          document.querySelector('app-root')!,
+        );
+        const deadline = performance.now() + 120_000;
+        const keys = ['a', 's', 'd'];
+        const frame = (): void => {
+          const training = game.host.state.training;
+          if (!training) return resolve(true);
+          if (performance.now() > deadline) return resolve(false);
+          const note = song[training.hits.length];
+          if (note && training.elapsed >= note.at - 0.03)
+            for (const type of ['keydown', 'keyup'])
+              window.dispatchEvent(new KeyboardEvent(type, { key: keys[note.lane] }));
+          requestAnimationFrame(frame);
+        };
+        requestAnimationFrame(frame);
+      }),
+    { song: rhythmSong(seed) },
+  );
+  if (!finished) throw new Error('The rhythm steps did not finish.');
+}
+
+/**
+ * Sits a chess puzzle from inside the page: Space cheers each idea and S shoos each moth a
+ * moment after it appears. The sitting comes from the session's seed.
+ */
+export async function sitChess(page: Page): Promise<void> {
+  const seed = (await developmentState(page)).training!.seed!;
+  const finished = await page.evaluate(
+    ({ moments }) =>
+      new Promise<boolean>((resolve) => {
+        const game = (window as unknown as DebugHostWindow).ng!.getComponent(
+          document.querySelector('app-root')!,
+        );
+        const deadline = performance.now() + 120_000;
+        const frame = (): void => {
+          const training = game.host.state.training;
+          if (!training) return resolve(true);
+          if (performance.now() > deadline) return resolve(false);
+          const moment = moments[training.hits.length];
+          if (moment && training.elapsed >= moment.at + 0.2) {
+            const key = moment.kind === 'idea' ? ' ' : 's';
+            for (const type of ['keydown', 'keyup'])
+              window.dispatchEvent(
+                new KeyboardEvent(type, { key, code: key === ' ' ? 'Space' : 'KeyS' }),
+              );
+          }
+          requestAnimationFrame(frame);
+        };
+        requestAnimationFrame(frame);
+      }),
+    { moments: chessMoments(seed) },
+  );
+  if (!finished) throw new Error('The chess sitting did not finish.');
 }

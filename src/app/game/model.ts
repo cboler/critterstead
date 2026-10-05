@@ -1,5 +1,5 @@
 export type AreaId = 'homestead' | 'glade' | 'cottage' | 'colosseum' | 'town';
-export type Drill = 'hoops' | 'lift' | 'pace' | 'toss' | 'beam' | 'run';
+export type Drill = 'hoops' | 'lift' | 'pace' | 'toss' | 'beam' | 'run' | 'rhythm' | 'chess';
 export type Season = 'spring' | 'summer' | 'autumn' | 'winter';
 export type Weather = 'sunny' | 'cloudy' | 'rain' | 'snow';
 export type CropId = 'feed' | 'turnip' | 'wheat' | 'sunberry';
@@ -159,7 +159,18 @@ export interface Training {
   hits: number[];
   elapsed: number;
   lastHitAt?: number;
-  kind: 'training' | 'race' | 'lift' | 'pace' | 'toss' | 'beam' | 'run' | 'exhibition' | 'routine';
+  kind:
+    | 'training'
+    | 'race'
+    | 'lift'
+    | 'pace'
+    | 'toss'
+    | 'beam'
+    | 'run'
+    | 'rhythm'
+    | 'chess'
+    | 'exhibition'
+    | 'routine';
   // A routine: the drill the critter runs on its own; its score is drawn as it starts.
   drill?: Drill;
   // Wider timing windows, fixed when the activity starts.
@@ -169,6 +180,8 @@ export interface Training {
   // Balance beam: meter is where the critter leans, phase the drifting zone's centre, and
   // progress the crossing. Runner: meter is jump height, rise its upward speed, progress
   // the course, and hits one per obstacle. Seed shapes the drift or lays out the course.
+  // Rhythm steps and chess puzzles: hits one per note or moment, in order; reserve is
+  // composure, spent by stray steps or cheers; seed writes the song or the sitting.
   meter?: number;
   progress?: number;
   reserve?: number;
@@ -209,7 +222,10 @@ export interface GameState {
 export type GameCommand =
   | { type: 'move'; x: number; z: number; seconds: number }
   | { type: 'interact'; targetId: string; action: string }
-  | { type: 'training-hit' }
+  // Rhythm steps: the lane stepped in (0-2); a press without one takes the middle lane.
+  | { type: 'training-hit'; lane?: number }
+  // Chess puzzles: shoo a moth (a plain hit cheers).
+  | { type: 'training-shoo' }
   | { type: 'training-release' }
   // Balance beam: lean left (-1), right (1), or hold still (0).
   | { type: 'training-steer'; direction: number }
@@ -246,6 +262,8 @@ export interface WorldObject {
     | 'toss'
     | 'beam'
     | 'run'
+    | 'rhythm'
+    | 'chess'
     | 'exhibition'
     | 'notices';
   name: string;

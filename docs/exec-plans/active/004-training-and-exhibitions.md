@@ -1,8 +1,8 @@
 # 004 — Training and exhibitions
 
 **Status:** authorized 2026-10-03 ([D47](../../DECISIONS.md#d47--raise-critters-for-the-colosseum-accepted-2026-10-03)).
-M1–M3 complete ([M1](#m1-evidence--2026-10-03), [M2](#m2-evidence--2026-10-03),
-[M3](#m3-evidence--2026-10-03)); M4 next.
+M1–M4 complete ([M1](#m1-evidence--2026-10-03), [M2](#m2-evidence--2026-10-03),
+[M3](#m3-evidence--2026-10-03), [M4](#m4-evidence--2026-10-04)); M5 next.
 
 ## Purpose
 
@@ -21,16 +21,16 @@ renderer. Only houses, the shed and cottage furniture block walking.
 
 ## Drill roster
 
-| Stat | Drill            | Pattern                                                                 | Status   |
-| :--- | :--------------- | :---------------------------------------------------------------------- | :------- |
-| STR  | Boulder lift     | Hold in band: tap against gravity                                       | Existing |
-| STR  | Log toss         | Charge and release: stop the power at its peak                          | M1       |
-| END  | Distance pacing  | Pace with a breath reserve                                              | Existing |
-| END  | Balance beam     | Track a drifting zone: steer left and right                             | M3       |
-| SPD  | Hoops            | Timing sweep: press in the green                                        | Existing |
-| SPD  | Hurdle run       | Endless runner, 24 s, jump and double jump                              | M3       |
-| INT  | Rhythm routine   | Notes in three or four lanes                                            | M4       |
-| INT  | Chess or reading | The critter plays; you cheer at the right moments, or shoo distractions | M4       |
+| Stat | Drill           | Pattern                                                                 | Status   |
+| :--- | :-------------- | :---------------------------------------------------------------------- | :------- |
+| STR  | Boulder lift    | Hold in band: tap against gravity                                       | Existing |
+| STR  | Log toss        | Charge and release: stop the power at its peak                          | M1       |
+| END  | Distance pacing | Pace with a breath reserve                                              | Existing |
+| END  | Balance beam    | Track a drifting zone: steer left and right                             | M3       |
+| SPD  | Hoops           | Timing sweep: press in the green                                        | Existing |
+| SPD  | Hurdle run      | Endless runner, 24 s, jump and double jump                              | M3       |
+| INT  | Rhythm steps    | Notes in three lanes                                                    | M4       |
+| INT  | Chess puzzles   | The critter plays; you cheer at the right moments and shoo distractions | M4       |
 
 Later pool, for drills or exhibition events: glide (gaps in a moving band), quick draw,
 berry catch, shell game, sequence memory, tug of war, stacking.
@@ -78,9 +78,20 @@ berry catch, shell game, sequence memory, tug of war, stacking.
       routine), browser tests (both drills on desktop and phone, controller), lint, build,
       PWA, inspected screenshots.
 
-### M4 — Rhythm routine and chess or reading
+### M4 — Rhythm steps and chess puzzles
 
-INT gets its two drills.
+- [x] Rhythm steps in the cottage: sixteen notes from a per-session seed slide down three
+      lanes to the gramophone's tune; step each lane as its note reaches the line (perfect
+      or good). Intelligence widens the good window; stray steps spend composure. Builds
+      INT, a little SPD.
+- [x] Chess puzzles at a cottage table: the critter works a puzzle from Grandpa's book;
+      cheer when it sees a move and shoo the moths that drift in. Wrong-time cheers and
+      shoos break focus; intelligence holds an idea longer. Builds INT, a little END.
+- [x] Both need the companion indoors, play on keyboard (A/S/D, arrows or J/K/L; Space and
+      S), gamepad (d-pad or X/A/B; A and B) and touch (lane buttons; Cheer and Shoo), run as
+      routines, and save and resume mid-drill.
+- [x] Verification: unit tests, browser tests (both drills on desktop and phone,
+      controller), lint, build, PWA, inspected screenshots.
 
 ### M5 — Exhibition schedule
 
@@ -169,6 +180,36 @@ settings and favouring different stats; entry fees and prizes.
   2.1 against gravity 5.2 (+12% at most from speed), stumps 0.2 and hedges 0.6 high,
   35% hedges after the second hurdle, 30 energy and 35 minutes for the run.
 
+## M4 evidence — 2026-10-04
+
+- Host: `rhythmSong`, `rhythmWindow`, `stepToNote`, `stepRhythm`, `rhythmScore`;
+  `chessMoments`, `momentWindow`, `activeMoment`, `answerMoment`, `stepChess`,
+  `chessScore`; `training-hit` with a `lane`, and `training-shoo`. Both drills are on the
+  drill table and stand in the cottage, needing the companion indoors. No save version.
+  Unit tests: 194 passed, including `thinking.spec.ts` (perfect, late and idle dancing;
+  mashing paying less; skipped notes; song layout and windows; companion away; mid-song
+  save; right, wrong and idle sittings; stray cheers; sitting layout and windows;
+  mid-sitting save; the chess routine).
+- Browser: `e2e/training.spec.ts` walks into the cottage, makes a stray lane tap, dances
+  the song and sits a puzzle (desktop and phone); `e2e/controller.spec.ts` steps a lane
+  with the d-pad and shoos and cheers with B and A. Inspected:
+  [chess puzzles](../evidence/004-m4/chess-puzzles.png),
+  [rhythm steps on a phone](../evidence/004-m4/rhythm-steps-phone.png).
+- Gates: lint, unit tests, production build, PWA check, and the browser suite (73 passed,
+  42 skipped by project, one failure in the new phone test, fixed and rerun: its stray tap
+  landed in the drill's first 0.08 s, which ignores input; the drill specs then passed on
+  every viewport). The new timing tests also pass with the CPU throttled 6×. The bundle is
+  60.5 kB over its budget warning (46.6 kB after M3).
+- Found while testing: the idea's glow sat inside the critter's body from the camera, so it
+  now floats at the critter's right at head height.
+- Routine decisions: chess rather than reading, as a puzzle from Grandpa's book with moths
+  for distractions; both INT drills in the cottage (a gramophone by the rug and a chess
+  table by the window, which blocks walking); "Rhythm steps" avoids clashing with the
+  routine mode's name. Space, E and Enter take the middle lane and cheer. Provisional:
+  100 beats a minute, sixteen notes, perfect ±0.07 s, good ±0.14–0.20 s, stray steps −0.08
+  composure; ideas wait 1.0–1.4 s and moths 1.4 s, stray cheers −0.15 and shoos −0.1
+  focus; score × (0.7 + 0.3 composure); 20 and 15 energy, 30 and 40 minutes.
+
 ## Current handoff
 
-M3 complete. Next: M4 — the rhythm routine and chess or reading (INT).
+M4 complete. Next: M5 — the exhibition schedule.

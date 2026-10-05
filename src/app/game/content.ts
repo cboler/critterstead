@@ -125,6 +125,30 @@ export const DRILLS: Record<Drill, DrillDefinition> = {
     gain: { base: 0.2, score: 0.75, care: 0.3 },
     praise: ['A clean run!', 'Good hopping!', 'A tumbly try.'],
   },
+  rhythm: {
+    name: 'Rhythm steps',
+    stat: 'intelligence',
+    side: 'speed',
+    sideShare: 0.3,
+    energy: 20,
+    minutes: 30,
+    skill: 'dancing',
+    flag: 'danced',
+    gain: { base: 0.2, score: 0.7, care: 0.3 },
+    praise: ['Every step on the beat!', 'Nice moves!', 'A two-left-feet try.'],
+  },
+  chess: {
+    name: 'Chess puzzles',
+    stat: 'intelligence',
+    side: 'endurance',
+    sideShare: 0.3,
+    energy: 15,
+    minutes: 40,
+    skill: 'puzzling',
+    flag: 'puzzled',
+    gain: { base: 0.2, score: 0.7, care: 0.3 },
+    praise: ['A brilliant sitting!', 'Clever thinking!', 'A distracted try.'],
+  },
 };
 export const DRILL_IDS = Object.keys(DRILLS) as Drill[];
 // Plan 004 provisional routine tuning: a drill run from the menu, without you playing it.
@@ -280,6 +304,10 @@ export const BEAM_STATION: Point = { x: 2.7, z: 2.3 };
 export const BEAM_HALF_LENGTH = 1.3;
 export const RUN_LANE: Point = { x: -4.6, z: 3.4 };
 export const RUN_HALF_LENGTH = 2.2;
+// The cottage's thinking corner: a gramophone by the rug, and a chess table by the window.
+export const RHYTHM_STATION: Point = { x: -1.5, z: 0.4 };
+export const RHYTHM_FLOOR: Point = { x: 0.3, z: 0.5 };
+export const CHESS_TABLE: Point = { x: 3.3, z: 0.6 };
 
 // Oakhaven's buildings along the north of the square (footprints, without the plinth).
 export const TOWN_BUILDINGS: {
@@ -385,6 +413,8 @@ export const AREAS: Record<AreaId, AreaDefinition> = {
     subtitle: 'Warm boards and a crackling hearth',
     halfSize: 5,
     spawn: { x: 1.6, z: 3.3 },
+    // The chess table stands in the way; the gramophone sits by the wall of the rug.
+    blockers: [{ ...CHESS_TABLE, r: 0.5 }],
     objects: [
       {
         id: 'door',
@@ -414,6 +444,20 @@ export const AREAS: Record<AreaId, AreaDefinition> = {
         name: 'Kitchen counter',
         position: { x: -3.9, z: 1.6 },
         radius: 0.9,
+      },
+      {
+        id: 'rhythm',
+        kind: 'rhythm',
+        name: 'Rhythm steps',
+        position: RHYTHM_STATION,
+        radius: 0.8,
+      },
+      {
+        id: 'chess',
+        kind: 'chess',
+        name: 'Chess puzzles',
+        position: CHESS_TABLE,
+        radius: 0.8,
       },
     ],
   },

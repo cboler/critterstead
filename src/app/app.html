@@ -175,6 +175,76 @@
                   </g>
                 </svg>
               }
+            } @else if (copy.gauge === 'rhythm') {
+              <p>
+                Step in each lane as its note reaches the line:
+                @if (controllerConnected()) {
+                  <kbd>X</kbd> <kbd>A</kbd> <kbd>B</kbd> or the d-pad.
+                } @else {
+                  <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd>, the arrows, or the lane buttons.
+                }
+              </p>
+              @if (rhythmView(); as view) {
+                <svg
+                  class="rhythm-view"
+                  viewBox="0 0 300 130"
+                  role="img"
+                  [attr.aria-label]="
+                    'Rhythm steps: ' + view.played + ' of ' + view.total + ' notes played'
+                  "
+                >
+                  @for (x of laneX; track x) {
+                    <rect
+                      class="rhythm-lane"
+                      [attr.x]="x - 34"
+                      y="0"
+                      width="68"
+                      height="130"
+                    ></rect>
+                  }
+                  <rect class="rhythm-line" x="20" y="109" width="260" height="6" rx="3"></rect>
+                  @for (note of view.notes; track note.at) {
+                    <circle
+                      [class]="'rhythm-note lane-' + note.lane"
+                      [attr.cx]="note.x"
+                      [attr.cy]="note.y"
+                      r="11"
+                    ></circle>
+                  }
+                </svg>
+              }
+            } @else if (copy.gauge === 'chess') {
+              <p>
+                Cheer with <kbd>{{ controllerConnected() ? 'A' : 'Space' }}</kbd> when
+                {{ companion().name }} sees a move; shoo moths with
+                <kbd>{{ controllerConnected() ? 'B' : 'S' }}</kbd
+                >. A cheer at the wrong time breaks {{ companion().name }}’s focus.
+              </p>
+              @if (chessView(); as view) {
+                <div
+                  class="chess-moment"
+                  [class.idea]="view.moment?.kind === 'idea'"
+                  [class.moth]="view.moment?.kind === 'moth'"
+                  role="status"
+                >
+                  {{
+                    !view.moment
+                      ? 'Quiet at the board.'
+                      : view.moment.kind === 'idea'
+                        ? 'An idea! Cheer now.'
+                        : 'Shoo the moth!'
+                  }}
+                  <i [style.width.%]="view.left * 100"></i>
+                </div>
+                <div class="meter-label">
+                  <span>Focus</span><strong>{{ round(view.focus * 100) }}%</strong>
+                </div>
+                <div class="meter"><i [style.width.%]="view.focus * 100"></i></div>
+                <div class="meter-label">
+                  <span>Ideas cheered {{ view.ideas }}</span
+                  ><strong>Moths shooed {{ view.moths }}</strong>
+                </div>
+              }
             } @else if (copy.gauge) {
               <div
                 class="timing-track"
@@ -240,6 +310,41 @@
                       {{ side < 0 ? '◀' : '▶' }}
                     </button>
                   }
+                </span>
+              } @else if (copy.gauge === 'rhythm') {
+                <span class="lane-buttons">
+                  @for (lane of [0, 1, 2]; track lane) {
+                    <button
+                      class="primary hold-button"
+                      [attr.aria-label]="
+                        'Step in the ' + ['left', 'middle', 'right'][lane] + ' lane'
+                      "
+                      (pointerdown)="stepLane(lane, $event)"
+                      (click)="$event.detail === 0 && stepLane(lane)"
+                    >
+                      {{ ['◀', '▼', '▶'][lane] }}
+                      @if (!controllerConnected()) {
+                        <kbd>{{ laneKeys[lane] }}</kbd>
+                      }
+                    </button>
+                  }
+                </span>
+              } @else if (copy.gauge === 'chess') {
+                <span class="lane-buttons">
+                  <button
+                    class="primary hold-button"
+                    (pointerdown)="pressDrill($event)"
+                    (click)="clickDrill($event)"
+                  >
+                    Cheer! <kbd>{{ controllerConnected() ? 'A' : 'Space' }}</kbd>
+                  </button>
+                  <button
+                    class="hold-button"
+                    (pointerdown)="shooDrill($event)"
+                    (click)="$event.detail === 0 && shooDrill()"
+                  >
+                    Shoo! <kbd>{{ controllerConnected() ? 'B' : 'S' }}</kbd>
+                  </button>
                 </span>
               } @else if (copy.gauge === 'toss' || copy.gauge === 'run') {
                 <button

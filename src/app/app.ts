@@ -29,15 +29,20 @@ import {
   Interaction,
   InteractionAction,
   Point,
+  Training,
 } from './game/model';
 import { nextObjective, objectives } from './game/objectives';
 import { IndexedDbStorage } from './game/storage';
 import { encumbrance } from './game/checks';
 import {
+  activeMoment,
   beamBand,
+  chessMoments,
   HURDLE_HEIGHT,
+  momentWindow,
   liftBand,
   paceBand,
+  rhythmSong,
   runCourse,
   RUN_SECONDS,
   sweepBand,
@@ -88,6 +93,30 @@ const RUNNER_X = 56;
 const GROUND_Y = 74;
 const RUN_PIXELS = 64;
 const HEIGHT_PIXELS = 58;
+// Rhythm steps: lane centres, the line notes are stepped on, and how fast notes fall.
+const LANE_X = [60, 150, 240];
+const STEP_LINE = 112;
+const NOTE_PIXELS = 70;
+// Controller buttons for the rhythm lanes: d-pad left, down, right and X, A, B.
+const PAD_LANES = [
+  [14, 0],
+  [2, 0],
+  [13, 1],
+  [0, 1],
+  [15, 2],
+  [1, 2],
+] as const;
+const RHYTHM_KEYS: Record<string, number> = {
+  a: 0,
+  arrowleft: 0,
+  j: 0,
+  s: 1,
+  arrowdown: 1,
+  k: 1,
+  d: 2,
+  arrowright: 2,
+  l: 2,
+};
 const ACTIVITY_NAMES: Record<string, string> = {
   training: 'PRACTICE HOOPS',
   race: 'THE CLOVER CUP',
@@ -96,6 +125,8 @@ const ACTIVITY_NAMES: Record<string, string> = {
   toss: 'LOG TOSS',
   beam: 'BALANCE BEAM',
   run: 'HURDLE RUN',
+  rhythm: 'RHYTHM STEPS',
+  chess: 'CHESS PUZZLES',
   routine: 'A ROUTINE',
   exhibition: 'THE EXHIBITION',
 };
@@ -290,6 +321,59 @@ export class App implements AfterViewInit, OnDestroy {
     if (activity?.kind !== 'toss') return '';
     return activity.hits.map((hit) => throwDistance(hit, this.companion()) + ' m').join(' · ');
   });
+  /** Rhythm steps from above: notes fall down three lanes to the line they are stepped on. */
+  protected readonly rhythmView = computed(() => {
+    const activity = this.state().training;
+    if (activity?.kind !== 'rhythm') return null;
+    const song = rhythmSong(activity.seed ?? 0);
+    const last = activity.hits.at(-1);
+    return {
+      notes: song
+        .map((note) => ({
+          at: note.at,
+          x: LANE_X[note.lane],
+          y: STEP_LINE - (note.at - activity.elapsed) * NOTE_PIXELS,
+          lane: note.lane,
+        }))
+        .filter((note, index) => index >= activity.hits.length && note.y > -12),
+      // The last judgement shows briefly after it lands.
+      judged:
+        last === undefined || activity.elapsed - this.judgedAt(activity) > 0.5
+          ? ''
+          : last === 1
+            ? 'Perfect!'
+            : last > 0
+              ? 'Good'
+              : 'Miss',
+      played: activity.hits.length,
+      total: song.length,
+    };
+  });
+  /** When the last note was judged: on its step, or as it slipped past the line. */
+  private judgedAt(activity: Training): number {
+    const note = rhythmSong(activity.seed ?? 0)[activity.hits.length - 1];
+    return activity.hits.at(-1) === 0 ? (note?.at ?? 0) + 0.15 : (activity.lastHitAt ?? 0);
+  }
+  /** The chess sitting: what needs answering now, how long it waits, and the tally so far. */
+  protected readonly chessView = computed(() => {
+    const activity = this.state().training;
+    if (activity?.kind !== 'chess') return null;
+    const moments = chessMoments(activity.seed ?? 0);
+    const moment = activeMoment(activity);
+    const window = moment ? momentWindow(activity, this.companion(), moment.kind) : 0;
+    const count = (kind: string, answered: boolean) =>
+      moments.filter((item, index) => item.kind === kind && (!answered || activity.hits[index] > 0))
+        .length;
+    return {
+      moment,
+      left: moment ? Math.max(0, 1 - (activity.elapsed - moment.at) / window) : 0,
+      ideas: `${count('idea', true)} / ${count('idea', false)}`,
+      moths: `${count('moth', true)} / ${count('moth', false)}`,
+      focus: activity.reserve ?? 1,
+    };
+  });
+  protected readonly laneKeys = ['A', 'S', 'D'];
+  protected readonly laneX = LANE_X;
   protected readonly assist = signal(storedAssist());
   protected setAssist(on: boolean): void {
     this.assist.set(on);
@@ -347,6 +431,32 @@ export class App implements AfterViewInit, OnDestroy {
         button: 'Jump!',
         status: (view?.cleared ?? 0) + ' / ' + (view?.total ?? 0) + ' cleared',
         gauge: 'run' as const,
+      };
+    }
+    if (activity.kind === 'rhythm') {
+      const view = this.rhythmView();
+      return {
+        eyebrow: 'RHYTHM STEPS',
+        heading: view?.judged || 'Step in time with ' + name,
+        instructions: '',
+        button: '',
+        status: (view?.played ?? 0) + ' / ' + (view?.total ?? 0) + ' notes',
+        gauge: 'rhythm' as const,
+      };
+    }
+    if (activity.kind === 'chess') {
+      const moment = this.chessView()?.moment;
+      return {
+        eyebrow: 'CHESS PUZZLES',
+        heading: !moment
+          ? name + ' is thinking…'
+          : moment.kind === 'idea'
+            ? name + ' sees a move!'
+            : 'A moth flutters in from the ' + (moment.side < 0 ? 'left' : 'right') + '!',
+        instructions: '',
+        button: 'Cheer!',
+        status: Math.round(activity.elapsed) + 's',
+        gauge: 'chess' as const,
       };
     }
     if (activity.kind === 'pace')
@@ -784,6 +894,19 @@ export class App implements AfterViewInit, OnDestroy {
         if (this.panel()) this.openPanel(null);
         else this.togglePause();
       });
+    // The thinking drills own the face buttons and the d-pad: lanes X/A/B and ◀ ▼ ▶ for
+    // rhythm steps; A cheers and B shoos at the chessboard.
+    const thinking = this.host.state.training?.kind;
+    if ((thinking === 'rhythm' || thinking === 'chess') && !this.panel() && !this.paused()) {
+      if (thinking === 'rhythm') {
+        const lane = PAD_LANES.find(([button]) => edge(button))?.[1];
+        if (lane !== undefined) this.zone.run(() => this.stepLane(lane));
+      } else {
+        if (edge(0)) this.zone.run(() => this.act());
+        if (edge(1)) this.zone.run(() => this.shooDrill());
+      }
+      return { x: 0, z: 0 };
+    }
     if (edge(1))
       this.zone.run(() => {
         if (this.panel()) this.openPanel(null);
@@ -1022,6 +1145,18 @@ export class App implements AfterViewInit, OnDestroy {
   protected releaseDrill(): void {
     if (this.host.state.training?.kind === 'toss') this.command({ type: 'training-release' });
   }
+  /** A step in one of the rhythm lanes, from a key, a controller button or the card. */
+  protected stepLane(lane: number, event?: PointerEvent): void {
+    event?.preventDefault();
+    if (!this.ready() || this.paused() || this.panel()) return;
+    this.command({ type: 'training-hit', lane });
+  }
+  /** Shooing a moth off the chessboard. */
+  protected shooDrill(event?: PointerEvent): void {
+    event?.preventDefault();
+    if (!this.ready() || this.paused() || this.panel()) return;
+    this.command({ type: 'training-shoo' });
+  }
   /** The card's lean buttons steer the beam while held. */
   protected leanDrill(direction: number, event?: PointerEvent): void {
     if (event) (event.currentTarget as Element).setPointerCapture?.(event.pointerId);
@@ -1102,9 +1237,19 @@ export class App implements AfterViewInit, OnDestroy {
     // The log toss and the hurdle run own their keys, even on a focused button, so a held key
     // can charge a throw and a jump lands on the key going down.
     const held = this.host.state.training?.kind;
+    // Rhythm steps take A/S/D, the arrows and J/K/L as lanes; chess takes S to shoo.
+    const lane = held === 'rhythm' ? RHYTHM_KEYS[key] : undefined;
+    if (lane !== undefined || (held === 'chess' && key === 's')) {
+      event.preventDefault();
+      if (!event.repeat)
+        this.zone.run(() => (lane !== undefined ? this.stepLane(lane) : this.shooDrill()));
+      return;
+    }
     if (
       (held === 'toss' && [' ', 'e', 'enter'].includes(key)) ||
-      (held === 'run' && [' ', 'e', 'enter', 'w', 'arrowup'].includes(key))
+      (held === 'run' && [' ', 'e', 'enter', 'w', 'arrowup'].includes(key)) ||
+      // Space cheers even on a focused Shoo button, and steps in the middle rhythm lane.
+      ((held === 'chess' || held === 'rhythm') && [' ', 'e', 'enter'].includes(key))
     ) {
       event.preventDefault();
       if (!event.repeat) this.zone.run(() => this.act());
