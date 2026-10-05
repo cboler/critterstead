@@ -23,7 +23,7 @@ For active milestone execution, see [exec-plans/README.md](exec-plans/README.md)
                                      |
                                      v
                   [Training & Exhibitions] -> [Colosseum Ladder]
-                   Active Campaign 004          Next campaign
+                   Campaign 004 (complete)      Active Campaign 005
                                      |
                                      v
                         [Stage 3: Community & Expansion]
@@ -182,12 +182,19 @@ staged progression (M1 through M9) that systematically builds the foundational v
 
 ---
 
+## Active Campaign 005 — The Colosseum ladder
+
+Authorized by [D53](DECISIONS.md#d53--a-colosseum-ladder-of-athletic-cups-accepted-2026-10-05):
+ranks climbed through athletic ranked cups against rival ranchers' critters, promotion cups
+between ranks, and a balancing simulator ([plan 005](exec-plans/active/005-colosseum-ladder.md)).
+The Champion and Grand Champion ranks wait for turn-based bouts, a later campaign.
+
 ## Campaign 004 — Training and exhibitions (completed 2026-10-04)
 
 Brought ahead of plan 003's M4–M5 and Stage 3 by [D47](DECISIONS.md#d47--raise-critters-for-the-colosseum-accepted-2026-10-03):
 two real-time drills per stat, each also a menu routine, then scheduled Colosseum events
 ([plan 004](exec-plans/completed/004-training-and-exhibitions.md)). The Colosseum ladder
-(ranks, promotion cups, a balancing simulator) is the next campaign, pulled forward from
+(ranks, promotion cups, a balancing simulator) follows as campaign 005, pulled forward from
 Stage 3's tournaments.
 
 ## Campaign 003 — Household and Opening

@@ -51,6 +51,7 @@ For sequencing, see [ROADMAP.md](ROADMAP.md) and [exec-plans/README.md](exec-pla
 | **D31** | Monster Rancher training minigames family                 | Accepted       | [Training](GAME-DESIGN.md#training-system)                                                                                     |
 | **D32** | Viewport decoupling from interaction dock UI              | Accepted       | [Architecture](ARCHITECTURE.md#1-viewport--canvas-decoupling)                                                                  |
 | **D33** | Restructured Campaign 001 vertical slice runway           | Accepted       | [Roadmap](ROADMAP.md)                                                                                                          |
+| **D53** | A Colosseum ladder of athletic cups; bouts on top         | Accepted       | [Plan 005](exec-plans/active/005-colosseum-ladder.md)                                                                          |
 | **D52** | Colosseum events on the calendar (save v12)               | Implemented    | [Plan 004](exec-plans/completed/004-training-and-exhibitions.md)                                                               |
 | **D51** | Routines unlock by practice together (save v11)           | Implemented    | [Plan 004](exec-plans/completed/004-training-and-exhibitions.md)                                                               |
 | **D50** | Lifespan is a family trait and is inherited               | Accepted       | [Aging](GAME-DESIGN.md#aging-and-respectful-mortality)                                                                         |
@@ -361,6 +362,15 @@ families even the household cannot name. Pip remains its only member.
 Maximum age differs between families and is a primary trait offspring inherit. Aging
 stays a handful of modeling choices (youth, peak, elder) rather than a deep system.
 [Aging](GAME-DESIGN.md#aging-and-respectful-mortality).
+
+### D53 — A Colosseum ladder of athletic cups (accepted 2026-10-05)
+
+The Colosseum ladder comes next, ahead of the years with Grandpa. Its lower ranks are
+athletic cups: drills chained as legs, scored against rival ranchers' critters for a
+placing, with promotion cups between ranks. The top ranks, Champion and Grand Champion
+(Grandpa's old title), are reserved for turn-based bouts, built later; D28's turn-based
+Colosseum combat arrives there. A balancing simulator sets the climb's pace.
+[Colosseum](GAME-DESIGN.md#the-colosseum), [plan 005](exec-plans/active/005-colosseum-ladder.md).
 
 ### D52 — Colosseum events on the calendar (implemented 2026-10-04)
 

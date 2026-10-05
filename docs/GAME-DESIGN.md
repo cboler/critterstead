@@ -685,6 +685,10 @@ a combat pit:
   tactics from INT, and endurance reserves from END.
 - **Diverse athletic events**: obstacle hurdle courses, sprint relays, heavy stone pulls,
   harvest time trials, and beauty/physique exhibitions.
+- **The ladder**: critters climb ranks — Fledgling, Contender, Veteran — through ranked
+  cups against rival ranchers' critters and a promotion cup at each rank. Champion and
+  Grand Champion, Grandpa's old title, are won in turn-based bouts
+  ([D53](DECISIONS.md#d53--a-colosseum-ladder-of-athletic-cups-accepted-2026-10-05)).
 
 ---
 
