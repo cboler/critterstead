@@ -25,6 +25,7 @@ import {
   activeMoment,
   chessMoments,
   HURDLE_HEIGHT,
+  legProgress,
   rhythmSong,
   runCourse,
   RUN_SECONDS,
@@ -571,7 +572,14 @@ export class GameWorld {
     let jumpHeight = 0;
     const activity = this.rehearse(state.training);
     const gaugeMeter = activity?.meter ?? 0;
-    if (activity?.kind === 'lift') {
+    if (activity?.event) {
+      // In the arena: the stone pull at the pull stone, every other leg along the sand.
+      visualCritterPosition =
+        activity.kind === 'lift'
+          ? { x: 2.2, z: -1 }
+          : { x: -3.5 + legProgress(activity) * 6, z: -1 };
+      jumpHeight = activity.kind === 'run' ? (activity.meter ?? 0) * JUMP_SCALE : 0;
+    } else if (activity?.kind === 'lift') {
       visualCritterPosition = { x: 4.3, z: 6.6 };
     } else if (activity?.kind === 'toss') {
       visualCritterPosition = {
@@ -601,11 +609,6 @@ export class GameWorld {
     } else if (activity?.kind === 'pace') {
       const angle = (activity.progress ?? 0) * Math.PI * 2 - Math.PI / 2;
       visualCritterPosition = { x: 1.2 + Math.cos(angle) * 1.6, z: 6.8 + Math.sin(angle) * 1.6 };
-    } else if (activity?.kind === 'exhibition') {
-      visualCritterPosition =
-        activity.stage === 1
-          ? { x: 2.2, z: -1 }
-          : { x: -3.5 + ((activity.hits.length + activity.phase * 0.3) / 3) * 6, z: -1 };
     } else if (activity) {
       if (activity.hits.length !== this.lastCueCount) this.cueTime = 0;
       if (activity.kind === 'race') {
@@ -659,12 +662,12 @@ export class GameWorld {
         : 0;
     this.beamLean += (lean - this.beamLean) * Math.min(1, dt * 8);
     this.pullStone.position.x =
-      activity?.kind === 'exhibition' && activity.stage === 1 ? (activity.progress ?? 0) * 1.5 : 0;
-    const showings = companion.competitions.filter((item) => item.event === 'exhibition').length;
+      activity?.event && activity.kind === 'lift' ? (activity.progress ?? 0) * 1.5 : 0;
+    const showings = companion.competitions.filter((item) => item.event).length;
     if (this.lastShowings >= 0 && showings > this.lastShowings) this.fanfareTime = 4;
     this.lastShowings = showings;
     this.fanfareTime = Math.max(0, this.fanfareTime - dt);
-    const cheering = activity?.kind === 'exhibition' || this.fanfareTime > 0;
+    const cheering = !!activity?.event || this.fanfareTime > 0;
     this.spectators.children.forEach((fan, index) => {
       fan.position.y =
         cheering && !this.reducedMotion
@@ -681,7 +684,7 @@ export class GameWorld {
       (activity?.kind === 'race' ||
         activity?.kind === 'pace' ||
         activity?.kind === 'run' ||
-        (activity?.kind === 'exhibition' && activity.stage !== 1)) &&
+        (activity?.event && activity.kind !== 'lift' && activity.kind !== 'chess')) &&
       !this.reducedMotion
     ) {
       this.critterLegs.forEach((leg, index) => {

@@ -1072,7 +1072,9 @@
                   {{
                     race.event === 'exhibition'
                       ? 'Colosseum exhibition · ' + race.time + ' points'
-                      : 'Clover Cup · ' + race.time + 's'
+                      : race.event
+                        ? exhibitions[race.event].name + ' · ' + race.time + ' points'
+                        : 'Clover Cup · ' + race.time + 's'
                   }}
                   · {{ race.medal }}
                 </li>

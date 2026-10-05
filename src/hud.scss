@@ -1184,6 +1184,10 @@
   border-radius: 8px;
   background: #ecebdf;
 }
+// Colosseum events stand out among the season's dates.
+.calendar-events li.exhibition {
+  background: #f1dccd;
+}
 .calendar-year {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));

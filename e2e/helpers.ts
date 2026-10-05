@@ -199,7 +199,8 @@ export async function runHurdles(page: Page, course: Hurdle[]): Promise<void> {
         };
         const frame = (): void => {
           const training = game.state().training;
-          if (!training) return resolve(true);
+          // Done when the run ends, or hands over to an event's next leg.
+          if (training?.kind !== 'run') return resolve(true);
           if (performance.now() > deadline) return resolve(false);
           const next = hurdles[training.hits.length];
           const lead = next ? next.at - (training.progress ?? 0) * seconds : Infinity;

@@ -1,7 +1,16 @@
-import { Critter, GameState, Training } from './model';
+import { Critter, ExhibitionId, GameState, Training } from './model';
 import { CRITTER_KINDS } from './families';
 import { createPip, GRANDPA, PIP_ID } from './household';
-import { BEHAVIORS, CROPS, DRILL_IDS, initialMaterialNodes, initialPlots } from './content';
+import {
+  BEHAVIORS,
+  CROPS,
+  DRILL_IDS,
+  EXHIBITION_IDS,
+  EXHIBITIONS,
+  initialMaterialNodes,
+  initialPlots,
+  legKind,
+} from './content';
 import { chessMoments, rhythmSong, runCourse } from './drills';
 import { nextDawn } from './calendar';
 import { initialContainers, ITEM_IDS, LEGACY_ITEM_IDS, MILL_MINUTES } from './logistics';
@@ -289,7 +298,7 @@ export function readSave(value: unknown): GameState {
     // v11 remembers which drills each critter has played together, to unlock its routines.
     // Lifts, pacing and log tosses were counted as skills; hoops leave only the household's
     // 'trained' flag, which belongs to the companion of the day.
-    const migrated: GameState = {
+    const migrated: LegacyGameStateV11 = {
       ...legacy,
       version: 11,
       critters: legacy.critters.map((critter) => {
@@ -305,6 +314,27 @@ export function readSave(value: unknown): GameState {
           : { ...critter, practised: {} };
       }),
     };
+    return readSave(migrated);
+  }
+  if (root['version'] === 11) {
+    validateState(value, 11);
+    const legacy = structuredClone(value as LegacyGameStateV11);
+    // v12 plays the exhibition as legs of real drills on harder settings. A showing in
+    // progress carries on as the athletic event's sprint or, once scored, its stone pull.
+    let training = legacy.training as GameState['training'];
+    if (legacy.training?.kind === 'exhibition') {
+      const { stage, scores, ...rest } = legacy.training;
+      const pull = stage === 1;
+      training = {
+        ...rest,
+        kind: pull ? 'lift' : 'training',
+        event: 'exhibition',
+        leg: pull ? 1 : 0,
+        hard: true,
+        scores: pull ? (scores ?? []).slice(0, 1) : [],
+      };
+    }
+    const migrated: GameState = { ...legacy, version: 12, training };
     validateSave(migrated);
     return migrated;
   }
@@ -322,8 +352,16 @@ interface LegacyCrop {
   watered: boolean;
   readyAt: number | null;
 }
+// v11 ran the exhibition as one activity: stage 0 the sprint, stage 1 the stone pull.
+type LegacyTrainingV11 = Omit<Training, 'kind' | 'event' | 'leg' | 'hard'> & {
+  kind: Training['kind'] | 'exhibition';
+};
+type LegacyGameStateV11 = Omit<GameState, 'version' | 'training'> & {
+  version: 11;
+  training: LegacyTrainingV11 | null;
+};
 type LegacyCritterV10 = Omit<Critter, 'practised'>;
-type LegacyGameStateV10 = Omit<GameState, 'version' | 'critters'> & {
+type LegacyGameStateV10 = Omit<LegacyGameStateV11, 'version' | 'critters'> & {
   version: 10;
   critters: LegacyCritterV10[];
 };
@@ -373,10 +411,10 @@ type LegacyGameStateV1 = Omit<
 
 /** Writes accept only the current schema. Older records must pass readSave first. */
 export function validateSave(value: unknown): asserts value is GameState {
-  validateState(value, 11);
+  validateState(value, 12);
 }
 
-type SaveVersion = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11;
+type SaveVersion = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
 function validateState(value: unknown, version: SaveVersion): void {
   const root = record(value, 'save');
   if (root['version'] !== version) {
@@ -627,6 +665,7 @@ function validateState(value: unknown, version: SaveVersion): void {
     if (training['lastHitAt'] !== undefined) number(training['lastHitAt'], 'training.lastHitAt');
     choice(
       training['kind'],
+      // v12 plays the exhibition as legs of real drills.
       version >= 11
         ? [
             'training',
@@ -638,7 +677,7 @@ function validateState(value: unknown, version: SaveVersion): void {
             'run',
             'rhythm',
             'chess',
-            'exhibition',
+            ...(version >= 12 ? [] : ['exhibition']),
             'routine',
           ]
         : version >= 10
@@ -681,6 +720,17 @@ function validateState(value: unknown, version: SaveVersion): void {
     )
       corrupt('training gauge');
     if (training['kind'] === 'toss' && training['meter'] === undefined) corrupt('training toss');
+    if (['event', 'leg', 'hard'].some((key) => training[key] !== undefined)) {
+      // A Colosseum event's current leg: its drill, on harder settings, after the legs scored.
+      if (version < 12) corrupt('training.event');
+      choice(training['event'], EXHIBITION_IDS, 'training.event');
+      const legs = EXHIBITIONS[training['event'] as ExhibitionId].legs;
+      number(training['leg'], 'training.leg', 0, legs.length - 1, true);
+      const leg = training['leg'] as number;
+      if (training['hard'] !== true) corrupt('training.hard');
+      if (training['kind'] !== legKind(legs[leg].drill)) corrupt('training leg');
+      if (array(training['scores'], 'training.scores').length !== leg) corrupt('training legs');
+    }
     if (training['kind'] === 'routine') {
       choice(training['drill'], DRILL_IDS, 'training.drill');
       if (array(training['scores'], 'training.scores').length !== 1) corrupt('routine score');
@@ -792,8 +842,13 @@ function validateCritter(critter: Record<string, unknown>, version: SaveVersion)
     number(result['day'], 'competition.day', 1, Number.MAX_SAFE_INTEGER, true);
     number(result['time'], 'competition.time');
     string(result['medal'], 'competition.medal');
-    if (result['event'] !== undefined && (version < 8 || result['event'] !== 'exhibition'))
-      corrupt('competition.event');
+    // v8 added the athletic exhibition; v12 the scheduled Colosseum events.
+    if (result['event'] !== undefined)
+      choice(
+        result['event'],
+        version >= 12 ? EXHIBITION_IDS : version >= 8 ? ['exhibition'] : [],
+        'competition.event',
+      );
   }
   if (version >= 8) {
     const drills = record(critter['drills'], 'critter.drills');

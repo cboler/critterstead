@@ -1,5 +1,5 @@
-import { CROPS } from './content';
-import { activeCritter, GameState, Season, Weather } from './model';
+import { CROPS, EXHIBITIONS, scheduledExhibition } from './content';
+import { activeCritter, ExhibitionId, GameState, Season, Weather } from './model';
 
 export const SEASONS: readonly Season[] = ['spring', 'summer', 'autumn', 'winter'];
 export const DAYS_PER_SEASON = 30;
@@ -16,7 +16,7 @@ export interface CalendarDate {
 export interface CalendarEvent {
   day: number;
   label: string;
-  kind: 'season' | 'birthday' | 'weather' | 'harvest';
+  kind: 'season' | 'birthday' | 'weather' | 'harvest' | 'exhibition';
 }
 
 export function calendarDate(day: number): CalendarDate {
@@ -71,6 +71,13 @@ export function upcomingEvents(state: GameState, days = DAYS_PER_SEASON): Calend
         day,
         label: `${critter.name}'s birthday · ${age / DAYS_PER_YEAR} year${age > DAYS_PER_YEAR ? 's' : ''}`,
         kind: 'birthday',
+      });
+    const event = scheduledExhibition(date.dayOfSeason);
+    if (event)
+      events.push({
+        day,
+        label: `${EXHIBITIONS[event].name} · Colosseum · ${EXHIBITIONS[event].fee} coins to enter`,
+        kind: 'exhibition',
       });
     if (day < state.day + FORECAST_DAYS && weatherFor(day) === 'rain')
       events.push({ day, label: 'Rain forecast · waters tilled beds', kind: 'weather' });
@@ -128,4 +135,20 @@ export function calendarView(state: GameState): CalendarView {
     })),
     events: events.slice(0, 8).map((event) => ({ ...event, date: formatDate(event.day) })),
   };
+}
+
+/** The next scheduled Colosseum event after today, and when it is, within a season. */
+export function nextExhibition(
+  day: number,
+): { id: ExhibitionId; day: number; when: string } | null {
+  for (let ahead = 1; ahead <= DAYS_PER_SEASON; ahead++) {
+    const id = scheduledExhibition(calendarDate(day + ahead).dayOfSeason);
+    if (id)
+      return {
+        id,
+        day: day + ahead,
+        when: ahead === 1 ? 'tomorrow' : `in ${ahead} days (${formatDate(day + ahead)})`,
+      };
+  }
+  return null;
 }

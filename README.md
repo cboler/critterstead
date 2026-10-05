@@ -20,7 +20,8 @@ intelligence in the cottage with rhythm steps and chess puzzles
 (repeating a drill the same day gives less; the
 help panel offers wider timing windows; a drill played together once can then be run as
 a routine from its station), walk on to the
-Colosseum grounds for a daily athletic exhibition, step into the cottage to read the
+Colosseum grounds for a daily athletic exhibition and a calendar of events (each chains
+drills on harder settings, for an entry fee and prizes), step into the cottage to read the
 120-day wall calendar and forecast, and sleep into another day. Rest together at the nook for two game hours to restore
 up to 30 of your energy and 35 for your companion. Independent foraging keeps 20 energy in reserve; an
 explicit cue can spend it. Chop timber and stone, run the sawmill, and teach the

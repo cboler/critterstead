@@ -170,7 +170,12 @@ describe('Colosseum exhibition', () => {
     expect(act(host, 'exhibition', 'exhibit')).toBe(true);
     expect(host.critter.stamina).toBe(100 - EXHIBITION.energy);
     beats(host);
-    expect(host.state.training).toMatchObject({ kind: 'exhibition', stage: 1 });
+    expect(host.state.training).toMatchObject({
+      kind: 'lift',
+      event: 'exhibition',
+      leg: 1,
+      hard: true,
+    });
     expect(() => validateSave(host.state)).not.toThrow();
     playGauge(host, 0.62);
     expect(host.state.training).toBeNull();
@@ -206,7 +211,7 @@ describe('save v8 training migration', () => {
     const before = structuredClone(legacyV7);
     const state = readSave(before);
     expect(before).toEqual(legacyV7);
-    expect(state.version).toBe(11);
+    expect(state.version).toBe(12);
     expect(kept(state.critters).map((critter) => critter.drills)).toEqual([
       { day: before.day, sessions: {} },
       { day: before.day, sessions: {} },

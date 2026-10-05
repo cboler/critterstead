@@ -182,11 +182,11 @@ staged progression (M1 through M9) that systematically builds the foundational v
 
 ---
 
-## Active Campaign 004 — Training and exhibitions
+## Campaign 004 — Training and exhibitions (completed 2026-10-04)
 
 Brought ahead of plan 003's M4–M5 and Stage 3 by [D47](DECISIONS.md#d47--raise-critters-for-the-colosseum-accepted-2026-10-03):
-two real-time drills per stat, each also a menu routine, then scheduled exhibitions
-([plan 004](exec-plans/active/004-training-and-exhibitions.md)). The Colosseum ladder
+two real-time drills per stat, each also a menu routine, then scheduled Colosseum events
+([plan 004](exec-plans/completed/004-training-and-exhibitions.md)). The Colosseum ladder
 (ranks, promotion cups, a balancing simulator) is the next campaign, pulled forward from
 Stage 3's tournaments.
 

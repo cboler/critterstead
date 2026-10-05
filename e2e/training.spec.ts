@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { activeCritter } from '../src/app/game/model';
+import { activeCritter, type GameState } from '../src/app/game/model';
 import { runCourse } from '../src/app/game/drills';
 import {
   crossBeam,
@@ -254,5 +254,47 @@ test('steps to the gramophone and cheers a chess puzzle in the cottage', async (
   expect(activeCritter(sat).drills.sessions).toEqual({ rhythm: 1, chess: 1 });
   expect(sat.flags).toContain('puzzled');
   await page.screenshot({ path: info.outputPath('chess-result.png'), fullPage: true });
+  expect(errors).toEqual([]);
+});
+
+test('runs the Hedgerow Dash on its day for an entry fee and a medal', async ({ page }, info) => {
+  test.skip(!['desktop', 'phone-portrait'].includes(info.project.name));
+  test.setTimeout(180_000 * PACE);
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto('/');
+  await takeStarterHome(page);
+  // Spring 4 at the Colosseum booth with coins to spare; the walk there is covered above.
+  await page.evaluate(() => {
+    const game = (
+      window as unknown as {
+        ng: { getComponent(element: Element): { host: { state: GameState } } };
+      }
+    ).ng.getComponent(document.querySelector('app-root')!);
+    const state = game.host.state;
+    state.day = 4;
+    state.totalMinutes = 3 * 1440 + state.minute;
+    state.areaId = 'colosseum';
+    state.areaInstanceId = 'local-colosseum';
+    state.player.coins = 30;
+    state.player.position = { x: -2.6, z: 1.3 };
+  });
+  await expect(page.locator('.interaction-dock')).toContainText('Today: the Hedgerow Dash');
+  await page.getByRole('button', { name: /^Enter the Hedgerow Dash · 6 coins/ }).click();
+  await expect(page.locator('.training-card')).toContainText('HEDGEROW DASH · 1 OF 2 · HURDLE RUN');
+  await page.screenshot({ path: info.outputPath('hedgerow-dash.png'), fullPage: true });
+  const course = runCourse((await developmentState(page)).training!.seed!);
+  await runHurdles(page, course);
+  await expect(page.locator('.training-card')).toContainText('Sprint the last stretch!');
+  await cues(page, /Sprint!/);
+  await expect(page.locator('.result-card')).toContainText('HEDGEROW DASH');
+  await expect(page.locator('.result-card')).toContainText('The crowd roars!');
+  const after = await savedState(page);
+  const showing = activeCritter(after).competitions.at(-1)!;
+  expect(showing).toMatchObject({ day: 4, event: 'hedgerow' });
+  await page.screenshot({ path: info.outputPath('hedgerow-result.png'), fullPage: true });
+  await expect(page.getByRole('button', { name: /^Enter the Hedgerow Dash/ })).toBeDisabled();
+  await page.getByRole('button', { name: /Field journal/ }).click();
+  await expect(page.getByRole('dialog')).toContainText('Hedgerow Dash · ');
   expect(errors).toEqual([]);
 });

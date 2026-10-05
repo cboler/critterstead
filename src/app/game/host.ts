@@ -17,6 +17,10 @@ import {
   CROPS,
   DRILLS,
   EXHIBITION,
+  EXHIBITION_IDS,
+  EXHIBITIONS,
+  legKind,
+  scheduledExhibition,
   ROUTINE,
   GAME_CONFIG,
   PRODUCE_PRICES,
@@ -30,6 +34,7 @@ import {
   DAYS_PER_SEASON,
   formatDate,
   nextDawn,
+  nextExhibition,
   SEASONS,
   upcomingEvents,
   weatherFor,
@@ -90,6 +95,7 @@ import {
   CropId,
   Critter,
   Drill,
+  ExhibitionId,
   Container,
   GameCommand,
   GameState,
@@ -99,6 +105,7 @@ import {
   Point,
   ResourceNode,
   SoilPlot,
+  Stats,
   Training,
 } from './model';
 
@@ -116,11 +123,22 @@ function clearance(point: Point, blocker: Blocker): number {
   return dx > 0 || dz > 0 ? Math.hypot(Math.max(dx, 0), Math.max(dz, 0)) : Math.max(dx, dz);
 }
 
-/** The drill an activity belongs to; the Clover Cup and the exhibition are events. */
+/** The drill an activity belongs to; the Clover Cup is an event of its own. */
 export function drillOf({ kind, drill }: Pick<Training, 'kind' | 'drill'>): Drill | null {
   if (kind === 'routine') return drill ?? null;
-  return kind === 'training' ? 'hoops' : kind === 'race' || kind === 'exhibition' ? null : kind;
+  return kind === 'training' ? 'hoops' : kind === 'race' ? null : kind;
 }
+// How a Colosseum event names each drill's leg in its notes, and calls the crowd to it.
+const LEGS: Record<Drill, { short: string; call: string }> = {
+  hoops: { short: 'sprint', call: 'the sprint: three cues near the center!' },
+  lift: { short: 'pull', call: 'the stone pull: keep the gauge in the green.' },
+  pace: { short: 'laps', call: 'the long laps: find a pace you can hold.' },
+  toss: { short: 'throw', call: 'the log toss: charge, and let go at the peak!' },
+  beam: { short: 'beam', call: 'the high beam: lean to stay in the zone.' },
+  run: { short: 'hurdles', call: 'the hurdles: jump the stumps, double jump the hedges!' },
+  rhythm: { short: 'dance', call: 'the dance: step each lane on the beat!' },
+  chess: { short: 'puzzle', call: 'the puzzle: cheer the ideas, shoo the moths.' },
+};
 const ROUTES: Record<GameState['areaId'], { label: string; description: string; arrival: string }> =
   {
     homestead: {
@@ -166,7 +184,7 @@ const hauling = BEHAVIORS['lumber-hauling'];
 /** A new household with its chosen first companion and the seed its offer was drawn from. */
 export function createInitialState(starter: StarterCandidate = MALLOW, seed = 240921): GameState {
   return {
-    version: 11,
+    version: 12,
     seed,
     day: 1,
     minute: 480,
@@ -527,10 +545,12 @@ export class LocalGameHost {
         const done =
           training.kind === 'pace'
             ? stepPace(training, this.critter, dt)
-            : stepLift(training, this.critter, dt, training.kind === 'exhibition');
+            : stepLift(training, this.critter, dt, !!training.hard);
         if (done) this.finishTraining();
       } else {
-        const cycle = (training.elapsed * (training.kind === 'training' ? 0.72 : 0.9)) % 2;
+        // Practice sweeps slower than the Clover Cup's and an event's sprint.
+        const pace = training.kind === 'training' && !training.hard ? 0.72 : 0.9;
+        const cycle = (training.elapsed * pace) % 2;
         training.phase = cycle <= 1 ? cycle : 2 - cycle;
       }
     }
@@ -834,7 +854,7 @@ export class LocalGameHost {
             )
               ? `Someone has pinned up today's results; ${critter.name} is on them.`
               : 'Any rancher with a companion may enter.'
-          }`,
+          } ${this.eventPoster()}`,
           actions: [],
         };
       case 'hearth':
@@ -985,25 +1005,47 @@ export class LocalGameHost {
           ],
         };
       }
-      case 'exhibition':
+      case 'exhibition': {
+        const today = scheduledExhibition(calendarDate(state.day).dayOfSeason);
+        const entered = (event: ExhibitionId) =>
+          critter.competitions.some((result) => result.day === state.day && result.event === event);
+        const reason = (event: ExhibitionId) =>
+          entered(event)
+            ? event === 'exhibition'
+              ? 'Today’s exhibition is done. The crowd will be back tomorrow.'
+              : `${critter.name} has had today’s ${EXHIBITIONS[event].name}.`
+            : critter.hunger > 80
+              ? `${critter.name} needs a meal before performing.`
+              : state.player.coins < EXHIBITIONS[event].fee
+                ? `The entry fee is ${EXHIBITIONS[event].fee} coins.`
+                : energy(5, EXHIBITIONS[event].energy);
+        const next = nextExhibition(state.day);
         return {
           id,
-          title: 'Athletic exhibition',
-          description: `One showing a day: a timed sprint, then a heavy stone pull. Speed and strength count as much as your timing. Gold needs ${EXHIBITION.gold} points, silver ${EXHIBITION.silver}.`,
+          title: today ? `Today: the ${EXHIBITIONS[today].name}` : 'Athletic exhibition',
+          description: `${
+            today
+              ? `${EXHIBITIONS[today].blurb} Gold needs ${EXHIBITIONS[today].gold} points. Or the everyday showing: a sprint, then a heavy stone pull.`
+              : `${EXHIBITION.blurb} Gold needs ${EXHIBITION.gold} points, silver ${EXHIBITION.silver}.`
+          }${next ? ` Next on the calendar: the ${EXHIBITIONS[next.id].name}, ${next.when}.` : ''}`,
           actions: [
+            ...(today
+              ? [
+                  action(
+                    today,
+                    `Enter the ${EXHIBITIONS[today].name} · ${EXHIBITIONS[today].fee} coins · ${EXHIBITIONS[today].energy} ${critter.name} energy · ${EXHIBITIONS[today].minutes} min`,
+                    reason(today),
+                  ),
+                ]
+              : []),
             action(
               'exhibit',
               `Enter the exhibition · ${EXHIBITION.energy} ${critter.name} energy · 5 yours · ${EXHIBITION.minutes} min`,
-              critter.competitions.some(
-                (result) => result.day === state.day && result.event === 'exhibition',
-              )
-                ? 'Today’s exhibition is done. The crowd will be back tomorrow.'
-                : critter.hunger > 80
-                  ? `${critter.name} needs a meal before performing.`
-                  : energy(5, EXHIBITION.energy),
+              reason('exhibition'),
             ),
           ],
         };
+      }
       case 'race':
         return {
           id,
@@ -1076,6 +1118,8 @@ export class LocalGameHost {
       this.note(`One packet of ${crop.seedLabel}s. They grow in ${crop.seasons.join(' and ')}.`);
       return true;
     }
+    if (action !== 'exhibition' && EXHIBITION_IDS.includes(action as ExhibitionId))
+      return this.enterExhibition(action as ExhibitionId);
     switch (action) {
       case 'enter': {
         const working = critter.hauling.enabled || critter.hauling.cued;
@@ -1227,28 +1271,19 @@ export class LocalGameHost {
       case 'beam':
       case 'run':
       case 'rhythm':
-      case 'chess':
-      case 'exhibit': {
-        const kind = action === 'exhibit' ? 'exhibition' : action;
+      case 'chess': {
+        const kind = action;
         state.player.stamina -= 5;
-        critter.stamina -= kind === 'exhibition' ? EXHIBITION.energy : DRILLS[kind].energy;
+        critter.stamina -= DRILLS[kind].energy;
         state.training = {
           critterId: critter.id,
           phase: 0,
           hits: [],
           elapsed: 0,
-          lastHitAt: 0,
           kind,
           assist: this.assist,
         };
-        if (kind === 'exhibition') state.training.stage = 0;
-        else if (kind === 'toss') startToss(state.training);
-        else if (kind === 'beam') startBeam(state.training, this.random());
-        else if (kind === 'run') startRun(state.training, this.random());
-        else if (kind === 'rhythm') startRhythm(state.training, this.random());
-        else if (kind === 'chess') startChess(state.training, this.random());
-        else startGauge(state.training);
-        this.steer = 0;
+        this.beginDrill(state.training, kind);
         this.note(
           {
             lift: `${critter.name} braces against the boulder. Keep the gauge in the green!`,
@@ -1258,11 +1293,12 @@ export class LocalGameHost {
             run: `${critter.name} bounds down the lane. Jump the stumps; double jump the hedges!`,
             rhythm: `The gramophone crackles into a tune. Step with ${critter.name} in time!`,
             chess: `${critter.name} settles at the chessboard. Cheer the good ideas; shoo the moths.`,
-            exhibition: `The crowd hushes. First, the sprint: three cues near the center!`,
           }[kind],
         );
         return true;
       }
+      case 'exhibit':
+        return this.enterExhibition('exhibition');
       case 'routine': {
         const station = AREAS[state.areaId].objects.find((item) => item.id === id)!;
         const drill: Drill = station.kind === 'training' ? 'hoops' : (station.kind as Drill);
@@ -1452,15 +1488,6 @@ export class LocalGameHost {
     }
     training.hits.push(sweepAccuracy(training.phase, training.assist));
     if (training.hits.length < 3) return true;
-    if (training.kind === 'exhibition') {
-      // The sprint is scored; the heavy stone pull follows in the same paid showing.
-      training.scores = [training.hits.reduce((sum, value) => sum + value, 0) / 3];
-      training.hits = [];
-      training.stage = 1;
-      startGauge(training);
-      this.note('A clean sprint! Now the stone pull: keep the gauge in the green.');
-      return true;
-    }
     this.finishTraining();
     return true;
   }
@@ -1509,41 +1536,13 @@ export class LocalGameHost {
     const accuracy = training.hits.reduce((sum, value) => sum + value, 0) / 3;
     const critter = activeCritter(state);
     const care = (critter.happiness + critter.bond + (100 - critter.hunger)) / 300;
+    if (training.event) {
+      this.finishLeg(training, care);
+      return;
+    }
     const drill = drillOf(training);
     if (drill) {
       this.finishDrill(drill, training, care);
-      return;
-    }
-    if (training.kind === 'exhibition') {
-      const sprint = training.scores?.[0] ?? 0;
-      const pull = liftScore(training, critter, true);
-      const points =
-        Math.round(
-          (sprint * 25 +
-            pull * 25 +
-            critter.stats.speed * 2.5 +
-            critter.stats.strength * 2.5 +
-            care * 8 +
-            this.random() * 4) *
-            10,
-        ) / 10;
-      const medal =
-        points >= EXHIBITION.gold ? 'gold' : points >= EXHIBITION.silver ? 'silver' : 'bronze';
-      const coins = EXHIBITION.coins[medal];
-      critter.competitions.push({ day: state.day, time: points, medal, event: 'exhibition' });
-      critter.history.push(
-        `Day ${state.day}: ${medal} at the Colosseum exhibition (${points} points).`,
-      );
-      critter.skills.racing += 1;
-      critter.bond = clamp(critter.bond + 3);
-      critter.happiness = clamp(critter.happiness + 6);
-      state.player.coins += coins;
-      this.flag('exhibited');
-      state.training = null;
-      this.advanceMinutes(EXHIBITION.minutes);
-      this.note(
-        `The crowd roars! ${critter.name} scores ${points} points (sprint ${Math.round(sprint * 100)}%, pull ${Math.round(pull * 100)}%) for a ${medal} medal and ${coins} coins.`,
-      );
       return;
     }
     {
@@ -1606,13 +1605,19 @@ export class LocalGameHost {
   }
 
   /** Every drill pays out the same way, shaped by its row in the drill table. */
-  private finishDrill(drill: Drill, training: Training, care: number): void {
-    const state = this.state;
-    const critter = activeCritter(state);
-    const definition = DRILLS[drill];
-    const routine = training.kind === 'routine';
+  /** The notice board's poster for today's scheduled event, or the next one. */
+  private eventPoster(): string {
+    const today = scheduledExhibition(calendarDate(this.state.day).dayOfSeason);
+    if (today)
+      return `A bright poster: the ${EXHIBITIONS[today].name} is on today, ${EXHIBITIONS[today].fee} coins to enter.`;
+    const next = nextExhibition(this.state.day);
+    return next ? `A poster for the ${EXHIBITIONS[next.id].name}, ${next.when}.` : '';
+  }
+
+  /** How well a drill was played, from 0 to 1. */
+  private drillScore(drill: Drill, training: Training): number {
     const scores: Partial<Record<Drill, (played: Training) => number>> = {
-      lift: (played) => liftScore(played, critter),
+      lift: (played) => liftScore(played, this.critter, !!played.hard),
       pace: paceScore,
       beam: beamScore,
       run: runScore,
@@ -1621,8 +1626,123 @@ export class LocalGameHost {
     };
     // Hoops cues and log throws score the average of three.
     const threes = (played: Training) => played.hits.reduce((sum, value) => sum + value, 0) / 3;
+    return (scores[drill] ?? threes)(training);
+  }
+
+  /** Sets a drill going: a session played together, or the next leg of an event. */
+  private beginDrill(training: Training, kind: Training['kind']): void {
+    training.kind = kind;
+    training.phase = 0;
+    training.hits = [];
+    training.elapsed = 0;
+    training.lastHitAt = 0;
+    for (const key of [
+      'meter',
+      'progress',
+      'reserve',
+      'stage',
+      'chargeStart',
+      'rise',
+      'seed',
+    ] as const)
+      delete training[key];
+    if (kind === 'toss') startToss(training);
+    else if (kind === 'beam') startBeam(training, this.random());
+    else if (kind === 'run') startRun(training, this.random());
+    else if (kind === 'rhythm') startRhythm(training, this.random());
+    else if (kind === 'chess') startChess(training, this.random());
+    else if (kind === 'lift' || kind === 'pace') startGauge(training);
+    this.steer = 0;
+  }
+
+  /** Pays the entry, then starts the event's first leg on harder settings. */
+  private enterExhibition(id: ExhibitionId): boolean {
+    const state = this.state;
+    const critter = this.critter;
+    const event = EXHIBITIONS[id];
+    state.player.stamina -= 5;
+    state.player.coins -= event.fee;
+    critter.stamina -= event.energy;
+    state.training = {
+      critterId: critter.id,
+      phase: 0,
+      hits: [],
+      elapsed: 0,
+      kind: legKind(event.legs[0].drill),
+      assist: this.assist,
+      event: id,
+      leg: 0,
+      hard: true,
+      scores: [],
+    };
+    this.beginDrill(state.training, state.training.kind);
+    this.note(
+      `${event.fee ? `${event.fee} coins at the booth. ` : ''}The crowd hushes. First, ${LEGS[event.legs[0].drill].call}`,
+    );
+    return true;
+  }
+
+  /** Scores a leg of an event, then calls the next one or ends the event. */
+  private finishLeg(training: Training, care: number): void {
+    const event = EXHIBITIONS[training.event!];
+    const leg = training.leg ?? 0;
+    const score = this.drillScore(event.legs[leg].drill, training);
+    training.scores = [...(training.scores ?? []), score];
+    if (leg + 1 < event.legs.length) {
+      training.leg = leg + 1;
+      const next = event.legs[leg + 1].drill;
+      this.beginDrill(training, legKind(next));
+      this.note(
+        `${score > 0.75 ? 'A clean' : score > 0.4 ? 'A good' : 'A shaky'} ${LEGS[event.legs[leg].drill].short}! Now ${LEGS[next].call}`,
+      );
+      return;
+    }
+    this.finishExhibition(training, care);
+  }
+
+  /** Timing, the stats the event favours, care and a little luck make the points. */
+  private finishExhibition(training: Training, care: number): void {
+    const state = this.state;
+    const critter = this.critter;
+    const id = training.event!;
+    const event = EXHIBITIONS[id];
+    const scores = training.scores ?? [];
+    const timing = scores.reduce((sum, score) => sum + score, 0) / event.legs.length;
+    const statPoints = Object.entries(event.stats).reduce(
+      (sum, [stat, weight]) => sum + critter.stats[stat as keyof Stats] * weight,
+      0,
+    );
+    const points = Math.round((timing * 50 + statPoints + care * 8 + this.random() * 4) * 10) / 10;
+    const medal = points >= event.gold ? 'gold' : points >= event.silver ? 'silver' : 'bronze';
+    const coins = event.coins[medal];
+    const title = id === 'exhibition' ? 'the Colosseum exhibition' : `the ${event.name}`;
+    critter.competitions.push({ day: state.day, time: points, medal, event: id });
+    critter.history.push(`Day ${state.day}: ${medal} at ${title} (${points} points).`);
+    for (const leg of event.legs) {
+      const skill = DRILLS[leg.drill].skill;
+      critter.skills[skill] = (critter.skills[skill] ?? 0) + 1;
+    }
+    critter.bond = clamp(critter.bond + 3);
+    critter.happiness = clamp(critter.happiness + 6);
+    state.player.coins += coins;
+    this.flag('exhibited');
+    state.training = null;
+    this.advanceMinutes(event.minutes);
+    const legs = event.legs
+      .map((leg, index) => `${LEGS[leg.drill].short} ${Math.round((scores[index] ?? 0) * 100)}%`)
+      .join(', ');
+    this.note(
+      `The crowd roars! ${critter.name} scores ${points} points (${legs}) for a ${medal} medal and ${coins} coins.`,
+    );
+  }
+
+  private finishDrill(drill: Drill, training: Training, care: number): void {
+    const state = this.state;
+    const critter = activeCritter(state);
+    const definition = DRILLS[drill];
+    const routine = training.kind === 'routine';
     // A routine's score was drawn as it started.
-    const score = routine ? training.scores![0] : (scores[drill] ?? threes)(training);
+    const score = routine ? training.scores![0] : this.drillScore(drill, training);
     const multiplier = drillMultiplier(critter, drill, state.day);
     const { base, score: weight, care: careWeight, bonus } = definition.gain;
     const gain =
@@ -1667,12 +1787,7 @@ export class LocalGameHost {
   }
 
   private gauge(training: GameState['training']): boolean {
-    return (
-      !!training &&
-      (training.kind === 'lift' ||
-        training.kind === 'pace' ||
-        (training.kind === 'exhibition' && training.stage === 1))
-    );
+    return !!training && (training.kind === 'lift' || training.kind === 'pace');
   }
   private gainSuffix(drill: Drill): string {
     const multiplier = drillMultiplier(this.critter, drill, this.state.day);

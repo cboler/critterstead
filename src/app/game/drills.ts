@@ -11,6 +11,10 @@ export const TOSS_LIMIT = 25;
 // A press held at least this long throws on release; a shorter tap leaves the charge running.
 export const TOSS_HOLD = 0.25;
 const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
+// Plan 004 provisional Colosseum settings: an event's legs narrow their windows to this
+// share, and a hard pace spends breath this much faster. A hard lift is the heavy stone.
+const HARD = { window: 0.8, breath: 1.3 } as const;
+const hard = (training: Training) => (training.hard ? HARD.window : 1);
 
 /** The wider-timing assist grows every green zone by 40% of its width. */
 function widen(band: readonly [number, number], assist?: boolean): [number, number] {
@@ -91,7 +95,10 @@ export function stepPace(training: Training, critter: Critter, dt: number): bool
   const steady = paceBand(training);
   const drain =
     pace > steady[1]
-      ? (pace - steady[1]) * 1.6 * (1 - Math.min(0.5, critter.stats.endurance * 0.03))
+      ? (pace - steady[1]) *
+        1.6 *
+        (1 - Math.min(0.5, critter.stats.endurance * 0.03)) *
+        (training.hard ? HARD.breath : 1)
       : pace < steady[0]
         ? -0.08
         : 0;
@@ -118,7 +125,10 @@ export function push(training: Training): void {
 
 /** The log toss's sweet spot around the peak; strength widens it. */
 export function tossBand(training: Training, critter: Critter): [number, number] {
-  const half = Math.min(0.12, 0.04 + critter.stats.strength * 0.006) * (training.assist ? 1.4 : 1);
+  const half =
+    Math.min(0.12, 0.04 + critter.stats.strength * 0.006) *
+    (training.assist ? 1.4 : 1) *
+    hard(training);
   return [TOSS_PEAK - half, Math.min(1, TOSS_PEAK + half)];
 }
 
@@ -178,7 +188,10 @@ export function beamZone(training: Training): number {
 
 /** The steady zone around its drifting centre; endurance widens it. */
 export function beamBand(training: Training, critter: Critter): [number, number] {
-  const half = Math.min(0.16, 0.08 + critter.stats.endurance * 0.004) * (training.assist ? 1.4 : 1);
+  const half =
+    Math.min(0.16, 0.08 + critter.stats.endurance * 0.004) *
+    (training.assist ? 1.4 : 1) *
+    hard(training);
   return [clamp01(training.phase - half), clamp01(training.phase + half)];
 }
 
@@ -241,7 +254,7 @@ export function runCourse(seed: number): Hurdle[] {
 }
 
 /** Half a hurdle's width, in seconds of running; the assist narrows it. */
-export const hurdleHalf = (training: Training) => (training.assist ? 0.055 : 0.09);
+export const hurdleHalf = (training: Training) => (training.assist ? 0.055 : 0.09) * hard(training);
 
 /** Upward speed of a jump; speed springs a little higher. */
 export const runJump = (critter: Critter) =>
@@ -347,7 +360,7 @@ export function rhythmSong(seed: number): Note[] {
 
 /** Seconds either side of a note for a perfect and a good step; intelligence widens good. */
 export function rhythmWindow(training: Training, critter: Critter) {
-  const scale = training.assist ? 1.4 : 1;
+  const scale = (training.assist ? 1.4 : 1) * hard(training);
   return {
     perfect: 0.07 * scale,
     good: (0.14 + Math.min(0.06, critter.stats.intelligence * 0.004)) * scale,
@@ -427,7 +440,7 @@ export function chessMoments(seed: number): Moment[] {
 /** How long an idea or a moth waits for you; intelligence holds an idea a little longer. */
 export function momentWindow(training: Training, critter: Critter, kind: Moment['kind']): number {
   const base = kind === 'idea' ? 1 + Math.min(0.4, critter.stats.intelligence * 0.025) : 1.4;
-  return base * (training.assist ? 1.4 : 1);
+  return base * (training.assist ? 1.4 : 1) * hard(training);
 }
 
 export function startChess(training: Training, seed: number): void {
@@ -469,4 +482,21 @@ export function chessScore(training: Training): number {
   const moments = chessMoments(training.seed ?? 0);
   const answered = training.hits.reduce((sum, hit) => sum + hit, 0) / moments.length;
   return answered * (0.7 + 0.3 * (training.reserve ?? 1));
+}
+
+/** How far through a drill an activity is, from 0 to 1, for drawing it in the arena. */
+export function legProgress(training: Training): number {
+  const share = (done: number, of: number) => Math.min(1, done / Math.max(1, of));
+  switch (training.kind) {
+    case 'training':
+      return share(training.hits.length + training.phase * 0.3, 3);
+    case 'toss':
+      return share(training.hits.length, 3);
+    case 'rhythm':
+      return share(training.hits.length, rhythmSong(training.seed ?? 0).length);
+    case 'chess':
+      return share(training.hits.length, chessMoments(training.seed ?? 0).length);
+    default:
+      return training.progress ?? 0;
+  }
 }

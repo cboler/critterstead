@@ -304,7 +304,7 @@ occasionally better ([D48](DECISIONS.md#d48--two-ways-to-train-accepted-2026-10-
 Routines are what later let Pip or a trained critter coach the others.
 
 Drills are built from a small set of familiar patterns, two drills per stat; the roster
-and later pool live in [plan 004](exec-plans/active/004-training-and-exhibitions.md).
+and later pool live in [plan 004](exec-plans/completed/004-training-and-exhibitions.md).
 Exhibition events chain drills on harder settings. A wider-timing assist applies to every
 drill.
 

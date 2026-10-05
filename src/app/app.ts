@@ -10,7 +10,7 @@ import {
   signal,
   computed,
 } from '@angular/core';
-import { AREAS, DRILLS, ROUTINE } from './game/content';
+import { AREAS, DRILLS, EXHIBITIONS, ROUTINE } from './game/content';
 import { calendarDate, calendarView, capitalize, formatDate, weatherFor } from './game/calendar';
 import { createInitialState, LocalGameHost } from './game/host';
 import { OFFER_BEAT, OPENING, openingFarewell, stageOpening } from './game/opening';
@@ -28,6 +28,7 @@ import {
   GameState,
   Interaction,
   InteractionAction,
+  ExhibitionId,
   Point,
   Training,
 } from './game/model';
@@ -128,6 +129,7 @@ const ACTIVITY_NAMES: Record<string, string> = {
   rhythm: 'RHYTHM STEPS',
   chess: 'CHESS PUZZLES',
   routine: 'A ROUTINE',
+  // Colosseum events: the athletic showing by its old name, the others by their own.
   exhibition: 'THE EXHIBITION',
 };
 const ITEM_NAMES: Record<string, [string, string]> = {
@@ -279,8 +281,7 @@ export class App implements AfterViewInit, OnDestroy {
   protected readonly activityBand = computed((): [number, number] => {
     const activity = this.state().training;
     if (!activity) return [0.4, 0.6];
-    if (activity.kind === 'lift' || (activity.kind === 'exhibition' && activity.stage === 1))
-      return liftBand(activity);
+    if (activity.kind === 'lift') return liftBand(activity);
     if (activity.kind === 'pace') return paceBand(activity);
     if (activity.kind === 'toss') return tossBand(activity, this.companion());
     if (activity.kind === 'beam') return beamBand(activity, this.companion());
@@ -374,21 +375,22 @@ export class App implements AfterViewInit, OnDestroy {
   });
   protected readonly laneKeys = ['A', 'S', 'D'];
   protected readonly laneX = LANE_X;
+  protected readonly exhibitions = EXHIBITIONS;
   protected readonly assist = signal(storedAssist());
   protected setAssist(on: boolean): void {
     this.assist.set(on);
     storeAssist(on);
   }
-  protected readonly activityCopy = computed(() => {
+  private readonly drillCopy = computed(() => {
     const activity = this.state().training;
     const name = this.companion().name;
     const beats = 'when the marker reaches the green patch.';
     if (!activity)
       return { eyebrow: '', heading: '', instructions: '', button: '', status: '', gauge: null };
-    if (activity.kind === 'lift' || (activity.kind === 'exhibition' && activity.stage === 1))
+    if (activity.kind === 'lift')
       return {
-        eyebrow: activity.kind === 'lift' ? 'BOULDER LIFT' : 'THE EXHIBITION · STONE PULL',
-        heading: activity.kind === 'lift' ? 'Steady strength' : 'Pull, ' + name + ', pull!',
+        eyebrow: 'BOULDER LIFT',
+        heading: 'Steady strength',
         instructions: 'to push the gauge up. Keep it in the green until the hold fills.',
         button: 'Push, ' + name + '!',
         status: Math.round(activity.elapsed) + 's',
@@ -469,27 +471,31 @@ export class App implements AfterViewInit, OnDestroy {
         gauge: 'pace' as const,
       };
     return {
-      eyebrow:
-        activity.kind === 'race'
-          ? 'THE CLOVER CUP'
-          : activity.kind === 'exhibition'
-            ? 'THE EXHIBITION · SPRINT'
-            : 'A LITTLE PRACTICE',
+      eyebrow: activity.kind === 'race' ? 'THE CLOVER CUP' : 'A LITTLE PRACTICE',
       heading:
         activity.kind === 'race'
           ? 'Cheer ' + name + ' across the line!'
-          : activity.kind === 'exhibition'
-            ? 'Sprint for the crowd!'
-            : 'Find your rhythm together',
+          : 'Find your rhythm together',
       instructions: beats,
-      button:
-        activity.kind === 'race'
-          ? 'Cheer!'
-          : activity.kind === 'exhibition'
-            ? 'Sprint!'
-            : 'Hop, ' + name + '!',
+      button: activity.kind === 'race' ? 'Cheer!' : 'Hop, ' + name + '!',
       status: '',
       gauge: null,
+    };
+  });
+  /** The card's words, with a Colosseum event's name, leg and calls over the drill's own. */
+  protected readonly activityCopy = computed(() => {
+    const copy = this.drillCopy();
+    const activity = this.state().training;
+    if (!activity?.event) return copy;
+    const event = EXHIBITIONS[activity.event];
+    const leg = event.legs[activity.leg ?? 0];
+    const name = this.companion().name;
+    return {
+      ...copy,
+      eyebrow:
+        `${event.name} · ${(activity.leg ?? 0) + 1} of ${event.legs.length} · ${DRILLS[leg.drill].name}`.toUpperCase(),
+      heading: leg.heading?.replace('{name}', name) ?? copy.heading,
+      button: leg.button?.replace('{name}', name) ?? copy.button,
     };
   });
   protected weather() {
@@ -1021,7 +1027,10 @@ export class App implements AfterViewInit, OnDestroy {
     const serial = ++this.momentSerial;
     this.result.set({
       serial,
-      eyebrow: ACTIVITY_NAMES[this.activityKind] ?? 'WELL DONE',
+      eyebrow:
+        ACTIVITY_NAMES[this.activityKind] ??
+        EXHIBITIONS[this.activityKind as ExhibitionId]?.name.toUpperCase() ??
+        'WELL DONE',
       heading,
       detail: detail.join(' '),
       gains: changes
@@ -1182,7 +1191,7 @@ export class App implements AfterViewInit, OnDestroy {
     const activity = this.host.state.training;
     if (!training && activity) {
       this.activityBaseline = this.snapshot();
-      this.activityKind = activity.kind;
+      this.activityKind = activity.event ?? activity.kind;
     }
     if (!working && this.host.state.work) this.workBaseline = this.snapshot();
     if (training && !activity) this.finishActivity();

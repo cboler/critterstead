@@ -1,8 +1,9 @@
 # 004 — Training and exhibitions
 
-**Status:** authorized 2026-10-03 ([D47](../../DECISIONS.md#d47--raise-critters-for-the-colosseum-accepted-2026-10-03)).
-M1–M4 complete ([M1](#m1-evidence--2026-10-03), [M2](#m2-evidence--2026-10-03),
-[M3](#m3-evidence--2026-10-03), [M4](#m4-evidence--2026-10-04)); M5 next.
+**Status:** completed 2026-10-04. Authorized 2026-10-03
+([D47](../../DECISIONS.md#d47--raise-critters-for-the-colosseum-accepted-2026-10-03)); evidence for
+[M1](#m1-evidence--2026-10-03), [M2](#m2-evidence--2026-10-03), [M3](#m3-evidence--2026-10-03),
+[M4](#m4-evidence--2026-10-04) and [M5](#m5-evidence--2026-10-04).
 
 ## Purpose
 
@@ -93,10 +94,23 @@ berry catch, shell game, sequence memory, tug of war, stacking.
 - [x] Verification: unit tests, browser tests (both drills on desktop and phone,
       controller), lint, build, PWA, inspected screenshots.
 
-### M5 — Exhibition schedule
+### M5 — Exhibition schedule (save v12)
 
-Several exhibition events on the calendar, each chaining two or three drills on harder
-settings and favouring different stats; entry fees and prizes.
+- [x] Events come from one table: legs, stat weights, energy, minutes, entry fee, medal
+      thresholds, prizes and days of the season. Beside the everyday athletic showing:
+      the Hedgerow Dash (run, sprint; SPD) on days 4, 14 and 24; the Strongpaw Trials (toss,
+      stone; STR) on 6, 16 and 26; the Clever Paws Cup (chess, rhythm; INT) on 8, 18 and
+      28; the Meadow Marathon (pacing, beam; END) on 10 and 20; and the Grand Exhibition
+      (toss, run, chess; every stat) on 30.
+- [x] Each leg is its drill on harder settings (narrower windows, the heavy stone, faster
+      breath); legs pay medals and coins, not drill sessions. Entry fees are paid at the
+      booth; one entry per event per day.
+- [x] The calendar, the booth, Oakhaven's notice board and the day's quests show the
+      events; the journal remembers each by name.
+- [x] Save v12 plays the athletic showing as two legs; a v11 exhibition in progress carries
+      on as its sprint or stone pull. Damaged event state fails validation untouched.
+- [x] Verification: unit tests, browser tests (the athletic showing and the Hedgerow Dash
+      on desktop and phone), lint, build, PWA, inspected screenshots.
 
 ## Decisions (routine, this campaign)
 
@@ -210,6 +224,36 @@ settings and favouring different stats; entry fees and prizes.
   composure; ideas wait 1.0–1.4 s and moths 1.4 s, stray cheers −0.15 and shoos −0.1
   focus; score × (0.7 + 0.3 composure); 20 and 15 energy, 30 and 40 minutes.
 
+## M5 evidence — 2026-10-04
+
+- Host: `EXHIBITIONS`, `scheduledExhibition` and `legKind` in `content.ts`; `nextExhibition`
+  and the calendar's event entries; `enterExhibition`, `finishLeg`, `finishExhibition`,
+  `beginDrill` and `drillScore` in the host; `hard` settings in `drills.ts`. Save v12 with
+  the v11 → v12 migration and a frozen v11 fixture (a silver behind, a stone pull under
+  way). Unit tests: 207 passed, including `events.spec.ts` (the schedule and posters; the
+  booth's actions, fee and refusals; each scheduled event played leg by leg to a medal;
+  stat weighting; narrower windows; a mid-event save and damaged event state; the v11
+  migration of a pull and of a sprint) and the v1–v11 chain to v12.
+- Browser: `e2e/training.spec.ts` still earns the athletic medal through Oakhaven, and runs
+  the Hedgerow Dash on Spring 4 for its fee (desktop and phone). Inspected:
+  [the calendar's events](../evidence/004-m5/calendar-events.png),
+  [a Hedgerow Dash silver on a phone](../evidence/004-m5/hedgerow-result-phone.png).
+- Gates: lint, unit tests, production build, PWA check, and the browser suite. Its first
+  run failed 34 tests that still expected save v11; with those updated, the persistence
+  and opening specs passed on every viewport, and the rest of the suite had passed. The
+  bundle is 66.7 kB over its budget warning (60.5 kB after M4).
+- Found while testing: the run helper waited for the activity to end, which in an event
+  is the next leg, so it now stops when its leg does; a calendar tint was lost to a
+  malformed stylesheet edit and restored.
+- Routine decisions: a save version, not a widening, because the exhibition's activity
+  changed shape; the everyday athletic showing stays free and keeps its id, so earlier
+  medals read the same; legs pay medals, coins, bond and a point of each leg's skill, not
+  drill sessions; drills whose heading reports their state keep it during an event. In
+  the arena every leg is drawn on the sand. Provisional: the days, fees (6, or 10 for the
+  finale), prizes (40/22/10, or 70/38/16), thresholds (84/64, or 86/66), energy 35–60,
+  minutes 70–100, windows at 80% and breath 1.3× faster on harder settings.
+
 ## Current handoff
 
-M4 complete. Next: M5 — the exhibition schedule.
+Plan 004 is complete. The next campaign, the Colosseum ladder (ranks, promotion cups and a
+balancing simulator), needs authorizing; plan 003's M4–M5 still wait on their story beats.

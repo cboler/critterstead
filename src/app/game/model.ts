@@ -1,4 +1,6 @@
 export type AreaId = 'homestead' | 'glade' | 'cottage' | 'colosseum' | 'town';
+// Colosseum events; 'exhibition' is the athletic showing held every day.
+export type ExhibitionId = 'exhibition' | 'hedgerow' | 'strongpaw' | 'clever' | 'meadow' | 'grand';
 export type Drill = 'hoops' | 'lift' | 'pace' | 'toss' | 'beam' | 'run' | 'rhythm' | 'chess';
 export type Season = 'spring' | 'summer' | 'autumn' | 'winter';
 export type Weather = 'sunny' | 'cloudy' | 'rain' | 'snow';
@@ -94,8 +96,8 @@ export interface Critter extends ActorCapabilities {
   drills: { day: number; sessions: Partial<Record<Drill, number>> };
   // Sessions played together with the player, per drill, ever. One unlocks its routine.
   practised: Partial<Record<Drill, number>>;
-  // Clover Cup entries have no event; exhibition entries store points in `time`.
-  competitions: { day: number; time: number; medal: string; event?: 'exhibition' }[];
+  // Clover Cup entries have no event; exhibition events store their points in `time`.
+  competitions: { day: number; time: number; medal: string; event?: ExhibitionId }[];
 }
 export interface InventoryItem {
   id: string;
@@ -169,10 +171,14 @@ export interface Training {
     | 'run'
     | 'rhythm'
     | 'chess'
-    | 'exhibition'
     | 'routine';
   // A routine: the drill the critter runs on its own; its score is drawn as it starts.
   drill?: Drill;
+  // A Colosseum event plays its drills as legs, each on harder settings; `kind` is the
+  // current leg's drill, `leg` its index, and `scores` the legs already finished.
+  event?: ExhibitionId;
+  leg?: number;
+  hard?: boolean;
   // Wider timing windows, fixed when the activity starts.
   assist?: boolean;
   // Gauge drills: meter is force or pace, progress is 0-1 toward done, reserve is breath.
@@ -185,7 +191,7 @@ export interface Training {
   meter?: number;
   progress?: number;
   reserve?: number;
-  // Exhibition: 0 sprint, 1 stone pull. Pacing: 1 while winded. Log toss: 1 while charging.
+  // Pacing: 1 while winded. Log toss: 1 while charging.
   // Balance beam: 1 while wobbling outside the zone. Runner: jumps used since landing.
   stage?: number;
   chargeStart?: number;
@@ -194,7 +200,7 @@ export interface Training {
   scores?: number[];
 }
 export interface GameState {
-  version: 11;
+  version: 12;
   seed: number;
   day: number;
   minute: number;

@@ -146,7 +146,7 @@ for (const fixture of [
     // A reset opens the starter offer; nothing is written until a critter is chosen.
     await expect.poll(() => readSave(page)).toBeUndefined();
     await takeStarterHome(page);
-    await expect.poll(async () => ((await readSave(page)) as { version: number }).version).toBe(11);
+    await expect.poll(async () => ((await readSave(page)) as { version: number }).version).toBe(12);
     await page.reload();
     await expect(page.locator('.world-canvas canvas')).toBeVisible();
     await expect(page.getByRole('alert')).toHaveCount(0);
@@ -162,7 +162,7 @@ test('migrates a populated v1 save, preserves Pip, and resumes paid training aft
   await expect(page.locator('.companion-card')).not.toContainText('Mallow');
   await expect(page.getByRole('button', { name: /Hop, Pip!/ })).toBeVisible();
   await page.getByRole('button', { name: 'Pause game', exact: true }).click();
-  await expect.poll(async () => ((await readSave(page)) as GameState).version).toBe(11);
+  await expect.poll(async () => ((await readSave(page)) as GameState).version).toBe(12);
   const migrated = (await readSave(page)) as GameState;
   expect(migrated.activeCritterId).toBe('critter-pip');
   // Grandpa's Pip joins beside the legacy companion of the same name.
@@ -245,7 +245,7 @@ test('migrates v2 learning without replayed rewards and explains why an independ
   await expect(page.locator('.learning-status')).toContainText('Feed Mallow');
   await expect(page.getByRole('button', { name: /^Ask Mallow to gather/ })).toBeDisabled();
   await page.getByRole('button', { name: 'Pause game', exact: true }).click();
-  await expect.poll(async () => ((await readSave(page)) as GameState).version).toBe(11);
+  await expect.poll(async () => ((await readSave(page)) as GameState).version).toBe(12);
   const migrated = (await readSave(page)) as GameState;
   expect(activeCritter(migrated).learnedBehaviors).toEqual({ 'sunberry-foraging': 7 });
   expect(migrated.critters[0].learnedBehaviors).toEqual({ 'sunberry-foraging': 20 });

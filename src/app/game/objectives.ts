@@ -1,4 +1,5 @@
-import { BEHAVIORS, GAME_CONFIG } from './content';
+import { BEHAVIORS, EXHIBITIONS, GAME_CONFIG, scheduledExhibition } from './content';
+import { calendarDate } from './calendar';
 import { plotReady } from './garden';
 import { learnedStage } from './host';
 import { quantity } from './logistics';
@@ -63,6 +64,18 @@ export function objectives(state: GameState): Objective[] {
       'exhibition',
       'Today’s Colosseum exhibition',
       'The crowd is back; through Oakhaven, west of the yard.',
+    );
+  // A scheduled event on its day, once the first showing has been seen.
+  const event = scheduledExhibition(calendarDate(state.day).dayOfSeason);
+  if (
+    has('exhibited') &&
+    event &&
+    !critter.competitions.some((result) => result.day === state.day && result.event === event)
+  )
+    offer(
+      'event',
+      `Today: the ${EXHIBITIONS[event].name}`,
+      `At the Colosseum, ${EXHIBITIONS[event].fee} coins to enter. ${EXHIBITIONS[event].blurb}`,
     );
 
   const lesson = (id: 'sunberry-foraging' | 'lumber-hauling') => {

@@ -39,6 +39,6 @@ test('walks to Oakhaven with Grandpa and Pip, meets Gemothy, and chooses a first
   expect(state.day).toBe(1);
   expect(state.minute).toBeLessThan(500);
   expect(activeCritter(state).name).toBe('Mallow');
-  await expect.poll(async () => (await savedState(page)).version).toBe(11);
+  await expect.poll(async () => (await savedState(page)).version).toBe(12);
   expect(errors).toEqual([]);
 });

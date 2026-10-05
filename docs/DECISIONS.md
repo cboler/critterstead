@@ -51,11 +51,12 @@ For sequencing, see [ROADMAP.md](ROADMAP.md) and [exec-plans/README.md](exec-pla
 | **D31** | Monster Rancher training minigames family                 | Accepted       | [Training](GAME-DESIGN.md#training-system)                                                                                     |
 | **D32** | Viewport decoupling from interaction dock UI              | Accepted       | [Architecture](ARCHITECTURE.md#1-viewport--canvas-decoupling)                                                                  |
 | **D33** | Restructured Campaign 001 vertical slice runway           | Accepted       | [Roadmap](ROADMAP.md)                                                                                                          |
-| **D51** | Routines unlock by practice together (save v11)           | Implemented    | [Plan 004](exec-plans/active/004-training-and-exhibitions.md)                                                                  |
+| **D52** | Colosseum events on the calendar (save v12)               | Implemented    | [Plan 004](exec-plans/completed/004-training-and-exhibitions.md)                                                               |
+| **D51** | Routines unlock by practice together (save v11)           | Implemented    | [Plan 004](exec-plans/completed/004-training-and-exhibitions.md)                                                               |
 | **D50** | Lifespan is a family trait and is inherited               | Accepted       | [Aging](GAME-DESIGN.md#aging-and-respectful-mortality)                                                                         |
 | **D49** | Brindlekin is a chimera lineage                           | Accepted       | [Families](GAME-DESIGN.md#genetics-lineages-breeding-and-chimeras)                                                             |
 | **D48** | Two ways to train: together or as a routine               | Accepted       | [Training](GAME-DESIGN.md#training-system)                                                                                     |
-| **D47** | Raise critters for the Colosseum; training first          | Accepted       | [Plan 004](exec-plans/active/004-training-and-exhibitions.md)                                                                  |
+| **D47** | Raise critters for the Colosseum; training first          | Accepted       | [Plan 004](exec-plans/completed/004-training-and-exhibitions.md)                                                               |
 | **D46** | The opening walk plays before any save; old saves skip it | Implemented    | [Plan 003](exec-plans/active/003-household-and-opening.md)                                                                     |
 | **D45** | Grandpa, Pip and Oakhaven in every household (save v10)   | Implemented    | [Plan 003](exec-plans/active/003-household-and-opening.md)                                                                     |
 | **D44** | Pip is the one Brindlekin                                 | Accepted       | [Household](GAME-DESIGN.md#narrative-canon-and-household-history)                                                              |
@@ -340,7 +341,7 @@ stronger critters. Farming, hauling and the stead's automation are what critters
 player do between training, and how critters earn their keep; nothing is cut. Training and
 exhibitions (plan 004) come before the years with Grandpa, with the Colosseum ladder next;
 systems start shallow, as in _Monster Rancher_, and deepen through iteration.
-[Identity](GAME-DESIGN.md#high-level-game-identity), [plan 004](exec-plans/active/004-training-and-exhibitions.md).
+[Identity](GAME-DESIGN.md#high-level-game-identity), [plan 004](exec-plans/completed/004-training-and-exhibitions.md).
 
 ### D48 — Two ways to train (accepted 2026-10-03)
 
@@ -361,6 +362,16 @@ Maximum age differs between families and is a primary trait offspring inherit. A
 stays a handful of modeling choices (youth, peak, elder) rather than a deep system.
 [Aging](GAME-DESIGN.md#aging-and-respectful-mortality).
 
+### D52 — Colosseum events on the calendar (implemented 2026-10-04)
+
+The everyday athletic showing is joined by scheduled events on fixed days of every season:
+the Hedgerow Dash (speed), Strongpaw Trials (strength), Clever Paws Cup (intelligence),
+Meadow Marathon (endurance) and, on each season's last day, the three-leg Grand Exhibition.
+Each event chains drills as legs on harder settings, weighs the stats it favours, and has
+an entry fee and prizes; legs pay medals and coins, not drill sessions. Save v12 plays the
+athletic showing the same way, carrying an exhibition in progress on as its sprint or pull.
+[Plan 004 M5](exec-plans/completed/004-training-and-exhibitions.md#m5-evidence--2026-10-04).
+
 ### D51 — Routines unlock by practice together (implemented 2026-10-03)
 
 Save v11 gives every critter `practised`, its lifetime count of drills played together; one
@@ -369,7 +380,7 @@ from their skills, and gives hoops to the companion of a household with the `tra
 Grandpa's Pip starts empty. A routine draws its result as it starts (usually fair; great or
 a flop by condition and bond), runs for a few seconds without input, and counts toward the
 day's repeats but not toward practice.
-[Plan 004 M2](exec-plans/active/004-training-and-exhibitions.md#m2-evidence--2026-10-03).
+[Plan 004 M2](exec-plans/completed/004-training-and-exhibitions.md#m2-evidence--2026-10-03).
 
 ---
 

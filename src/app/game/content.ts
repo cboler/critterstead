@@ -7,10 +7,12 @@ import {
   CropDefinition,
   CropId,
   Drill,
+  ExhibitionId,
   MaterialNode,
   Point,
   SoilPlot,
   Stats,
+  Training,
 } from './model';
 
 export const GAME_CONFIG = {
@@ -160,13 +162,141 @@ export const ROUTINE = {
   // Scores for a flop, a fair session and a great one; the chances shift with condition.
   scores: { flop: 0.2, fair: 0.5, great: 0.8 },
 } as const;
-export const EXHIBITION = {
-  energy: 40,
-  minutes: 60,
-  gold: 80,
-  silver: 62,
-  coins: { gold: 15, silver: 9, bronze: 5 },
-} as const;
+export interface ExhibitionLeg {
+  drill: Drill;
+  // The card's heading and button for this leg ({name} is the critter); drills whose heading
+  // tells their state (wobbling, a bump, a judged step, a moment) keep their own.
+  heading?: string;
+  button?: string;
+}
+export interface ExhibitionDefinition {
+  name: string;
+  // What the booth says about it.
+  blurb: string;
+  legs: ExhibitionLeg[];
+  // Points per point of each stat; the legs' timing is worth 50 points in all.
+  stats: Partial<Record<keyof Stats, number>>;
+  energy: number;
+  minutes: number;
+  fee: number;
+  gold: number;
+  silver: number;
+  coins: { gold: number; silver: number; bronze: number };
+  // Days of each season it is held on; the athletic showing is held every day.
+  days: readonly number[] | 'daily';
+}
+// Plan 004 provisional event tuning. Each leg is its drill on harder settings.
+export const EXHIBITIONS: Record<ExhibitionId, ExhibitionDefinition> = {
+  exhibition: {
+    name: 'Athletic exhibition',
+    blurb:
+      'One showing a day: a timed sprint, then a heavy stone pull. Speed and strength count as much as your timing.',
+    legs: [
+      { drill: 'hoops', heading: 'Sprint for the crowd!', button: 'Sprint!' },
+      { drill: 'lift', heading: 'Pull, {name}, pull!', button: 'Pull, {name}!' },
+    ],
+    stats: { speed: 2.5, strength: 2.5 },
+    energy: 40,
+    minutes: 60,
+    fee: 0,
+    gold: 80,
+    silver: 62,
+    coins: { gold: 15, silver: 9, bronze: 5 },
+    days: 'daily',
+  },
+  hedgerow: {
+    name: 'Hedgerow Dash',
+    blurb: 'A hurdle course past the stands, then a flat-out sprint. Speed counts most.',
+    legs: [
+      { drill: 'run' },
+      { drill: 'hoops', heading: 'Sprint the last stretch!', button: 'Sprint!' },
+    ],
+    stats: { speed: 4, endurance: 1 },
+    energy: 50,
+    minutes: 70,
+    fee: 6,
+    gold: 84,
+    silver: 64,
+    coins: { gold: 40, silver: 22, bronze: 10 },
+    days: [4, 14, 24],
+  },
+  strongpaw: {
+    name: 'Strongpaw Trials',
+    blurb: 'A log thrown for the stands, then the heavy stone. Strength counts most.',
+    legs: [
+      { drill: 'toss', heading: 'Throw for the stands!' },
+      { drill: 'lift', heading: 'Heave, {name}, heave!', button: 'Heave, {name}!' },
+    ],
+    stats: { strength: 4, endurance: 1 },
+    energy: 45,
+    minutes: 70,
+    fee: 6,
+    gold: 84,
+    silver: 64,
+    coins: { gold: 40, silver: 22, bronze: 10 },
+    days: [6, 16, 26],
+  },
+  clever: {
+    name: 'Clever Paws Cup',
+    blurb: 'A chess puzzle before the judges, then a dance to the band. Intelligence counts most.',
+    legs: [{ drill: 'chess' }, { drill: 'rhythm' }],
+    stats: { intelligence: 4, speed: 1 },
+    energy: 35,
+    minutes: 80,
+    fee: 6,
+    gold: 84,
+    silver: 64,
+    coins: { gold: 40, silver: 22, bronze: 10 },
+    days: [8, 18, 28],
+  },
+  meadow: {
+    name: 'Meadow Marathon',
+    blurb: 'Laps of the arena at a pace you can hold, then the high beam. Endurance counts most.',
+    legs: [{ drill: 'pace', heading: 'Hold the pace for the long laps!' }, { drill: 'beam' }],
+    stats: { endurance: 4, strength: 1 },
+    energy: 50,
+    minutes: 80,
+    fee: 6,
+    gold: 84,
+    silver: 64,
+    coins: { gold: 40, silver: 22, bronze: 10 },
+    days: [10, 20],
+  },
+  grand: {
+    name: 'Grand Exhibition',
+    blurb: 'The season’s finale: a throw, a hurdle course and a chess puzzle. Every stat counts.',
+    legs: [
+      { drill: 'toss', heading: 'Open the finale with a throw!' },
+      { drill: 'run' },
+      { drill: 'chess' },
+    ],
+    stats: { strength: 1.25, endurance: 1.25, speed: 1.25, intelligence: 1.25 },
+    energy: 60,
+    minutes: 100,
+    fee: 10,
+    gold: 86,
+    silver: 66,
+    coins: { gold: 70, silver: 38, bronze: 16 },
+    days: [30],
+  },
+};
+export const EXHIBITION_IDS = Object.keys(EXHIBITIONS) as ExhibitionId[];
+// The everyday athletic showing.
+export const EXHIBITION = EXHIBITIONS.exhibition;
+
+/** The scheduled event held on a day, if any; the athletic showing is held every day. */
+export function scheduledExhibition(dayOfSeason: number): ExhibitionId | null {
+  return (
+    EXHIBITION_IDS.find((id) => {
+      const days = EXHIBITIONS[id].days;
+      return days !== 'daily' && days.includes(dayOfSeason);
+    }) ?? null
+  );
+}
+
+/** The activity a leg's drill runs as: hoops play as practice cues. */
+export const legKind = (drill: Drill): Exclude<Training['kind'], 'routine' | 'race'> =>
+  drill === 'hoops' ? 'training' : drill;
 
 // One authored learning arc. Work/reward execution remains an explicit host rule.
 export const BEHAVIORS: Record<BehaviorId, BehaviorDefinition> = {

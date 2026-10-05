@@ -236,6 +236,19 @@ cheers and `training-shoo` shoos, answering the waiting moment in order. Both ke
 result per note or moment in `hits`, and `reserve` is composure that stray presses spend.
 `drills.ts` shares one seeded stream for courses, songs and sittings.
 
+## Current implementation additions — plan 004 M5 (2026-10-04)
+
+Colosseum events are rows in `EXHIBITIONS` (`content.ts`): legs (each a drill), stat
+weights, energy, minutes, entry fee, medal thresholds, prizes and days of the season;
+`scheduledExhibition` and the calendar's `nextExhibition` read the schedule. An event runs
+as one `Training` whose `kind` is the current leg's drill, with `event`, `leg`, `hard` and
+the finished legs' `scores`; `finishTraining` hands each leg to `finishLeg`, which scores it
+with the drill's own scoring and starts the next through `beginDrill`. `hard` narrows each
+drill's window (or uses the heavy stone, or spends breath faster). Save v12 replaces the
+old `exhibition` activity, migrating one in progress to the athletic event's sprint or
+pull; competition entries record the event's id. In the arena the renderer draws every
+leg on the sand, the stone pull at the pull stone.
+
 ## Architectural reality audit (reconciliation baseline before M4)
 
 The following audit records the reconciled pre-M4 baseline. The dated additions
