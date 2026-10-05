@@ -1,5 +1,6 @@
 import { BEHAVIORS, EXHIBITIONS, GAME_CONFIG, scheduledExhibition } from './content';
 import { calendarDate } from './calendar';
+import { ATHLETIC_RANKS, isCupDay, RANKS } from './ladder';
 import { plotReady } from './garden';
 import { learnedStage } from './host';
 import { quantity } from './logistics';
@@ -64,6 +65,18 @@ export function objectives(state: GameState): Objective[] {
       'exhibition',
       'Today’s Colosseum exhibition',
       'The crowd is back; through Oakhaven, west of the yard.',
+    );
+  // A ranked cup on its day, for a critter still on the athletic ranks.
+  if (
+    has('exhibited') &&
+    isCupDay(calendarDate(state.day).dayOfSeason) &&
+    critter.ladder.rank < ATHLETIC_RANKS &&
+    !critter.competitions.some((result) => result.day === state.day && result.event === 'cup')
+  )
+    offer(
+      'cup-ranked',
+      `Today: the ${RANKS[critter.ladder.rank]} Cup`,
+      `A ranked cup at the Colosseum; the top three earn ladder points (${name} has ${critter.ladder.points}).`,
     );
   // A scheduled event on its day, once the first showing has been seen.
   const event = scheduledExhibition(calendarDate(state.day).dayOfSeason);

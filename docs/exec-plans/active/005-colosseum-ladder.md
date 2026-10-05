@@ -1,7 +1,7 @@
 # 005 — The Colosseum ladder
 
 **Status:** authorized 2026-10-05 ([D53](../../DECISIONS.md#d53--a-colosseum-ladder-of-athletic-cups-accepted-2026-10-05)).
-M1 next.
+M1 complete ([evidence](#m1-evidence--2026-10-05)); M2 next.
 
 ## Purpose
 
@@ -39,16 +39,16 @@ cup promotes and starts the points again.
 
 ### M1 — Ranks, rivals and ranked cups (save v13)
 
-- [ ] Every critter has a ladder rank (from Fledgling) and ladder points; v1–v12 saves
+- [x] Every critter has a ladder rank (from Fledgling) and ladder points; v1–v12 saves
       migrate at Fledgling with none.
-- [ ] A rival table: six named rivals' critters per athletic rank, each with a rancher, a
+- [x] A rival table: six named rivals' critters per athletic rank, each with a rancher, a
       family, stats and a usual form.
-- [ ] Ranked cups on their days at the booth: two legs on harder settings, chosen by the
+- [x] Ranked cups on their days at the booth: two legs on harder settings, chosen by the
       day, scored like events against the rank's field, for a placing, a prize and ladder
       points.
-- [ ] The booth, calendar, journal and companion panel show the rank, the points and each
+- [x] The booth, calendar, journal and companion panel show the rank, the points and each
       cup's placing and field.
-- [ ] Verification: unit tests (placings, points, prizes, schedule, migration, damaged
+- [x] Verification: unit tests (placings, points, prizes, schedule, migration, damaged
       saves), a browser test of a ranked cup, lint, build, PWA, inspected screenshots.
 
 ### M2 — Promotion cups
@@ -79,6 +79,33 @@ Adjustments from the published game's playtest; empty if none are needed.
 
 ## Decisions (routine, this campaign)
 
+## M1 evidence — 2026-10-05
+
+- Host: `ladder.ts` (`RANKS`, `RIVALS`, `CUP`, `CUP_DAYS`, `cupLegs`, `legWeights`,
+  `statPoints`, `rivalPoints`, `placingOf`, `ordinal`, `eventInfo`); the booth's cup entry,
+  `enterExhibition` and `finishLeg` through `eventInfo`, and `finishCup`; the calendar's,
+  notice board's, quests' and journal's cups; the companion panel's rank. Save v13 with
+  the v12 → v13 migration and a frozen v12 fixture. Unit tests: 215 passed, including
+  `ladder.spec.ts` (the booth and calendar on cup days, a Champion's missing cup, the legs'
+  rotation, placings, purses and points for a strong and an idle critter, rivals' scoring,
+  a cup across midnight and a save, the v12 migration, damaged ladders, results and cups)
+  and the v1–v12 chain to v13.
+- Browser: `e2e/training.spec.ts` runs a Fledgling Cup on Spring 3 for its fee and a placing
+  of seven, read back in the journal (desktop and phone). Inspected:
+  [a Fledgling Cup won](../evidence/005-m1/fledgling-cup.png),
+  [on a phone](../evidence/005-m1/fledgling-cup-phone.png).
+- Gates: lint, unit tests, production build, PWA check, and the browser suite (78 passed,
+  46 skipped by project). The bundle is 72.7 kB over its budget warning (66.7 kB before).
+- Found while testing: the v9 → v10 step added Pip from today's `createPip`, which now
+  carries a ladder; it now adds him in v10's shape. The cup and the Clever Paws Cup shared a
+  calendar kind; cups have their own.
+- Routine decisions: rank names Fledgling, Contender, Veteran, Champion and Grand Champion;
+  cups don't share days with events; a cup's legs favour each leg's drill stat equally;
+  rivals' scores are drawn as the cup ends, with the companion's own luck; a cup pays
+  purse and points only to the top three. Provisional: the rival table, fees 5/8/12,
+  purses 24/14/8, 40/24/14 and 64/38/22, 40 energy and 70 minutes. With perfect timing a
+  new companion already wins a Fledgling Cup; M3 balances.
+
 ## Current handoff
 
-Plan written. Next: M1 — ranks, rivals and ranked cups (save v13).
+M1 complete. Next: M2 — promotion cups.

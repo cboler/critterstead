@@ -249,6 +249,17 @@ old `exhibition` activity, migrating one in progress to the athletic event's spr
 pull; competition entries record the event's id. In the arena the renderer draws every
 leg on the sand, the stone pull at the pull stone.
 
+## Current implementation additions — plan 005 M1 (2026-10-05)
+
+The Colosseum ladder lives in `ladder.ts`: `RANKS` (the first three athletic), `RIVALS`
+(six per athletic rank, with stats and a usual form), the cup calendar (`CUP_DAYS`), the
+cups' rotating legs (`cupLegs`) and `rivalPoints`, which scores a rival by the events'
+measure. `eventInfo` answers an event's or a cup's name, legs, weights and costs. A ranked
+cup runs on the event engine as `event: 'cup'` with `cupDay`, so its legs hold if midnight
+passes; `finishCup` places the companion in the field and pays purse and ladder points.
+Save v13 gives every critter `ladder` (rank and points); cup results add `placing`,
+`field` and `rank` to the competition entry.
+
 ## Architectural reality audit (reconciliation baseline before M4)
 
 The following audit records the reconciled pre-M4 baseline. The dated additions

@@ -54,6 +54,19 @@ import {
 } from './household';
 import { nextObjective } from './objectives';
 import {
+  ATHLETIC_RANKS,
+  CUP,
+  cupLegs,
+  eventInfo,
+  isCupDay,
+  ordinal,
+  placingOf,
+  RANKS,
+  RIVALS,
+  rivalPoints,
+  statPoints,
+} from './ladder';
+import {
   answerMoment,
   beamScore,
   chessMoments,
@@ -95,6 +108,7 @@ import {
   CropId,
   Critter,
   Drill,
+  EventId,
   ExhibitionId,
   Container,
   GameCommand,
@@ -105,7 +119,6 @@ import {
   Point,
   ResourceNode,
   SoilPlot,
-  Stats,
   Training,
 } from './model';
 
@@ -184,7 +197,7 @@ const hauling = BEHAVIORS['lumber-hauling'];
 /** A new household with its chosen first companion and the seed its offer was drawn from. */
 export function createInitialState(starter: StarterCandidate = MALLOW, seed = 240921): GameState {
   return {
-    version: 12,
+    version: 13,
     seed,
     day: 1,
     minute: 480,
@@ -230,6 +243,7 @@ export function createInitialState(starter: StarterCandidate = MALLOW, seed = 24
         genetics: { ...starter.genetics },
         history: ['Day 1: A new home at Bramblewick Yard.'],
         competitions: [],
+        ladder: { rank: 0, points: 0 },
       },
       createPip(1),
     ],
@@ -1006,38 +1020,59 @@ export class LocalGameHost {
         };
       }
       case 'exhibition': {
-        const today = scheduledExhibition(calendarDate(state.day).dayOfSeason);
-        const entered = (event: ExhibitionId) =>
+        const dayOfSeason = calendarDate(state.day).dayOfSeason;
+        const today = scheduledExhibition(dayOfSeason);
+        const rank = critter.ladder.rank;
+        const cup = isCupDay(dayOfSeason) && rank < ATHLETIC_RANKS;
+        const info = (event: EventId) => eventInfo(event, state.day, rank);
+        const entered = (event: EventId) =>
           critter.competitions.some((result) => result.day === state.day && result.event === event);
-        const reason = (event: ExhibitionId) =>
+        const reason = (event: EventId) =>
           entered(event)
             ? event === 'exhibition'
               ? 'Today’s exhibition is done. The crowd will be back tomorrow.'
-              : `${critter.name} has had today’s ${EXHIBITIONS[event].name}.`
+              : `${critter.name} has had today’s ${info(event).name}.`
             : critter.hunger > 80
               ? `${critter.name} needs a meal before performing.`
-              : state.player.coins < EXHIBITIONS[event].fee
-                ? `The entry fee is ${EXHIBITIONS[event].fee} coins.`
-                : energy(5, EXHIBITIONS[event].energy);
+              : state.player.coins < info(event).fee
+                ? `The entry fee is ${info(event).fee} coins.`
+                : energy(5, info(event).energy);
+        const enter = (event: EventId) =>
+          action(
+            event,
+            `Enter the ${info(event).name} · ${info(event).fee} coins · ${info(event).energy} ${critter.name} energy · ${info(event).minutes} min`,
+            reason(event),
+          );
         const next = nextExhibition(state.day);
+        const field = RIVALS[Math.min(rank, RIVALS.length - 1)];
         return {
           id,
-          title: today ? `Today: the ${EXHIBITIONS[today].name}` : 'Athletic exhibition',
+          title: cup
+            ? `Today: the ${info('cup').name}`
+            : today
+              ? `Today: the ${EXHIBITIONS[today].name}`
+              : 'Athletic exhibition',
           description: `${
-            today
-              ? `${EXHIBITIONS[today].blurb} Gold needs ${EXHIBITIONS[today].gold} points. Or the everyday showing: a sprint, then a heavy stone pull.`
-              : `${EXHIBITION.blurb} Gold needs ${EXHIBITION.gold} points, silver ${EXHIBITION.silver}.`
+            cup
+              ? `A ranked cup: ${info('cup')
+                  .legs.map((leg) => DRILLS[leg.drill].name.toLowerCase())
+                  .join(' and ')} against ${field.length} ${RANKS[rank]} rivals, ${field
+                  .slice(0, 3)
+                  .map((rival) => rival.name)
+                  .join(
+                    ', ',
+                  )} among them. The top three earn ladder points; ${critter.name} has ${critter.ladder.points}.`
+              : today
+                ? `${EXHIBITIONS[today].blurb} Gold needs ${EXHIBITIONS[today].gold} points.`
+                : `${EXHIBITION.blurb} Gold needs ${EXHIBITION.gold} points, silver ${EXHIBITION.silver}.`
+          }${cup || today ? ' Or the everyday showing: a sprint, then a heavy stone pull.' : ''}${
+            isCupDay(dayOfSeason) && !cup
+              ? ` ${critter.name} is a ${RANKS[rank]}; that rank’s contests are bouts, still to come.`
+              : ''
           }${next ? ` Next on the calendar: the ${EXHIBITIONS[next.id].name}, ${next.when}.` : ''}`,
           actions: [
-            ...(today
-              ? [
-                  action(
-                    today,
-                    `Enter the ${EXHIBITIONS[today].name} · ${EXHIBITIONS[today].fee} coins · ${EXHIBITIONS[today].energy} ${critter.name} energy · ${EXHIBITIONS[today].minutes} min`,
-                    reason(today),
-                  ),
-                ]
-              : []),
+            ...(cup ? [enter('cup')] : []),
+            ...(today ? [enter(today)] : []),
             action(
               'exhibit',
               `Enter the exhibition · ${EXHIBITION.energy} ${critter.name} energy · 5 yours · ${EXHIBITION.minutes} min`,
@@ -1118,8 +1153,11 @@ export class LocalGameHost {
       this.note(`One packet of ${crop.seedLabel}s. They grow in ${crop.seasons.join(' and ')}.`);
       return true;
     }
-    if (action !== 'exhibition' && EXHIBITION_IDS.includes(action as ExhibitionId))
-      return this.enterExhibition(action as ExhibitionId);
+    if (
+      action === 'cup' ||
+      (action !== 'exhibition' && EXHIBITION_IDS.includes(action as ExhibitionId))
+    )
+      return this.enterExhibition(action as EventId);
     switch (action) {
       case 'enter': {
         const working = critter.hauling.enabled || critter.hauling.cued;
@@ -1607,7 +1645,11 @@ export class LocalGameHost {
   /** Every drill pays out the same way, shaped by its row in the drill table. */
   /** The notice board's poster for today's scheduled event, or the next one. */
   private eventPoster(): string {
-    const today = scheduledExhibition(calendarDate(this.state.day).dayOfSeason);
+    const dayOfSeason = calendarDate(this.state.day).dayOfSeason;
+    const rank = this.critter.ladder.rank;
+    if (isCupDay(dayOfSeason) && rank < ATHLETIC_RANKS)
+      return `Today's ranked cups are chalked up; ${this.critter.name} runs in the ${RANKS[rank]} Cup.`;
+    const today = scheduledExhibition(dayOfSeason);
     if (today)
       return `A bright poster: the ${EXHIBITIONS[today].name} is on today, ${EXHIBITIONS[today].fee} coins to enter.`;
     const next = nextExhibition(this.state.day);
@@ -1655,11 +1697,12 @@ export class LocalGameHost {
     this.steer = 0;
   }
 
-  /** Pays the entry, then starts the event's first leg on harder settings. */
-  private enterExhibition(id: ExhibitionId): boolean {
+  /** Pays the entry, then starts the event's or cup's first leg on harder settings. */
+  private enterExhibition(id: EventId): boolean {
     const state = this.state;
     const critter = this.critter;
-    const event = EXHIBITIONS[id];
+    const cupDay = id === 'cup' ? state.day : undefined;
+    const event = eventInfo(id, cupDay, critter.ladder.rank);
     state.player.stamina -= 5;
     state.player.coins -= event.fee;
     critter.stamina -= event.energy;
@@ -1674,6 +1717,7 @@ export class LocalGameHost {
       leg: 0,
       hard: true,
       scores: [],
+      ...(cupDay ? { cupDay } : {}),
     };
     this.beginDrill(state.training, state.training.kind);
     this.note(
@@ -1684,7 +1728,7 @@ export class LocalGameHost {
 
   /** Scores a leg of an event, then calls the next one or ends the event. */
   private finishLeg(training: Training, care: number): void {
-    const event = EXHIBITIONS[training.event!];
+    const event = eventInfo(training.event!, training.cupDay, this.critter.ladder.rank);
     const leg = training.leg ?? 0;
     const score = this.drillScore(event.legs[leg].drill, training);
     training.scores = [...(training.scores ?? []), score];
@@ -1705,34 +1749,80 @@ export class LocalGameHost {
     const state = this.state;
     const critter = this.critter;
     const id = training.event!;
-    const event = EXHIBITIONS[id];
+    const event = eventInfo(id, training.cupDay, critter.ladder.rank);
     const scores = training.scores ?? [];
     const timing = scores.reduce((sum, score) => sum + score, 0) / event.legs.length;
-    const statPoints = Object.entries(event.stats).reduce(
-      (sum, [stat, weight]) => sum + critter.stats[stat as keyof Stats] * weight,
-      0,
-    );
-    const points = Math.round((timing * 50 + statPoints + care * 8 + this.random() * 4) * 10) / 10;
-    const medal = points >= event.gold ? 'gold' : points >= event.silver ? 'silver' : 'bronze';
-    const coins = event.coins[medal];
-    const title = id === 'exhibition' ? 'the Colosseum exhibition' : `the ${event.name}`;
-    critter.competitions.push({ day: state.day, time: points, medal, event: id });
-    critter.history.push(`Day ${state.day}: ${medal} at ${title} (${points} points).`);
+    const points =
+      Math.round(
+        (timing * 50 + statPoints(critter.stats, event.stats) + care * 8 + this.random() * 4) * 10,
+      ) / 10;
+    const legs = event.legs
+      .map((leg, index) => `${LEGS[leg.drill].short} ${Math.round((scores[index] ?? 0) * 100)}%`)
+      .join(', ');
     for (const leg of event.legs) {
       const skill = DRILLS[leg.drill].skill;
       critter.skills[skill] = (critter.skills[skill] ?? 0) + 1;
     }
     critter.bond = clamp(critter.bond + 3);
     critter.happiness = clamp(critter.happiness + 6);
-    state.player.coins += coins;
     this.flag('exhibited');
     state.training = null;
     this.advanceMinutes(event.minutes);
-    const legs = event.legs
-      .map((leg, index) => `${LEGS[leg.drill].short} ${Math.round((scores[index] ?? 0) * 100)}%`)
-      .join(', ');
+    if (id === 'cup') {
+      this.finishCup(points, legs, training.cupDay!);
+      return;
+    }
+    const exhibition = EXHIBITIONS[id];
+    const medal =
+      points >= exhibition.gold ? 'gold' : points >= exhibition.silver ? 'silver' : 'bronze';
+    const coins = exhibition.coins[medal];
+    const title = id === 'exhibition' ? 'the Colosseum exhibition' : `the ${exhibition.name}`;
+    critter.competitions.push({ day: state.day, time: points, medal, event: id });
+    critter.history.push(`Day ${state.day}: ${medal} at ${title} (${points} points).`);
+    state.player.coins += coins;
     this.note(
       `The crowd roars! ${critter.name} scores ${points} points (${legs}) for a ${medal} medal and ${coins} coins.`,
+    );
+  }
+
+  /** A ranked cup: the rank's rivals show too, and the placing pays a purse and points. */
+  private finishCup(points: number, legs: string, cupDay: number): void {
+    const state = this.state;
+    const critter = this.critter;
+    const rank = critter.ladder.rank;
+    const field = RIVALS[rank].map((rival) => ({
+      rival,
+      points: rivalPoints(rival, cupLegs(cupDay), () => this.random()),
+    }));
+    const placing = placingOf(
+      points,
+      field.map((entry) => entry.points),
+    );
+    const purse = CUP.purse[rank][placing - 1] ?? 0;
+    const earned = CUP.points[placing - 1] ?? 0;
+    const medal = ['gold', 'silver', 'bronze'][placing - 1] ?? 'none';
+    const name = `${RANKS[rank]} Cup`;
+    critter.competitions.push({
+      day: state.day,
+      time: points,
+      medal,
+      event: 'cup',
+      placing,
+      field: field.length + 1,
+      rank,
+    });
+    critter.ladder.points += earned;
+    state.player.coins += purse;
+    critter.history.push(
+      `Day ${state.day}: ${ordinal(placing)} of ${field.length + 1} in the ${name} (${points} points).`,
+    );
+    const best = field.reduce((top, entry) => (entry.points > top.points ? entry : top));
+    this.note(
+      `${placing === 1 ? 'The crowd roars! ' : ''}${critter.name} places ${ordinal(placing)} of ${field.length + 1} in the ${name} with ${points} points (${legs}). ${
+        placing === 1
+          ? `${best.rival.name} was closest with ${best.points}.`
+          : `${best.rival.name} (${best.rival.rancher}) won with ${best.points}.`
+      }${purse ? ` ${purse} coins` : ''}${earned ? `${purse ? ' and' : ''} ${earned} ladder point${earned > 1 ? 's' : ''} (${critter.ladder.points} in all).` : purse ? '.' : ''}`,
     );
   }
 

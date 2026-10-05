@@ -298,3 +298,42 @@ test('runs the Hedgerow Dash on its day for an entry fee and a medal', async ({ 
   await expect(page.getByRole('dialog')).toContainText('Hedgerow Dash · ');
   expect(errors).toEqual([]);
 });
+
+test('runs a ranked Fledgling Cup against the rivals for a placing', async ({ page }, info) => {
+  test.skip(!['desktop', 'phone-portrait'].includes(info.project.name));
+  test.setTimeout(180_000 * PACE);
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto('/');
+  await takeStarterHome(page);
+  // Spring 3, a cup day, at the booth with coins to spare.
+  await page.evaluate(() => {
+    const game = (
+      window as unknown as {
+        ng: { getComponent(element: Element): { host: { state: GameState } } };
+      }
+    ).ng.getComponent(document.querySelector('app-root')!);
+    const state = game.host.state;
+    state.day = 3;
+    state.totalMinutes = 2 * 1440 + state.minute;
+    state.areaId = 'colosseum';
+    state.areaInstanceId = 'local-colosseum';
+    state.player.coins = 30;
+    state.player.position = { x: -2.6, z: 1.3 };
+  });
+  await expect(page.locator('.interaction-dock')).toContainText('Today: the Fledgling Cup');
+  await page.getByRole('button', { name: /^Enter the Fledgling Cup · 5 coins/ }).click();
+  await expect(page.locator('.training-card')).toContainText('FLEDGLING CUP · 1 OF 2 · HURDLE RUN');
+  const course = runCourse((await developmentState(page)).training!.seed!);
+  await runHurdles(page, course);
+  await expect(page.locator('.training-card')).toContainText('2 OF 2 · BOULDER LIFT');
+  await holdGauge(page, 0.62);
+  await expect(page.locator('.result-card')).toContainText('FLEDGLING CUP');
+  await expect(page.locator('.result-card')).toContainText(/places \d+(st|nd|rd|th) of 7/);
+  await page.screenshot({ path: info.outputPath('fledgling-cup.png'), fullPage: true });
+  const entry = activeCritter(await savedState(page)).competitions.at(-1)!;
+  expect(entry).toMatchObject({ day: 3, event: 'cup', field: 7, rank: 0 });
+  await page.getByRole('button', { name: /Field journal/ }).click();
+  await expect(page.getByRole('dialog')).toContainText(/Fledgling Cup · \d+(st|nd|rd|th) of 7/);
+  expect(errors).toEqual([]);
+});

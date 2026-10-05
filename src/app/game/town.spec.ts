@@ -65,7 +65,7 @@ describe('Oakhaven', () => {
     expect(kept(migrated.containers)).toEqual(legacyV9.containers);
     expect({ ...migrated, critters: [], containers: [] }).toEqual({
       ...legacyV9,
-      version: 12,
+      version: 13,
       critters: [],
       containers: [],
     });

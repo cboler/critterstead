@@ -28,6 +28,7 @@ import {
   GameState,
   Interaction,
   InteractionAction,
+  Competition,
   ExhibitionId,
   Point,
   Training,
@@ -50,6 +51,7 @@ import {
   throwDistance,
   tossBand,
 } from './game/drills';
+import { eventInfo, ordinal, RANKS } from './game/ladder';
 import { GameWorld } from './game/world';
 import {
   storedQualityChoice,
@@ -153,6 +155,7 @@ interface Snapshot {
   hunger: number;
   stats: Record<string, number>;
   skills: Record<string, number>;
+  ladder: number;
 }
 type Tone = 'gain' | 'cost' | 'note';
 
@@ -375,7 +378,16 @@ export class App implements AfterViewInit, OnDestroy {
   });
   protected readonly laneKeys = ['A', 'S', 'D'];
   protected readonly laneX = LANE_X;
-  protected readonly exhibitions = EXHIBITIONS;
+  protected readonly ranks = RANKS;
+  /** How the journal remembers a competition. */
+  protected competitionLabel(entry: Competition): string {
+    if (!entry.event) return 'Clover Cup · ' + entry.time + 's · ' + entry.medal;
+    if (entry.event === 'cup')
+      return `${RANKS[entry.rank ?? 0]} Cup · ${ordinal(entry.placing ?? 1)} of ${entry.field} · ${entry.time} points`;
+    const name =
+      entry.event === 'exhibition' ? 'Colosseum exhibition' : EXHIBITIONS[entry.event].name;
+    return name + ' · ' + entry.time + ' points · ' + entry.medal;
+  }
   protected readonly assist = signal(storedAssist());
   protected setAssist(on: boolean): void {
     this.assist.set(on);
@@ -487,7 +499,7 @@ export class App implements AfterViewInit, OnDestroy {
     const copy = this.drillCopy();
     const activity = this.state().training;
     if (!activity?.event) return copy;
-    const event = EXHIBITIONS[activity.event];
+    const event = eventInfo(activity.event, activity.cupDay, this.companion().ladder.rank);
     const leg = event.legs[activity.leg ?? 0];
     const name = this.companion().name;
     return {
@@ -1030,6 +1042,9 @@ export class App implements AfterViewInit, OnDestroy {
       eyebrow:
         ACTIVITY_NAMES[this.activityKind] ??
         EXHIBITIONS[this.activityKind as ExhibitionId]?.name.toUpperCase() ??
+        (this.activityKind === 'cup'
+          ? `${RANKS[this.companion().competitions.at(-1)?.rank ?? 0]} CUP`.toUpperCase()
+          : undefined) ??
         'WELL DONE',
       heading,
       detail: detail.join(' '),
@@ -1062,6 +1077,7 @@ export class App implements AfterViewInit, OnDestroy {
       hunger: critter.hunger,
       stats: { ...critter.stats },
       skills: { ...critter.skills },
+      ladder: critter.ladder.points,
     };
   }
   /** Floats what changed since a snapshot over whoever changed, and lights up those stats. */
@@ -1090,6 +1106,9 @@ export class App implements AfterViewInit, OnDestroy {
     }
     const bond = Math.round(after.bond - before.bond);
     if (bond) add(critter, 'bond', `${signed(bond)} ♥`, bond > 0 ? 'gain' : 'cost');
+    const ladder = after.ladder - before.ladder;
+    if (ladder > 0)
+      add(critter, 'ladder', `+${ladder} ladder point${ladder > 1 ? 's' : ''}`, 'gain');
     const fed = Math.round(before.hunger - after.hunger);
     if (fed > 0) add(critter, 'hunger', `−${fed} hunger`, 'gain');
     const energy = Math.round(after.critterEnergy - before.critterEnergy);

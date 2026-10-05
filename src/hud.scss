@@ -1185,7 +1185,8 @@
   background: #ecebdf;
 }
 // Colosseum events stand out among the season's dates.
-.calendar-events li.exhibition {
+.calendar-events li.exhibition,
+.calendar-events li.cup {
   background: #f1dccd;
 }
 .calendar-year {

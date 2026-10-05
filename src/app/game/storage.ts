@@ -12,6 +12,7 @@ import {
   legKind,
 } from './content';
 import { chessMoments, rhythmSong, runCourse } from './drills';
+import { ATHLETIC_RANKS, cupLegs, RANKS } from './ladder';
 import { nextDawn } from './calendar';
 import { initialContainers, ITEM_IDS, LEGACY_ITEM_IDS, MILL_MINUTES } from './logistics';
 
@@ -280,9 +281,10 @@ export function readSave(value: unknown): GameState {
     const [satchel] = initialContainers(legacy.player.id, PIP_ID, [], [PIP_ID]).filter(
       (container) => container.kind === 'satchel',
     );
-    // Pip as v10 knew him, before critters remembered their practice.
+    // Pip as v10 knew him, before critters remembered their practice or climbed a ladder.
     const pip: LegacyCritterV10 & Partial<Critter> = createPip(legacy.day);
     delete pip.practised;
+    delete pip.ladder;
     const migrated: LegacyGameStateV10 = {
       ...legacy,
       version: 10,
@@ -334,7 +336,19 @@ export function readSave(value: unknown): GameState {
         scores: pull ? (scores ?? []).slice(0, 1) : [],
       };
     }
-    const migrated: GameState = { ...legacy, version: 12, training };
+    const migrated: LegacyGameStateV12 = { ...legacy, version: 12, training };
+    return readSave(migrated);
+  }
+  if (root['version'] === 12) {
+    validateState(value, 12);
+    const legacy = structuredClone(value as LegacyGameStateV12);
+    if (legacy.critters.some((critter) => 'ladder' in critter)) corrupt('ambiguous ladder');
+    // v13 puts every critter on the Colosseum ladder at its first rank, with no points.
+    const migrated: GameState = {
+      ...legacy,
+      version: 13,
+      critters: legacy.critters.map((critter) => ({ ...critter, ladder: { rank: 0, points: 0 } })),
+    };
     validateSave(migrated);
     return migrated;
   }
@@ -356,11 +370,17 @@ interface LegacyCrop {
 type LegacyTrainingV11 = Omit<Training, 'kind' | 'event' | 'leg' | 'hard'> & {
   kind: Training['kind'] | 'exhibition';
 };
-type LegacyGameStateV11 = Omit<GameState, 'version' | 'training'> & {
+// v12 had no Colosseum ladder.
+type LegacyCritterV12 = Omit<Critter, 'ladder'>;
+type LegacyGameStateV12 = Omit<GameState, 'version' | 'critters'> & {
+  version: 12;
+  critters: LegacyCritterV12[];
+};
+type LegacyGameStateV11 = Omit<LegacyGameStateV12, 'version' | 'training'> & {
   version: 11;
   training: LegacyTrainingV11 | null;
 };
-type LegacyCritterV10 = Omit<Critter, 'practised'>;
+type LegacyCritterV10 = Omit<LegacyCritterV12, 'practised'>;
 type LegacyGameStateV10 = Omit<LegacyGameStateV11, 'version' | 'critters'> & {
   version: 10;
   critters: LegacyCritterV10[];
@@ -411,10 +431,10 @@ type LegacyGameStateV1 = Omit<
 
 /** Writes accept only the current schema. Older records must pass readSave first. */
 export function validateSave(value: unknown): asserts value is GameState {
-  validateState(value, 12);
+  validateState(value, 13);
 }
 
-type SaveVersion = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
+type SaveVersion = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13;
 function validateState(value: unknown, version: SaveVersion): void {
   const root = record(value, 'save');
   if (root['version'] !== version) {
@@ -723,8 +743,18 @@ function validateState(value: unknown, version: SaveVersion): void {
     if (['event', 'leg', 'hard'].some((key) => training[key] !== undefined)) {
       // A Colosseum event's current leg: its drill, on harder settings, after the legs scored.
       if (version < 12) corrupt('training.event');
-      choice(training['event'], EXHIBITION_IDS, 'training.event');
-      const legs = EXHIBITIONS[training['event'] as ExhibitionId].legs;
+      // v13 adds ranked cups, whose day chose their legs.
+      choice(
+        training['event'],
+        version >= 13 ? [...EXHIBITION_IDS, 'cup'] : EXHIBITION_IDS,
+        'training.event',
+      );
+      const cup = training['event'] === 'cup';
+      if (cup) number(training['cupDay'], 'training.cupDay', 1, Number.MAX_SAFE_INTEGER, true);
+      else if (training['cupDay'] !== undefined) corrupt('training.cupDay');
+      const legs = cup
+        ? cupLegs(training['cupDay'] as number)
+        : EXHIBITIONS[training['event'] as ExhibitionId].legs;
       number(training['leg'], 'training.leg', 0, legs.length - 1, true);
       const leg = training['leg'] as number;
       if (training['hard'] !== true) corrupt('training.hard');
@@ -842,14 +872,32 @@ function validateCritter(critter: Record<string, unknown>, version: SaveVersion)
     number(result['day'], 'competition.day', 1, Number.MAX_SAFE_INTEGER, true);
     number(result['time'], 'competition.time');
     string(result['medal'], 'competition.medal');
-    // v8 added the athletic exhibition; v12 the scheduled Colosseum events.
+    // v8 added the athletic exhibition; v12 the scheduled Colosseum events; v13 ranked cups,
+    // which also keep their placing, the size of the field and the rank they were run at.
     if (result['event'] !== undefined)
       choice(
         result['event'],
-        version >= 12 ? EXHIBITION_IDS : version >= 8 ? ['exhibition'] : [],
+        version >= 13
+          ? [...EXHIBITION_IDS, 'cup']
+          : version >= 12
+            ? EXHIBITION_IDS
+            : version >= 8
+              ? ['exhibition']
+              : [],
         'competition.event',
       );
+    if (result['event'] === 'cup') {
+      number(result['field'], 'competition.field', 1, 100, true);
+      number(result['placing'], 'competition.placing', 1, result['field'] as number, true);
+      number(result['rank'], 'competition.rank', 0, ATHLETIC_RANKS - 1, true);
+    } else if (['placing', 'field', 'rank'].some((key) => result[key] !== undefined))
+      corrupt('competition.placing');
   }
+  if (version >= 13) {
+    const ladder = record(critter['ladder'], 'critter.ladder');
+    number(ladder['rank'], 'ladder.rank', 0, RANKS.length - 1, true);
+    number(ladder['points'], 'ladder.points', 0, 10000, true);
+  } else if (critter['ladder'] !== undefined) corrupt('critter.ladder');
   if (version >= 8) {
     const drills = record(critter['drills'], 'critter.drills');
     number(drills['day'], 'drills.day', 1, Number.MAX_SAFE_INTEGER, true);

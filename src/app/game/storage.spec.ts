@@ -14,6 +14,7 @@ import { legacyV8 } from './fixtures/legacy-v8';
 import { legacyV9 } from './fixtures/legacy-v9';
 import { legacyV10 } from './fixtures/legacy-v10';
 import { legacyV11 } from './fixtures/legacy-v11';
+import { legacyV12 } from './fixtures/legacy-v12';
 import { kept } from './fixtures/household';
 import { createPip, PIP_ID } from './household';
 
@@ -107,7 +108,7 @@ describe('v1 migration and individual references', () => {
     expect(crop.readyAt).toBe(9550);
     expect(migrated).toEqual({
       ...world,
-      version: 12,
+      version: 13,
       haulLesson: null,
       plots: legacyGarden,
       companionIndoors: false,
@@ -131,6 +132,7 @@ describe('v1 migration and individual references', () => {
           drills: { day: original.day, sessions: {} },
           // The household had trained at the hoops (its flag), so that routine is unlocked.
           practised: { hoops: 1 },
+          ladder: { rank: 0, points: 0 },
           speciesId: 'canine',
           visualTraits: { ...individual.visualTraits, size: 1 },
           learnedBehaviors: { 'sunberry-foraging': berryKnowledge },
@@ -259,7 +261,7 @@ describe('v2 learning migration and v3 protection', () => {
     expect(crop).toEqual(legacyV1.crop);
     expect(migrated).toEqual({
       ...oldWorld,
-      version: 12,
+      version: 13,
       haulLesson: null,
       plots: legacyGarden,
       companionIndoors: false,
@@ -288,6 +290,7 @@ describe('v2 learning migration and v3 protection', () => {
           drills: { day: before.day, sessions: {} },
           // The hoops flag belongs to the companion of the day.
           practised: individual.id === before.activeCritterId ? { hoops: 1 } : {},
+          ladder: { rank: 0, points: 0 },
           learnedBehaviors: { 'sunberry-foraging': berryKnowledge },
           speciesId: 'canine',
           visualTraits: { ...individual.visualTraits, size: 1 },
@@ -375,13 +378,14 @@ describe('every legacy save version', () => {
     legacyV9,
     legacyV10,
     legacyV11,
+    legacyV12,
   ];
   it.each(fixtures.map((fixture) => [fixture.version, fixture] as const))(
-    'migrates a v%i save to v12 intact, idempotently, and ready to play',
+    'migrates a v%i save to v13 intact, idempotently, and ready to play',
     (_, fixture) => {
       const original = structuredClone(fixture) as Record<string, unknown> & typeof legacyV1;
       const migrated = readSave(structuredClone(fixture));
-      expect(migrated.version).toBe(12);
+      expect(migrated.version).toBe(13);
       expect(() => validateSave(migrated)).not.toThrow();
       // Earlier companions were provisional Brindlekin; they are now Canine at ordinary size.
       for (const critter of kept(migrated.critters)) {

@@ -135,14 +135,14 @@ describe('save v11 practice', () => {
     const before = structuredClone(legacyV10);
     const migrated = readSave(before);
     expect(before).toEqual(legacyV10);
-    expect(migrated.version).toBe(12);
+    expect(migrated.version).toBe(13);
     // Two lifts were counted as a skill; the household's hoops flag is the companion's.
     expect(activeCritter(migrated).practised).toEqual({ hoops: 1, lift: 2 });
     expect(migrated.critters.find((critter) => critter.ownerId === 'grandpa')!.practised).toEqual(
       {},
     );
     expect(kept(migrated.critters)).toEqual(kept(legacyV10.critters as never));
-    expect({ ...migrated, critters: [] }).toEqual({ ...legacyV10, version: 12, critters: [] });
+    expect({ ...migrated, critters: [] }).toEqual({ ...legacyV10, version: 13, critters: [] });
     expect(readSave(migrated)).toEqual(migrated);
   });
 

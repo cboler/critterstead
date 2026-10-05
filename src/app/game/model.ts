@@ -1,6 +1,19 @@
 export type AreaId = 'homestead' | 'glade' | 'cottage' | 'colosseum' | 'town';
 // Colosseum events; 'exhibition' is the athletic showing held every day.
 export type ExhibitionId = 'exhibition' | 'hedgerow' | 'strongpaw' | 'clever' | 'meadow' | 'grand';
+// A ranked cup on the Colosseum ladder, or one of the events above.
+export type EventId = ExhibitionId | 'cup';
+// Clover Cup entries have no event; Colosseum entries store their points in `time`, and a
+// ranked cup also its placing in a field of entrants at the critter's rank.
+export interface Competition {
+  day: number;
+  time: number;
+  medal: string;
+  event?: EventId;
+  placing?: number;
+  field?: number;
+  rank?: number;
+}
 export type Drill = 'hoops' | 'lift' | 'pace' | 'toss' | 'beam' | 'run' | 'rhythm' | 'chess';
 export type Season = 'spring' | 'summer' | 'autumn' | 'winter';
 export type Weather = 'sunny' | 'cloudy' | 'rain' | 'snow';
@@ -97,7 +110,9 @@ export interface Critter extends ActorCapabilities {
   // Sessions played together with the player, per drill, ever. One unlocks its routine.
   practised: Partial<Record<Drill, number>>;
   // Clover Cup entries have no event; exhibition events store their points in `time`.
-  competitions: { day: number; time: number; medal: string; event?: ExhibitionId }[];
+  competitions: Competition[];
+  // Rank on the Colosseum ladder (0 Fledgling) and ladder points earned at that rank.
+  ladder: { rank: number; points: number };
 }
 export interface InventoryItem {
   id: string;
@@ -176,9 +191,11 @@ export interface Training {
   drill?: Drill;
   // A Colosseum event plays its drills as legs, each on harder settings; `kind` is the
   // current leg's drill, `leg` its index, and `scores` the legs already finished.
-  event?: ExhibitionId;
+  event?: EventId;
   leg?: number;
   hard?: boolean;
+  // A ranked cup: the day it was entered, which chose its legs.
+  cupDay?: number;
   // Wider timing windows, fixed when the activity starts.
   assist?: boolean;
   // Gauge drills: meter is force or pace, progress is 0-1 toward done, reserve is breath.
@@ -200,7 +217,7 @@ export interface Training {
   scores?: number[];
 }
 export interface GameState {
-  version: 12;
+  version: 13;
   seed: number;
   day: number;
   minute: number;

@@ -638,6 +638,11 @@
             </div>
           }
         </div>
+        <div class="care-row ladder-row" [class.changed]="changed().has('ladder')">
+          <span
+            >Colosseum rank <strong>{{ ranks[companion().ladder.rank] }}</strong></span
+          ><span>{{ companion().ladder.points }} ladder points</span>
+        </div>
       </section>
       <section
         class="learning-card"
@@ -1067,17 +1072,7 @@
             <h3>Competition memories</h3>
             <ul>
               @for (race of companion().competitions; track $index) {
-                <li>
-                  Day {{ race.day }} ·
-                  {{
-                    race.event === 'exhibition'
-                      ? 'Colosseum exhibition · ' + race.time + ' points'
-                      : race.event
-                        ? exhibitions[race.event].name + ' · ' + race.time + ' points'
-                        : 'Clover Cup · ' + race.time + 's'
-                  }}
-                  · {{ race.medal }}
-                </li>
+                <li>Day {{ race.day }} · {{ competitionLabel(race) }}</li>
               }
             </ul>
           }

@@ -49,6 +49,7 @@ export function createPip(day: number): Critter {
     genetics: {},
     history: [],
     competitions: [],
+    ladder: { rank: 0, points: 0 },
   };
 }
 
