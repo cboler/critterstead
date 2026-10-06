@@ -260,3 +260,26 @@ test('migrates v2 learning without replayed rewards and explains why an independ
   await page.screenshot({ path: testInfo.outputPath('learning-needs-feed.png'), fullPage: true });
   expect(backpack((await readSave(page)) as GameState).items).toEqual(old.inventory);
 });
+
+test('starts a new homestead from How to play, without developer keys', async ({ page }) => {
+  await page.goto('/');
+  await takeStarterHome(page);
+  await expect.poll(async () => ((await readSave(page)) as { version: number }).version).toBe(13);
+  const before = (await readSave(page)) as GameState;
+
+  // A phone has no backtick key: the reset lives behind the ? button.
+  await page.getByRole('button', { name: 'How to play', exact: true }).click();
+  await page.getByRole('button', { name: 'Start a new homestead', exact: true }).click();
+  await page.getByRole('button', { name: 'Keep my homestead', exact: true }).click();
+  await expect(
+    page.getByRole('button', { name: 'Confirm: erase this homestead', exact: true }),
+  ).toHaveCount(0);
+  expect(((await readSave(page)) as GameState).seed).toBe(before.seed);
+
+  await page.getByRole('button', { name: 'Start a new homestead', exact: true }).click();
+  await page.getByRole('button', { name: 'Confirm: erase this homestead', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect.poll(() => readSave(page)).toBeUndefined();
+  await takeStarterHome(page);
+  await expect.poll(async () => ((await readSave(page)) as { version: number }).version).toBe(13);
+});

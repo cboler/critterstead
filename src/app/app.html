@@ -958,6 +958,23 @@
             Wider
           </button>
         </div>
+        @if (!sessionBusy()) {
+          <div class="start-over">
+            <h3>Start over</h3>
+            <p>
+              A new homestead begins again with a fresh starter. {{ companion().name }} and
+              everything here are erased from this browser; this cannot be undone.
+            </p>
+            <div class="developer-actions">
+              <button class="danger" (click)="reset()">
+                {{ resetArmed() ? 'Confirm: erase this homestead' : 'Start a new homestead' }}
+              </button>
+              @if (resetArmed()) {
+                <button (click)="resetArmed.set(false)">Keep my homestead</button>
+              }
+            </div>
+          </div>
+        }
       } @else if (currentPanel === 'calendar') {
         @let view = calendar();
         <p class="calendar-today">

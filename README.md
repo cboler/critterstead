@@ -61,8 +61,8 @@ pauses or closes a menu. Click/tap the ground to walk there, or hold a finger (o
 mouse button) on the world to walk toward it; releasing stops. Scroll, pinch, **+**/**−**
 or the on-screen buttons zoom the camera. Small screens show a details chip; Help has a
 visual quality setting (Auto picks one for the device). The journal (**J**) lists today's
-quests, the longer journey, and each day's history. Backtick opens developer save tools,
-including deliberate reset.
+quests, the longer journey, and each day's history. Help (**?**) ends with **Start a new
+homestead**, a confirmed reset that works on phones; backtick opens developer save tools.
 
 A standard gamepad uses the left stick to move, **A** to interact/cue, the D-pad to
 select actions/menu buttons (on the balance beam, the D-pad or stick leans; in rhythm

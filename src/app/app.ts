@@ -695,7 +695,7 @@ export class App implements AfterViewInit, OnDestroy {
     } catch (error) {
       this.saveBlocked = true;
       this.error.set(
-        `${error instanceof Error ? error.message : 'Could not open your save.'} Your existing save has been kept. Saving is paused until you reset it in developer tools.`,
+        `${error instanceof Error ? error.message : 'Could not open your save.'} Your existing save has been kept. Saving is paused until you start a new homestead from How to play (?).`,
       );
       this.saveStatus.set('Save needs attention');
     }
