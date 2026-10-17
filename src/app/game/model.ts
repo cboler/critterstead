@@ -133,7 +133,8 @@ export interface InventoryItem {
 }
 export interface Container {
   id: string;
-  kind: 'backpack' | 'satchel' | 'chest' | 'mill-input' | 'mill-output' | 'trough';
+  kind:
+    'backpack' | 'satchel' | 'chest' | 'box' | 'pickup' | 'mill-input' | 'mill-output' | 'trough';
   location: { actorId: string } | { areaId: AreaId; position: Point };
   // Carried bags use mass-based encumbrance. Fixed storage limits total item units.
   capacity: number | null;
@@ -274,7 +275,6 @@ export interface WorldObject {
     | 'house'
     | 'shed'
     | 'training'
-    | 'market'
     | 'gate'
     | 'race'
     | 'door'

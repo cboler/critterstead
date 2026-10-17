@@ -62,7 +62,7 @@ describe('LocalGameHost authority and care', () => {
   });
 
   it('prioritizes a nearby station over a following critter', () => {
-    const host = at({ x: -5, z: 2 });
+    const host = at({ x: -11.6, z: -4.3 });
     expect(host.interaction()?.id).toBe('plot-1');
   });
 
@@ -134,7 +134,7 @@ describe('progression, resources, and persistence', () => {
   });
 
   it('grows useful feed only after planting, watering, and enough time', () => {
-    const host = at({ x: -5, z: 2 });
+    const host = at({ x: -11.6, z: -4.3 });
     expect(act(host, 'plot-1', 'harvest')).toBe(false);
     expect(act(host, 'plot-1', 'plant:feed')).toBe(true);
     expect(act(host, 'plot-1', 'water')).toBe(true);
@@ -149,13 +149,16 @@ describe('progression, resources, and persistence', () => {
   });
 
   it('prices quality, consumes sold berries, and makes the shed improvement permanent', () => {
-    const host = at({ x: -6, z: 5 }, (state) => {
+    const host = at({ x: -5.2, z: -2.2 }, (state) => {
+      state.areaId = 'town';
+      state.minute = state.totalMinutes = 600;
       backpack(state).items.push({ id: 'stack-berry-2', itemId: 'berry', quality: 2, quantity: 3 });
     });
-    expect(act(host, 'market', 'sell')).toBe(true);
+    expect(act(host, 'store', 'sell')).toBe(true);
     expect(host.state.player.coins).toBe(12);
-    expect(act(host, 'market', 'sell')).toBe(false);
+    expect(act(host, 'store', 'sell')).toBe(false);
     const saved = structuredClone(host.state);
+    saved.areaId = 'homestead';
     saved.player.position = { x: 4, z: -2 };
     const atShed = new LocalGameHost(saved);
     expect(act(atShed, 'shed', 'upgrade')).toBe(true);
@@ -615,7 +618,7 @@ describe('daily effort and recovery', () => {
     expect(act(host, 'shed', 'rest')).toBe(true);
     host = new LocalGameHost(readSave(host.state));
     // Travel is free even when exhausted; only work consumes energy.
-    host.state.player.position = { x: 8, z: 0 };
+    host.state.player.position = { x: 12.4, z: 0 };
     expect(act(host, 'gate', 'travel')).toBe(true);
     host.state.player.position = { x: -3, z: -2 };
     host.critter.position = { x: -3, z: -2 };
@@ -670,7 +673,7 @@ describe('daily effort and recovery', () => {
     expect(act(host, 'gate', 'travel')).toBe(true);
     host.state.player.position = { x: 4, z: -2 };
     expect(act(host, 'shed', 'rest')).toBe(true);
-    host.state.player.position = { x: 8, z: 0 };
+    host.state.player.position = { x: 12.4, z: 0 };
     expect(act(host, 'gate', 'travel')).toBe(true);
     host.state.player.position = { x: -1, z: 2.5 };
     host.critter.position = { ...host.state.player.position };

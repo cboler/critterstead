@@ -52,6 +52,24 @@ export function initialContainers(
       items: [],
     },
     {
+      id: 'farm-box',
+      kind: 'box',
+      location: { areaId: 'homestead', position: { x: -8.2, z: -2.4 } },
+      capacity: 40,
+      allowed: [...itemIds],
+      items: [],
+    },
+    {
+      id: 'pickup',
+      kind: 'pickup',
+      location: { areaId: 'homestead', position: { x: -11.2, z: 2.8 } },
+      capacity: 60,
+      allowed: (['berry', 'turnip', 'wheat'] as InventoryItem['itemId'][]).filter((item) =>
+        itemIds.includes(item),
+      ),
+      items: [],
+    },
+    {
       id: 'mill-input',
       kind: 'mill-input',
       location: { areaId: 'homestead', position: { x: 5, z: 1 } },

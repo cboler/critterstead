@@ -12,7 +12,7 @@ function at(areaId: GameState['areaId'], x: number, z: number): LocalGameHost {
 
 describe('Oakhaven', () => {
   it('is down the hedgerow lane west of the yard, with the Colosseum road beyond', () => {
-    const host = at('homestead', -7.4, 1.2);
+    const host = at('homestead', -12.4, 1.2);
     const go = (gate: string, x: number, z: number) => {
       host.state.player.position = { x, z };
       expect(host.dispatch({ type: 'interact', targetId: gate, action: 'travel' })).toBe(true);
@@ -20,7 +20,7 @@ describe('Oakhaven', () => {
     };
     expect(host.interaction()!.actions[0].label).toBe('Take the hedgerow lane · 5 min');
     const minutes = host.state.totalMinutes;
-    expect(go('town-gate', -7.4, 1.2)).toBe('lane');
+    expect(go('town-gate', -12.4, 1.2)).toBe('lane');
     expect(go('town-gate', -16.4, 0)).toBe('town');
     expect(host.state.totalMinutes).toBe(minutes + 10);
     expect(host.state.flags).toContain('visited-town');
@@ -33,7 +33,7 @@ describe('Oakhaven', () => {
     expect(go('gate', 16.4, 0)).toBe('town');
     expect(go('gate', 14.4, 1)).toBe('lane');
     expect(go('gate', 16.4, 0.4)).toBe('homestead');
-    expect(host.state.player.position).toEqual({ x: -6.4, z: 1.2 });
+    expect(host.state.player.position).toEqual({ x: -11.4, z: 1.2 });
   });
 
   it('keeps the rancher inside a road, which is longer than it is wide', () => {

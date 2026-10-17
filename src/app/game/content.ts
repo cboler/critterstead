@@ -439,6 +439,38 @@ export const RHYTHM_STATION: Point = { x: -1.5, z: 0.4 };
 export const RHYTHM_FLOOR: Point = { x: 0.3, z: 0.5 };
 export const CHESS_TABLE: Point = { x: 3.3, z: 0.6 };
 
+// The farm field west of the cottage: six beds inside a fence with a gap on its south side,
+// the storage box by the cottage and the sales pickup by the lane path.
+export const FARM_FIELD = { x: -10.8, z: -5.6, hx: 1.8, hz: 2.6 } as const;
+export const FARM_BEDS: Point[] = [
+  { x: -11.6, z: -4.3 },
+  { x: -10, z: -4.3 },
+  { x: -11.6, z: -5.8 },
+  { x: -10, z: -5.8 },
+  { x: -11.6, z: -7.3 },
+  { x: -10, z: -7.3 },
+];
+export const FARM_GAP = { from: -11.3, to: -10.3 } as const;
+const FARM_FENCE: Blocker[] = [
+  { x: FARM_FIELD.x, z: FARM_FIELD.z - FARM_FIELD.hz, hx: FARM_FIELD.hx, hz: 0.1 },
+  { x: FARM_FIELD.x - FARM_FIELD.hx, z: FARM_FIELD.z, hx: 0.1, hz: FARM_FIELD.hz },
+  { x: FARM_FIELD.x + FARM_FIELD.hx, z: FARM_FIELD.z, hx: 0.1, hz: FARM_FIELD.hz },
+  {
+    x: (FARM_FIELD.x - FARM_FIELD.hx + FARM_GAP.from) / 2,
+    z: FARM_FIELD.z + FARM_FIELD.hz,
+    hx: (FARM_GAP.from - (FARM_FIELD.x - FARM_FIELD.hx)) / 2,
+    hz: 0.1,
+  },
+  {
+    x: (FARM_GAP.to + FARM_FIELD.x + FARM_FIELD.hx) / 2,
+    z: FARM_FIELD.z + FARM_FIELD.hz,
+    hx: (FARM_FIELD.x + FARM_FIELD.hx - FARM_GAP.to) / 2,
+    hz: 0.1,
+  },
+];
+// What the pickup pays, as a share of the store's price.
+export const PICKUP_SHARE = 0.6;
+
 // The critter shelter on the west side of town, and the pen in front where its critters wait.
 export const SHELTER: Point = { x: -11.4, z: -2.4 };
 export const SHELTER_PEN = { x: -11.4, z: 3, hx: 2.2, hz: 1.5 } as const;
@@ -507,11 +539,12 @@ export const AREAS: Record<AreaId, AreaDefinition> = {
     id: 'homestead',
     name: 'Bramblewick Yard',
     subtitle: 'A little patch of possibility',
-    half: { x: 10, z: 10 },
+    half: { x: 14, z: 10 },
     spawn: { x: 0, z: 0 },
+    blockers: FARM_FENCE,
     objects: [
       { id: 'house', kind: 'house', name: 'Your cottage', position: { x: -5, z: -4 }, radius: 1.9 },
-      { id: 'shed', kind: 'shed', name: 'Companion nook', position: { x: 4, z: -4 }, radius: 1.5 },
+      { id: 'shed', kind: 'shed', name: 'The barn', position: { x: 4, z: -4 }, radius: 1.8 },
       {
         id: 'training',
         kind: 'training',
@@ -520,17 +553,10 @@ export const AREAS: Record<AreaId, AreaDefinition> = {
         radius: 1.2,
       },
       {
-        id: 'market',
-        kind: 'market',
-        name: 'Honesty stall',
-        position: { x: -6, z: 5 },
-        radius: 1.1,
-      },
-      {
         id: 'gate',
         kind: 'gate',
         name: 'To Clover Glade',
-        position: { x: 8, z: 0 },
+        position: { x: 13, z: 0 },
         radius: 1,
         destination: 'glade',
         arrival: { x: -6, z: 0 },
@@ -539,7 +565,7 @@ export const AREAS: Record<AreaId, AreaDefinition> = {
         id: 'town-gate',
         kind: 'gate',
         name: 'To the hedgerow lane',
-        position: { x: -8, z: 1.2 },
+        position: { x: -13, z: 1.2 },
         radius: 1,
         destination: 'lane',
         arrival: { x: 15.6, z: 0.4 },
@@ -628,7 +654,7 @@ export const AREAS: Record<AreaId, AreaDefinition> = {
         position: { x: -8, z: 0 },
         radius: 1,
         destination: 'homestead',
-        arrival: { x: 6, z: 0 },
+        arrival: { x: 11.4, z: 0 },
       },
       {
         id: 'pace',
@@ -749,7 +775,7 @@ export const AREAS: Record<AreaId, AreaDefinition> = {
         position: { x: 17, z: 0.4 },
         radius: 1,
         destination: 'homestead',
-        arrival: { x: -6.4, z: 1.2 },
+        arrival: { x: -11.4, z: 1.2 },
       },
       {
         id: 'town-gate',
@@ -906,12 +932,7 @@ export const PRODUCE_PRICES: Partial<Record<string, number>> = { turnip: 2, whea
 
 // Four fixed beds; the first keeps the former feed garden's prepared soil and position.
 export function initialPlots(): SoilPlot[] {
-  return [
-    { x: -5, z: 2 },
-    { x: -3.6, z: 2 },
-    { x: -5, z: 3.4 },
-    { x: -3.6, z: 3.4 },
-  ].map((position, index) => ({
+  return FARM_BEDS.map((position, index) => ({
     id: `plot-${index + 1}`,
     position,
     tilled: index === 0,

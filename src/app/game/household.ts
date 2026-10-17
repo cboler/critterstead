@@ -89,9 +89,9 @@ export function grandpaWhereabouts(state: GameState): Whereabouts | null {
   if (minute >= 780 && minute < 1020)
     return {
       areaId: 'homestead',
-      position: { x: -6, z: 6.4 },
-      beside: { x: -7.2, z: 6 },
-      activity: 'Grandpa is tidying the honesty stall and counting nothing in particular.',
+      position: { x: -10.8, z: -2.2 },
+      beside: { x: -9.8, z: -1.6 },
+      activity: 'Grandpa is leaning on the farm field fence, judging the turnips.',
     };
   return {
     areaId: 'homestead',

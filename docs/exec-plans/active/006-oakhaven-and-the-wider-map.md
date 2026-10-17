@@ -73,13 +73,17 @@ retired, not migrated (D55): the game says so, keeps the record, and offers a ne
 - [x] Four residents (store, shelter, tavern, clinic) keep their posts in their hours and
       chat once a day, introducing themselves first; Grandpa's past surfaces in two lines.
 
-### M3 — The farm, the sales pickup and the barn (save v15)
+### M3 — The farm, the sales pickup and the barn
 
-- [ ] A farm field beside the cottage holds the garden plots, with a storage box.
-- [ ] A sales pickup: goods left in it are collected overnight at baseline prices, paid at
-      dawn with a journal note. The honesty stall is retired; nothing sells instantly.
-- [ ] The companion nook grows into a barn with a stall for each critter you own; critters
-      not following you sleep and rest there. Its own interior area comes later.
+- [x] The yard widens to 28 × 20; a fenced farm field west of the cottage holds six beds,
+      with a storage box by the cottage.
+- [x] A sales pickup by the lane gate: goods left in it (berries, turnips, wheat) are
+      collected overnight at 60% of the store's price and paid at dawn with a journal note.
+- [x] The honesty stall is retired; Grandpa leans on the field fence instead. Nothing sells
+      instantly at the stead.
+- [x] The companion nook is now the barn (a larger red barn where the nook stood, mended for
+      12 coins as before). Stalls for more critters arrive with adoption in M8; its own
+      interior comes later.
 
 ### M4 — The Colosseum forecourt, booths and promotion cups
 
@@ -168,6 +172,17 @@ which the quality tiers already control, not from the library.
 - Routine decisions: working names Marigold Hale, Wren Ashby, Bertram Cobb and Dr. Isolde
   Fenn; store prices are the stall's old prices; one chat per resident per day.
 
+## M3 evidence — 2026-10-16
+
+- Host: `FARM_FIELD`, `FARM_BEDS`, `FARM_FENCE` and `PICKUP_SHARE` in `content.ts`; the
+  `box` and `pickup` containers in `logistics.ts`; `collectPickup` at dawn and
+  `pickupValue` in `host.ts`; the barn's copy; the stall removed. No save bump: v14 is
+  unreleased. Unit tests: 178 passed, including the pickup refusing feed, quoting 60% and
+  paying at dawn, and the three-day campaign shipping berries and turnips.
+- Inspected in the dev server: the wider yard with the barn, the fenced field behind the
+  cottage with its beds and box, and the pickup's flag by the lane gate.
+- Browser tests sell through the pickup and stand in for the cart's payment.
+
 ## Current handoff
 
-M1 and M2 complete. Next: M3 — the farm, the sales pickup and the nook grown into a barn.
+M1–M3 complete. Next: M4 — the Colosseum forecourt, its booths and promotion cups.

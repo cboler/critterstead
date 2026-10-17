@@ -123,8 +123,8 @@ export function objectives(state: GameState): Objective[] {
     ),
     step(
       'nook',
-      'A cozier nook',
-      `Save ${GAME_CONFIG.shedCost} coins and make ${name}’s nook cozy.`,
+      'Mend the barn',
+      `Save ${GAME_CONFIG.shedCost} coins and mend the roof over ${name}’s stall.`,
       state.shedLevel > 0,
     ),
     step(

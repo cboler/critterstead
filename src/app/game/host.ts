@@ -31,6 +31,7 @@ import {
   scheduledExhibition,
   ROUTINE,
   GAME_CONFIG,
+  PICKUP_SHARE,
   PRODUCE_PRICES,
   initialMaterialNodes,
   initialPlots,
@@ -164,9 +165,8 @@ const ROUTES: Record<GameState['areaId'], { label: string; description: string; 
   {
     homestead: {
       label: 'Return to Bramblewick',
-      description: 'A cozy nook and a familiar garden are just down the path.',
-      arrival:
-        'Home again. The honesty stall takes berries, and {name}’s nook could use some love.',
+      description: 'The barn, the farm field and the cottage are just down the path.',
+      arrival: 'Home again. Anything left in the pickup box by the field is collected overnight.',
     },
     glade: {
       label: 'Explore Clover Glade',
@@ -405,7 +405,7 @@ export class LocalGameHost {
                 ? 'Heading to the trough for a meal.'
                 : 'The trough is empty. Bring feed so work can resume.'
               : job.phase === 'rest'
-                ? 'Taking a break at the nook; work resumes at 50 energy.'
+                ? 'Taking a break at the barn; work resumes at 50 energy.'
                 : job.phase === 'deliver'
                   ? room(chest, 'lumber')
                     ? 'Carrying a board to the yard chest.'
@@ -500,14 +500,14 @@ export class LocalGameHost {
     if (mode === 'command' && node && distance(critter.position, node.position) > 5)
       return `Wait for ${critter.name} to catch up.`;
     if (mode === 'command' && this.state.player.stamina < 2)
-      return 'You need some rest. Rest together at the nook.';
+      return 'You need some rest. Rest together at the barn.';
     if (critter.stamina < GAME_CONFIG.berryEnergy)
-      return `${critter.name} needs some rest (${GAME_CONFIG.berryEnergy} energy to gather). Rest together at the nook or offer food.`;
+      return `${critter.name} needs some rest (${GAME_CONFIG.berryEnergy} energy to gather). Rest together at the barn or offer food.`;
     if (
       mode === 'autonomous' &&
       critter.stamina < GAME_CONFIG.berryEnergy + GAME_CONFIG.autonomousEnergyReserve
     )
-      return `${critter.name} is keeping ${GAME_CONFIG.autonomousEnergyReserve} energy in reserve. Gather yourself, give a cue, or rest together at the nook.`;
+      return `${critter.name} is keeping ${GAME_CONFIG.autonomousEnergyReserve} energy in reserve. Gather yourself, give a cue, or rest together at the barn.`;
     return undefined;
   }
 
@@ -709,9 +709,9 @@ export class LocalGameHost {
     });
     const energy = (player: number, companion = 0) =>
       state.player.stamina < player
-        ? 'You need some rest. Rest together at the nook.'
+        ? 'You need some rest. Rest together at the barn.'
         : critter.stamina < companion
-          ? `${critter.name} needs some rest. Rest together at the nook or offer food.`
+          ? `${critter.name} needs some rest. Rest together at the barn or offer food.`
           : undefined;
     const member = castFor(state).find((item) => item.id === id);
     const townsperson = residentAbout(state, id);
@@ -800,7 +800,7 @@ export class LocalGameHost {
             'feed',
             'Offer feed · 1 feed · 5 min',
             this.quantity('feed') < 1
-              ? 'Grow feed in your garden or buy it at the stall.'
+              ? 'Grow feed in your garden or buy it at the store in Oakhaven.'
               : critter.hunger < 10
                 ? `${critter.name} is comfortably full.`
                 : undefined,
@@ -825,12 +825,22 @@ export class LocalGameHost {
         title:
           container.kind === 'chest'
             ? 'Wooden yard chest'
-            : container.kind === 'trough'
-              ? 'Feed trough'
-              : container.kind === 'mill-input'
-                ? 'Yard sawmill · input hopper'
-                : 'Sawmill · output crate',
-        description: `${container.items.length ? container.items.map((item) => `${item.quantity} ${item.itemId}`).join(' · ') : 'Empty'} · ${containerQuantity(container)}/${container.capacity ?? '—'} units. ${container.kind.startsWith('mill') ? productionStatus(state.containers) : 'Supplies stay here until someone carries them.'}`,
+            : container.kind === 'box'
+              ? 'Farm storage box'
+              : container.kind === 'pickup'
+                ? 'Sales pickup'
+                : container.kind === 'trough'
+                  ? 'Feed trough'
+                  : container.kind === 'mill-input'
+                    ? 'Yard sawmill · input hopper'
+                    : 'Sawmill · output crate',
+        description: `${container.items.length ? container.items.map((item) => `${item.quantity} ${item.itemId}`).join(' · ') : 'Empty'} · ${containerQuantity(container)}/${container.capacity ?? '—'} units. ${
+          container.kind.startsWith('mill')
+            ? productionStatus(state.containers)
+            : container.kind === 'pickup'
+              ? `The cart collects whatever is in here overnight and pays at dawn: ${this.pickupValue()} coins for what is here now. Marigold's store pays more.`
+              : 'Supplies stay here until someone carries them.'
+        }`,
         actions: [
           ...this.containerActions(container),
           ...(container.kind === 'mill-output' || container.kind === 'chest'
@@ -900,7 +910,7 @@ export class LocalGameHost {
     if (!object) return null;
     const sleep = action('sleep', 'Turn in for the night · tomorrow 8:00');
     const sleepCopy =
-      'Sleep restores both energies to 100 at 8:00 tomorrow; hunger carries over. For daytime recovery, rest together at the nook.';
+      'Sleep restores both energies to 100 at 8:00 tomorrow; hunger carries over. For daytime recovery, rest together at the barn.';
     switch (object.kind) {
       case 'house':
         return {
@@ -962,9 +972,8 @@ export class LocalGameHost {
       case 'shed':
         return {
           id,
-          title: state.shedLevel ? 'A proper snug little nook' : `${critter.name}’s weathered nook`,
-          description:
-            'Rest costs time, not supplies. Hunger rises and crops grow; daily activities stay used. A cozy roof brings happier mornings.',
+          title: state.shedLevel ? 'The barn, mended and snug' : 'The old barn',
+          description: `${critter.name} sleeps in a stall here, and so will any critter that is not following you. Rest costs time, not supplies: hunger rises and crops grow. A mended roof brings happier mornings.`,
           actions: [
             action(
               'rest',
@@ -977,11 +986,11 @@ export class LocalGameHost {
             ),
             action(
               'upgrade',
-              'Make it cozy · 12 coins · 60 min',
+              'Mend the roof and bedding · 12 coins · 60 min',
               state.shedLevel
-                ? 'The cozy nook is already complete.'
+                ? 'The barn is already mended.'
                 : state.player.coins < GAME_CONFIG.shedCost
-                  ? `Save ${GAME_CONFIG.shedCost - state.player.coins} more coins. Sell berries at the stall.`
+                  ? `Save ${GAME_CONFIG.shedCost - state.player.coins} more coins. Sell at the store or through the pickup.`
                   : undefined,
             ),
           ],
@@ -1001,13 +1010,6 @@ export class LocalGameHost {
             ),
             this.routineAction('hoops'),
           ],
-        };
-      case 'market':
-        return {
-          id,
-          title: 'The honesty stall',
-          description: `${this.quantity('berry')} berries, ${this.quantity('turnip')} turnips, ${this.quantity('wheat')} wheat in your basket. Better harvests earn better prices. Feed and seed are sold at the general store in Oakhaven.`,
-          actions: this.sellActions(action),
         };
       case 'shop': {
         const keeper = residentAbout(state, 'resident-store');
@@ -1353,7 +1355,7 @@ export class LocalGameHost {
         this.advanceMinutes(60);
         critter.happiness = clamp(critter.happiness + 12);
         this.note(
-          `A warm roof, fresh wood, and soft bedding. ${critter.name}’s nook is finally a home.`,
+          `A sound roof, fresh boards and soft bedding. ${critter.name}’s stall is finally a home.`,
         );
         return true;
       case 'train':
@@ -1720,7 +1722,7 @@ export class LocalGameHost {
         : critter.hunger > 80
           ? `${critter.name} is too hungry to concentrate.`
           : critter.stamina < cost
-            ? `${critter.name} needs some rest. Rest together at the nook or offer food.`
+            ? `${critter.name} needs some rest. Rest together at the barn or offer food.`
             : undefined;
     return {
       id: 'routine',
@@ -1969,7 +1971,7 @@ export class LocalGameHost {
                 ? ` ${this.chessTally(training)}.`
                 : '';
     this.note(
-      `${score > 0.75 ? great : score > 0.4 ? good : weak} ${critter.name}${routine ? ' ran it alone and' : ''} gains ${gain.toFixed(2)} ${stat}${multiplier < 1 ? ` (${Math.round(multiplier * 100)}% gains, repeated today)` : ''}.${best} ${Math.round(critter.stamina)} energy left${critter.stamina < 30 ? '; rest together at the nook to recover' : ''}.`,
+      `${score > 0.75 ? great : score > 0.4 ? good : weak} ${critter.name}${routine ? ' ran it alone and' : ''} gains ${gain.toFixed(2)} ${stat}${multiplier < 1 ? ` (${Math.round(multiplier * 100)}% gains, repeated today)` : ''}.${best} ${Math.round(critter.stamina)} energy left${critter.stamina < 30 ? '; rest together at the barn to recover' : ''}.`,
     );
   }
 
@@ -2200,6 +2202,7 @@ export class LocalGameHost {
       }
     }
     if (state.day > previousDay) {
+      this.collectPickup();
       for (const individual of state.critters) individual.ageDays += state.day - previousDay;
       state.flags = state.flags.filter(
         (flag) =>
@@ -2386,7 +2389,7 @@ export class LocalGameHost {
     const date = calendarDate(state.day);
     const moist = plot.moistUntil > state.totalMinutes;
     const energy = (cost: number) =>
-      state.player.stamina < cost ? 'You need some rest. Rest together at the nook.' : undefined;
+      state.player.stamina < cost ? 'You need some rest. Rest together at the barn.' : undefined;
     const action = (id: string, label: string, reason?: string): InteractionAction => ({
       id,
       label,
@@ -2575,7 +2578,37 @@ export class LocalGameHost {
     return true;
   }
 
-  /** Selling what you carry, at the stall or the store. */
+  /** What the store would pay for one stack: berries by quality, produce by its price. */
+  private storePrice(item: InventoryItem): number {
+    return (
+      item.quantity *
+      item.quality *
+      (item.itemId === 'berry' ? 1 : (PRODUCE_PRICES[item.itemId] ?? 0))
+    );
+  }
+
+  private pickupValue(): number {
+    const pickup = this.state.containers.find((container) => container.kind === 'pickup')!;
+    const total = pickup.items.reduce((sum, item) => sum + this.storePrice(item), 0);
+    return Math.floor(total * PICKUP_SHARE);
+  }
+
+  /** The cart comes by overnight: whatever is in the pickup is sold, and paid at dawn. */
+  private collectPickup(): void {
+    const pickup = this.state.containers.find((container) => container.kind === 'pickup')!;
+    if (!pickup.items.some((item) => item.quantity > 0)) return;
+    const amount = this.pickupValue();
+    const goods = pickup.items
+      .filter((item) => item.quantity > 0)
+      .map((item) => `${item.quantity} ${item.itemId}`)
+      .join(', ');
+    pickup.items = [];
+    this.state.player.coins += amount;
+    this.flag('sold');
+    this.note(`The pickup cart came by before dawn: ${goods} sold for ${amount} coins.`);
+  }
+
+  /** Selling what you carry at the store. */
   private sellActions(
     action: (id: string, label: string, reason?: string) => InteractionAction,
   ): InteractionAction[] {

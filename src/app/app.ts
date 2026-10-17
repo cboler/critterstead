@@ -659,7 +659,7 @@ export class App implements AfterViewInit, OnDestroy {
     {
       flag: 'improved',
       title: 'Room to grow',
-      description: 'Sell berries and mend the companion nook.',
+      description: 'Sell berries and mend the barn.',
     },
   ];
 

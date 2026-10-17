@@ -21,6 +21,8 @@ import {
   ROAD_SIGN,
   TAVERN_BIN,
   TOSS_STATION,
+  FARM_FIELD,
+  FARM_GAP,
   SHELTER_PEN,
   STORE_COUNTER,
   TOWN_BUILDINGS,
@@ -1378,9 +1380,20 @@ export class GameWorld {
         const group = new THREE.Group();
         group.position.set(x, 0, z);
         const trough = container.kind === 'trough';
+        const pickup = container.kind === 'pickup';
         group.add(
-          this.mesh(this.box, trough ? '#857b60' : '#9b714b', [0, 0.25, 0], [1.1, 0.45, 0.85]),
+          this.mesh(
+            this.box,
+            trough ? '#857b60' : pickup ? '#5e9186' : '#9b714b',
+            [0, 0.25, 0],
+            [1.1, 0.45, 0.85],
+          ),
         );
+        // The pickup flies a little flag, so the cart knows to stop.
+        if (pickup) {
+          group.add(this.mesh(this.box, '#7d6448', [0.62, 0.8, -0.3], [0.06, 1.6, 0.06]));
+          group.add(this.mesh(this.box, '#e9cc83', [0.85, 1.42, -0.3], [0.42, 0.26, 0.03]));
+        }
         for (const side of [-1, 1])
           group.add(this.mesh(this.box, '#d1ac79', [side * 0.55, 0.5, 0], [0.1, 0.4, 0.95]));
         const contents = new THREE.Group();
@@ -1402,11 +1415,15 @@ export class GameWorld {
         this.label(
           container.kind === 'chest'
             ? 'Yard chest'
-            : trough
-              ? 'Feed trough'
-              : container.kind === 'mill-input'
-                ? 'Timber hopper'
-                : 'Lumber crate',
+            : container.kind === 'box'
+              ? 'Farm storage box'
+              : container.kind === 'pickup'
+                ? 'Sales pickup'
+                : trough
+                  ? 'Feed trough'
+                  : container.kind === 'mill-input'
+                    ? 'Timber hopper'
+                    : 'Lumber crate',
           x,
           1.35,
           z,
@@ -1465,7 +1482,8 @@ export class GameWorld {
         [-1.1, 0],
         [2.8, -0.4],
         [6, -0.1],
-        [9.2, 0],
+        [10, 0],
+        [14.4, 0],
       ],
       1.35,
     );
@@ -1473,18 +1491,19 @@ export class GameWorld {
       [
         [-4, -0.7],
         [-6.2, 0.7],
-        [-9.2, 1.2],
+        [-10, 1.2],
+        [-14.4, 1.2],
       ],
       1.2,
     );
+    // Into the farm field through its gap, past the pickup and the storage box.
     this.path(
       [
-        [-1.8, -0.15],
-        [-1.3, 2.5],
-        [-2.5, 4.6],
-        [-6, 5.4],
+        [-7.6, 1],
+        [-9.6, -1],
+        [-10.8, -2.8],
       ],
-      1,
+      0.9,
     );
     this.path(
       [
@@ -1503,9 +1522,9 @@ export class GameWorld {
       0.9,
     );
     this.cottage(-5, -4);
-    this.shed(4, -4);
+    this.barn(4, -4);
+    this.farmField();
     this.training(3, 2);
-    this.market(-6, 5);
     this.race(2, 6);
     this.liftStation(5.2, 6.6);
     const trees: [number, number, number][] = [
@@ -1520,12 +1539,12 @@ export class GameWorld {
       [-7.1, 7.4, 0.72],
     ];
     trees.forEach(([x, z, scale], index) => this.tree(x, z, scale, index));
-    this.fence([-7.5, -7.9], [5.8, -7.9], 8);
-    this.fence([8, -5.4], [8, -1.4], 3);
-    this.fence([8, 1.4], [8, 7], 4);
+    this.fence([-7.5, -7.9], [12.8, -7.9], 12);
+    this.fence([13, -5.4], [13, -1.4], 3);
+    this.fence([13, 1.4], [13, 7], 4);
     this.fence([-4.9, 7.6], [-0.1, 7.6], 3);
-    this.gate(8, 0, false);
-    this.gate(-8, 1.2, true);
+    this.gate(13, 0, false);
+    this.gate(-13, 1.2, true);
     for (const [x, z] of [
       [-3.55, -1.75],
       [-1.95, 1.1],
@@ -1536,9 +1555,8 @@ export class GameWorld {
       this.lantern(x, z);
     const labelHeights: Partial<Record<string, number>> = {
       house: 3.8,
-      shed: 3.1,
+      shed: 3.9,
       training: 1.9,
-      market: 2.5,
       gate: 2.4,
       race: 1.8,
     };
@@ -1819,41 +1837,61 @@ export class GameWorld {
       );
   }
 
-  private shed(x: number, z: number): void {
-    const shed = new THREE.Group();
-    shed.position.set(x, 0, z);
-    shed.add(this.mesh(this.box, '#c4b493', [0, 0.12, 0], [3.23, 0.24, 2.8]));
-    shed.add(this.mesh(this.box, '#aeb99b', [0, 1, 0], [3, 1.9, 2.5]));
-    for (let plank = 0; plank < 11; plank++)
-      shed.add(
-        this.mesh(this.box, '#99a387', [-1.44 + plank * 0.287, 1, 1.27], [0.018, 1.85, 0.027]),
+  /** The barn: red boards, a big double door, a hayloft hatch, and a stall for each critter. */
+  private barn(x: number, z: number): void {
+    const barn = new THREE.Group();
+    barn.position.set(x, 0, z);
+    barn.add(this.mesh(this.box, '#c4b493', [0, 0.12, 0], [3.9, 0.24, 3.1]));
+    barn.add(this.mesh(this.box, '#b9715a', [0, 1.2, 0], [3.6, 2.3, 2.8]));
+    for (let plank = 0; plank < 13; plank++)
+      barn.add(
+        this.mesh(this.box, '#a8634e', [-1.74 + plank * 0.29, 1.2, 1.42], [0.02, 2.25, 0.027]),
       );
-    shed.add(this.mesh(this.box, '#7c8061', [0.25, 0.74, 1.29], [1.45, 1.47, 0.1]));
-    shed.add(this.mesh(this.box, '#a48a5d', [0.25, 0.13, 1.45], [1.7, 0.12, 0.65]));
-    shed.add(this.mesh(this.box, '#c4b58b', [0.25, 0.41, 1.36], [1.43, 0.78, 0.07]));
-    const brace = this.mesh(this.box, '#a1906d', [0.25, 0.41, 1.41], [1.42, 0.08, 0.035]);
-    brace.rotation.z = 0.46;
-    shed.add(brace);
-    this.roof(shed, 3.52, 3.03, 1.99, 0.83, '#859078', this.shedRoof);
-    this.window(shed, -1.02, 1.22, 1.31, 0.38);
-    shed.add(this.mesh(this.box, '#e9d6a4', [0.3, 1.72, 1.35], [1.4, 0.26, 0.1]));
-    this.scenery.add(shed);
+    // The double door, with white cross-braces.
+    barn.add(this.mesh(this.box, '#8f5442', [0, 0.85, 1.44], [1.6, 1.7, 0.1]));
+    for (const side of [-1, 1]) {
+      const brace = this.mesh(this.box, '#efe0c4', [side * 0.4, 0.85, 1.5], [0.85, 0.07, 0.03]);
+      brace.rotation.z = side * 1.1;
+      barn.add(brace);
+    }
+    barn.add(this.mesh(this.box, '#efe0c4', [0, 1.72, 1.5], [1.66, 0.08, 0.03]));
+    barn.add(this.mesh(this.box, '#efe0c4', [0, 0.85, 1.5], [0.06, 1.7, 0.03]));
+    barn.add(this.mesh(this.box, '#a48a5d', [0, 0.13, 1.7], [1.9, 0.12, 0.6]));
+    this.roof(barn, 4.1, 3.2, 2.35, 1.15, '#859078', this.shedRoof);
+    this.window(barn, -1.25, 1.5, 1.44, 0.36);
+    this.window(barn, 1.25, 1.5, 1.44, 0.36);
+    barn.add(this.mesh(this.box, '#efe0c4', [0, 2.7, 1.33], [0.62, 0.5, 0.06]));
+    barn.add(this.mesh(this.box, '#8f5442', [0, 2.7, 1.36], [0.5, 0.4, 0.06]));
+    this.scenery.add(barn);
     for (let bale = 0; bale < 2; bale++) {
       const hay = this.mesh(
         this.cylinder,
         '#d1b978',
-        [x + 1.9, 0.34 + bale * 0.3, z + 0.7 - bale * 0.27],
+        [x + 2.3, 0.34 + bale * 0.3, z + 0.7 - bale * 0.27],
         [0.4, 0.63, 0.4],
       );
       hay.rotation.z = Math.PI / 2;
       this.scenery.add(hay);
     }
     this.scenery.add(
-      this.mesh(this.cylinder, '#73958c', [x - 1.7, 0.15, z + 1.1], [0.42, 0.3, 0.42]),
+      this.mesh(this.cylinder, '#73958c', [x - 2.1, 0.15, z + 1.3], [0.42, 0.3, 0.42]),
     );
     this.scenery.add(
-      this.mesh(this.cylinder, '#a3c8c2', [x - 1.7, 0.31, z + 1.1], [0.34, 0.025, 0.34]),
+      this.mesh(this.cylinder, '#a3c8c2', [x - 2.1, 0.31, z + 1.3], [0.34, 0.025, 0.34]),
     );
+  }
+
+  /** The farm field's fence, its gap, and the dark worked soil the beds sit in. */
+  private farmField(): void {
+    const { x, z, hx, hz } = FARM_FIELD;
+    const soil = this.mesh(this.box, '#b49a68', [x, 0.02, z], [hx * 2 - 0.3, 0.03, hz * 2 - 0.3]);
+    soil.receiveShadow = true;
+    this.scenery.add(soil);
+    this.fence([x - hx, z - hz], [x + hx, z - hz], 3);
+    this.fence([x - hx, z - hz], [x - hx, z + hz], 4);
+    this.fence([x + hx, z - hz], [x + hx, z + hz], 4);
+    this.fence([x - hx, z + hz], [FARM_GAP.from, z + hz], 1);
+    this.fence([FARM_GAP.to, z + hz], [x + hx, z + hz], 1);
   }
 
   private gardenBeds(state: GameState): void {
@@ -1907,7 +1945,7 @@ export class GameWorld {
       this.swaying.push({ object: plants, phase: index * 2.3, amount: 0.07 });
       this.scenery.add(bed);
     });
-    this.label('Garden beds', -4.3, 1.1, 2.7);
+    this.label('Farm field', FARM_FIELD.x, 1.4, FARM_FIELD.z - FARM_FIELD.hz - 0.2);
     const can = this.mesh(this.cylinder, '#709896', [-6.2, 0.23, 2.2], [0.25, 0.42, 0.25]);
     this.scenery.add(can);
     const spout = this.mesh(this.cylinder, '#709896', [-5.92, 0.25, 2.2], [0.07, 0.5, 0.07]);
@@ -2956,49 +2994,6 @@ export class GameWorld {
     this.pennants(x - 1.65, z - 1.2, x + 1.7, z - 1.2, 1.7);
   }
 
-  private market(x: number, z: number): void {
-    const market = new THREE.Group();
-    market.position.set(x, 0, z);
-    for (const side of [-1, 1]) {
-      market.add(this.mesh(this.box, '#9a7855', [side * 0.98, 1.05, 0], [0.11, 2.1, 0.11]));
-      market.add(this.mesh(this.box, '#a28059', [side * 0.87, 0.42, 0.3], [0.12, 0.84, 0.12]));
-    }
-    market.add(this.mesh(this.box, '#b5986c', [0, 0.85, 0.23], [2.17, 0.15, 1.04]));
-    market.add(this.mesh(this.box, '#c1a878', [0, 0.56, 0.72], [1.97, 0.48, 0.09]));
-    for (let stripe = 0; stripe < 7; stripe++) {
-      const awning = this.mesh(
-        this.box,
-        stripe % 2 ? '#e6d7ab' : '#648d80',
-        [-0.99 + stripe * 0.33, 2.03, 0.07],
-        [0.335, 0.09, 1.58],
-      );
-      awning.rotation.x = 0.14;
-      market.add(awning);
-      market.add(
-        this.mesh(
-          this.box,
-          stripe % 2 ? '#e6d7ab' : '#648d80',
-          [-0.99 + stripe * 0.33, 1.8, 0.84],
-          [0.335, 0.27, 0.055],
-        ),
-      );
-    }
-    for (let basket = 0; basket < 3; basket++) {
-      const bx = -0.64 + basket * 0.64;
-      market.add(this.mesh(this.box, '#927345', [bx, 1, 0.28], [0.51, 0.23, 0.53]));
-      for (let fruit = 0; fruit < 4; fruit++)
-        market.add(
-          this.mesh(
-            this.sphere,
-            basket === 1 ? '#d2ad62' : '#b96f70',
-            [bx + (fruit % 2) * 0.19 - 0.09, 1.13, 0.19 + Math.floor(fruit / 2) * 0.18],
-            [0.11, 0.11, 0.11],
-          ),
-        );
-    }
-    this.scenery.add(market);
-  }
-
   private race(x: number, z: number): void {
     const group = new THREE.Group();
     group.position.set(x, 0, z);
@@ -3128,7 +3123,9 @@ export class GameWorld {
       // Keep the authored central walkways and facilities visually open.
       if (
         this.area === 'homestead' &&
-        (Math.abs(z) < 1.25 || (x < -2.7 && z > -6 && z < 6) || (x > 1.5 && x < 5.7 && z < 3.7))
+        (Math.abs(z) < 1.25 ||
+          (x < -8.6 && x > -12.8 && z < -2.8 && z > -8.4) ||
+          (x > 1.5 && x < 6.4 && z < 3.7 && z > -6.2))
       )
         continue;
       if (

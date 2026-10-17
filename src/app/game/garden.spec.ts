@@ -11,8 +11,8 @@ function act(host: LocalGameHost, targetId: string, action: string): boolean {
 }
 function atBed(modify?: (state: GameState) => void): LocalGameHost {
   const state = createInitialState();
-  state.player.position = { x: -5, z: 2 };
-  state.critters[0].position = { x: -4, z: 2.5 };
+  state.player.position = { x: -11.6, z: -4.3 };
+  state.critters[0].position = { x: -11, z: -3.4 };
   addItem(backpack(state), 'turnip-seed', 2);
   addItem(backpack(state), 'wheat-seed', 1);
   addItem(backpack(state), 'sunberry-seed', 1);
@@ -92,14 +92,14 @@ describe('four-plot seasonal garden', () => {
     // Watered at 08:15:48 (after one idle tick); growth stops at the 06:00 dawn.
     const grown = plot.crop!.growthMinutes;
     expect(grown).toBeCloseTo(1440 + 360 - 495.8);
-    host.state.player.position = { x: -5.4, z: 2 };
+    host.state.player.position = { x: -11.6, z: -4.1 };
     expect(host.interaction()?.title).toBe('Thirsty grain wheat');
     for (let second = 0; second < 60; second++) host.update(1);
     expect(plot.crop!.growthMinutes).toBe(grown);
     expect(act(host, 'plot-1', 'water')).toBe(true);
     expect(host.interaction()?.description).toMatch(/Ready in about \d+ game minutes/);
     host.dispatch({ type: 'debug', action: 'next-day' });
-    host.state.player.position = { x: -5.4, z: 2 };
+    host.state.player.position = { x: -11.6, z: -4.1 };
     expect(host.interaction()?.title).toBe('Grain wheat are ready!');
     expect(host.state.journal[0]).toContain('1 garden bed is ready');
     expect(act(host, 'plot-1', 'harvest')).toBe(true);
@@ -150,7 +150,7 @@ describe('four-plot seasonal garden', () => {
     expect(act(late, 'plot-1', 'plant:turnip')).toBe(true);
     expect(late.interaction()?.description).toContain('Summer begins in 1 day');
     late.dispatch({ type: 'debug', action: 'next-day' });
-    late.state.player.position = { x: -5.4, z: 2 };
+    late.state.player.position = { x: -11.6, z: -4.1 };
     expect(calendarDate(late.state.day).season).toBe('summer');
     expect(late.state.plots[0].crop).toMatchObject({ speciesId: 'turnip', withered: true });
     expect(late.state.journal.join(' ')).toContain('wither out of season');
@@ -169,7 +169,7 @@ describe('four-plot seasonal garden', () => {
     });
     expect(act(host, 'plot-1', 'plant:feed')).toBe(true);
     host.dispatch({ type: 'debug', action: 'next-day' });
-    host.state.player.position = { x: -5.4, z: 2 };
+    host.state.player.position = { x: -11.6, z: -4.1 };
     const dawn = (rainDay - 1) * 1440 + 360;
     expect(host.state.plots.filter((plot) => plot.moistUntil === dawn + 1440)).toHaveLength(2);
     expect(host.state.plots[0].crop!.growthMinutes).toBe(120);
@@ -202,7 +202,7 @@ describe('four-plot seasonal garden', () => {
     expect(act(host, 'store', 'sell-produce')).toBe(false);
   });
 
-  it('sells no feed or seed at the stall, and the store keeps hours', () => {
+  it('sells feed and seed only at the store, which keeps hours', () => {
     const stall = atBed((state) => (state.player.position = { x: -6, z: 5 }));
     expect(action(stall, 'buy-feed')).toBeUndefined();
     const closed = atBed((state) => {
@@ -291,5 +291,30 @@ describe('cottage interior and household calendar', () => {
     expect(host.state.companionIndoors).toBe(true);
     expect(host.critter.position).toEqual({ x: 0.5, z: 3.4 });
     expect(host.state.journal[0]).toContain('joins you indoors');
+  });
+});
+
+describe('the sales pickup', () => {
+  it('takes only goods for sale and pays less than the store, at dawn', () => {
+    const host = atBed((state) => {
+      state.player.position = { x: -11.2, z: 2 };
+      addItem(backpack(state), 'turnip', 3);
+      addItem(backpack(state), 'berry', 4, 2);
+    });
+    const pickup = host.state.containers.find((item) => item.kind === 'pickup')!;
+    const bag = backpack(host.state).id;
+    expect(host.interaction()!.title).toBe('Sales pickup');
+    expect(action(host, `transfer:${bag}:${pickup.id}:feed`)).toBeUndefined();
+    for (let unit = 0; unit < 3; unit++)
+      expect(act(host, pickup.id, `transfer:${bag}:${pickup.id}:turnip`)).toBe(true);
+    for (let unit = 0; unit < 4; unit++)
+      expect(act(host, pickup.id, `transfer:${bag}:${pickup.id}:berry`)).toBe(true);
+    // The store would pay 3 × 2 for turnips and 4 × 2 for fine berries: 14; the pickup 60%.
+    expect(host.interaction()!.description).toContain('8 coins for what is here now');
+    const coins = host.state.player.coins;
+    host.dispatch({ type: 'debug', action: 'next-day' });
+    expect(host.state.player.coins).toBe(coins + 8);
+    expect(pickup.items).toEqual([]);
+    expect(host.state.journal.join(' ')).toContain('The pickup cart came by before dawn');
   });
 });

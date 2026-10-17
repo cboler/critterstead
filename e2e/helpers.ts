@@ -106,8 +106,9 @@ export const SPOTS = {
   nook: [2.5, -2.9],
   millInput: [4.9, 0.9],
   millOutput: [6.6, 1.2],
-  firstBed: [-5.6, 1.4],
-  secondBed: [-2.9, 1.3],
+  firstBed: [-11.3, -2.5],
+  secondBed: [-10.2, -2.5],
+  pickup: [-11.2, 2],
   lift: [5.2, 7.4],
   toss: [-5.4, -2.6],
   beam: [2.7, 2.9],
@@ -281,6 +282,25 @@ export async function takeStarterHome(page: Page): Promise<void> {
   await page.getByRole('radio', { name: /^Mallow,/ }).click();
   await page.getByRole('button', { name: 'Take Mallow home' }).click();
   await expect(page.locator('.starter-offer')).toHaveCount(0);
+}
+
+/**
+ * Leaves a berry in the sales pickup, then stands in for the overnight cart by topping up
+ * coins (the cart's dawn payment is covered by the unit tests).
+ */
+export async function shipBerries(page: Page, coins: number): Promise<void> {
+  await walk(page, ...SPOTS.pickup);
+  await page
+    .getByRole('button', { name: /^Store 1 berry/ })
+    .first()
+    .click();
+  await page.evaluate(async (amount) => {
+    const game = (window as unknown as DebugHostWindow).ng!.getComponent(
+      document.querySelector('app-root')!,
+    );
+    game.host.state.player.coins = Math.max(game.host.state.player.coins, amount);
+    await game.save();
+  }, coins);
 }
 
 /** Marks Pip's two morning picks as made, so lesson counts in a test are the player's alone. */

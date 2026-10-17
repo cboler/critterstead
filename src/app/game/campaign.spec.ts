@@ -22,6 +22,13 @@ function must(host: LocalGameHost, targetId: string, action: string): void {
     true,
   );
 }
+/** Puts everything of one kind from the backpack into the sales pickup. */
+function ship(host: LocalGameHost, itemId: string): void {
+  const pickup = host.state.containers.find((item) => item.kind === 'pickup')!;
+  const from = backpack(host.state).id;
+  for (let unit = 0; unit < 100 && items(host, itemId) > 0; unit++)
+    must(host, pickup.id, `transfer:${from}:${pickup.id}:${itemId}`);
+}
 function travel(host: LocalGameHost, gateId: string, x: number, z: number): void {
   go(host, x, z);
   must(host, gateId, 'travel');
@@ -84,13 +91,13 @@ describe('the first living stead across three days', () => {
     go(host, 0.6, 0.3);
     must(host, host.critter.id, 'pet');
     must(host, host.critter.id, 'feed');
-    go(host, -5.6, 1.4);
+    go(host, -10.8, -3.6);
     must(host, 'plot-1', 'plant:feed');
     must(host, 'plot-1', 'water');
     go(host, 3, 1);
     must(host, 'training', 'train');
     beats(host);
-    travel(host, 'gate', 7.4, 0);
+    travel(host, 'gate', 12.4, 0);
     expect(host.state.areaId).toBe('glade');
     for (const [x, z] of [
       [-3, -2],
@@ -102,9 +109,11 @@ describe('the first living stead across three days', () => {
     }
     expect(host.learning().label).toBe('Harvests on cue');
     travel(host, 'gate', -7.4, 0);
-    go(host, -6, 5);
-    must(host, 'market', 'sell');
-    go(host, -2.9, 1.3);
+    // Berries go in the pickup by the field, sold overnight.
+    go(host, -11.2, 2);
+    ship(host, 'berry');
+    const beforeDawn = host.state.player.coins;
+    go(host, -10.8, -3.6);
     must(host, 'plot-2', 'till');
     must(host, 'plot-2', 'plant:turnip');
     must(host, 'plot-2', 'water');
@@ -129,12 +138,16 @@ describe('the first living stead across three days', () => {
     expect(host.state.day).toBe(2);
     expect([host.state.player.stamina, host.critter.stamina]).toEqual([100, 100]);
     expect(drillMultiplier(host.critter, 'lift', 2)).toBe(1);
-    expect(host.state.journal[0]).toContain('Day 2');
-    go(host, -5.6, 1.4);
+    expect(host.state.journal.join(' ')).toContain('The pickup cart came by');
+    expect(host.state.player.coins).toBeGreaterThan(beforeDawn);
+    go(host, -10.8, -3.6);
     must(host, 'plot-1', 'harvest');
     expect(items(host, 'feed')).toBeGreaterThan(0);
-    go(host, -2.9, 1.3);
-    if (host.interaction()?.actions.some((entry) => entry.id === 'water' && !entry.disabled))
+    go(host, -10.8, -3.6);
+    if (
+      host.interaction()?.actions.some((entry) => entry.id === 'water' && !entry.disabled) ||
+      host.state.plots[1].moistUntil <= host.state.totalMinutes
+    )
       must(host, 'plot-2', 'water');
     expect(quantity(container('mill-output'), 'lumber')).toBeGreaterThanOrEqual(2);
     for (let lesson = 0; lesson < 2; lesson++) {
@@ -145,7 +158,7 @@ describe('the first living stead across three days', () => {
     }
     expect(host.haulingLearning().label).toBe('Hauls on cue');
     // Then an exhibition at the Colosseum, through Oakhaven, and a lap of the glade's loop.
-    travel(host, 'town-gate', -7.4, 1.2);
+    travel(host, 'town-gate', -12.4, 1.2);
     expect(host.state.areaId).toBe('lane');
     travel(host, 'town-gate', -16.4, 0);
     expect(host.state.areaId).toBe('town');
@@ -164,7 +177,7 @@ describe('the first living stead across three days', () => {
     travel(host, 'gate', 14.4, 1);
     travel(host, 'gate', 16.4, 0.4);
     expect(host.state.areaId).toBe('homestead');
-    travel(host, 'gate', 7.4, 0);
+    travel(host, 'gate', 12.4, 0);
     go(host, 1.2, 6);
     must(host, 'pace', 'pace');
     holdGauge(host, 0.6);
@@ -173,7 +186,7 @@ describe('the first living stead across three days', () => {
     // Day 3: Mallow forages and hauls on cue, and the Clover Cup closes the loop.
     expect(host.state.day).toBe(3);
     expect(host.critter.competitions.some((result) => result.event === 'exhibition')).toBe(true);
-    travel(host, 'gate', 7.4, 0);
+    travel(host, 'gate', 12.4, 0);
     for (const [x, z] of [
       [2, 0],
       [5, -1.5],
@@ -185,13 +198,17 @@ describe('the first living stead across three days', () => {
     expect(host.learning().label).toBe('Independent forager');
     travel(host, 'gate', -7.4, 0);
     // The turnips planted on day one are ready to sell, and the calendar shows what is next.
-    go(host, -2.9, 1.3);
+    go(host, -10.8, -3.6);
     must(host, 'plot-2', 'harvest');
     expect(items(host, 'turnip')).toBeGreaterThan(0);
-    go(host, -6, 5);
-    const coins = host.state.player.coins;
-    must(host, 'market', 'sell-produce');
-    expect(host.state.player.coins).toBeGreaterThan(coins);
+    go(host, -11.2, 2);
+    ship(host, 'turnip');
+    expect(
+      quantity(
+        host.state.containers.find((item) => item.kind === 'pickup')!,
+        'turnip',
+      ),
+    ).toBeGreaterThan(0);
     go(host, -4, -2);
     must(host, 'house', 'enter');
     go(host, 0.2, -2.4);

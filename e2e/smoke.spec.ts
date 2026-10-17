@@ -7,6 +7,7 @@ import {
   PACE,
   pipAlreadyForaged,
   savedState,
+  shipBerries,
   SPOTS,
   takeStarterHome,
   walk,
@@ -173,7 +174,7 @@ test('plays a complete day and keeps the improved homestead after reload', async
   await walk(page, ...SPOTS.firstBed);
   await page.getByRole('button', { name: /Plant feed seeds/ }).click();
   await page.getByRole('button', { name: /Water the garden bed/ }).click();
-  await walk(page, 8, 0);
+  await walk(page, 12.4, 0);
   await page.getByRole('button', { name: /Explore Clover Glade/ }).click();
   await expect(page.locator('.location-tag')).toContainText('Clover Glade');
   await expect(page.locator('.learning')).toContainText('Curious companion');
@@ -219,10 +220,9 @@ test('plays a complete day and keeps the improved homestead after reload', async
   await page.screenshot({ path: testInfo.outputPath('independent-forager.png'), fullPage: true });
   await walk(page, -8, 0);
   await page.getByRole('button', { name: /Return to Bramblewick/ }).click();
-  await walk(page, -6, 5);
-  await page.getByRole('button', { name: /^Sell berries/ }).click();
+  await shipBerries(page, 12);
   await walk(page, ...SPOTS.nook);
-  await page.getByRole('button', { name: /Make it cozy/ }).click();
+  await page.getByRole('button', { name: /Mend the roof/ }).click();
   expect((await developmentState(page)).shedLevel).toBe(1);
   await walk(page, 2, 6);
   await expect(page.getByRole('button', { name: /Run the trial/ })).toBeDisabled();
@@ -299,7 +299,7 @@ test('preserves critter energy for a competition-oriented day by doing the harve
   }
   const prepared = await developmentState(page);
   expect(activeCritter(prepared).stamina).toBe(40);
-  await walk(page, 8, 0);
+  await walk(page, 12.4, 0);
   await page.getByRole('button', { name: /Explore Clover Glade/ }).click();
   for (const [x, z] of [
     [-3, -2],
@@ -315,10 +315,9 @@ test('preserves critter energy for a competition-oriented day by doing the harve
   expect(activeCritter(await developmentState(page)).stamina).toBe(40);
   await walk(page, -8, 0);
   await page.getByRole('button', { name: /Return to Bramblewick/ }).click();
-  await walk(page, -6, 5);
-  await page.getByRole('button', { name: /^Sell berries/ }).click();
+  await shipBerries(page, 12);
   await walk(page, ...SPOTS.nook);
-  await page.getByRole('button', { name: /Make it cozy/ }).click();
+  await page.getByRole('button', { name: /Mend the roof/ }).click();
   await walk(page, ...SPOTS.firstBed);
   await page.getByRole('button', { name: /^Harvest · 3 feed/ }).click();
   await walk(page, 2, 6);
@@ -402,7 +401,7 @@ test('walks home exhausted, recovers without supplies, and feeds through ordinar
   await expect.poll(async () => activeCritter(await savedState(page)).stamina).toBe(35);
   await page.reload();
   await expect(page.locator('.companion-card .meter-label')).toContainText('35');
-  await walk(page, 8, 0);
+  await walk(page, 12.4, 0);
   await page.getByRole('button', { name: /Explore Clover Glade/ }).click();
   await walk(page, -3, -2);
   await page.getByRole('button', { name: /^Gather ·/ }).click();

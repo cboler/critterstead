@@ -52,7 +52,7 @@ test('trains strength with fading repeat gains, then earns a Colosseum exhibitio
     '55% gains today',
   );
 
-  await walk(page, -7.4, 1.2);
+  await walk(page, -12.4, 1.2);
   await page.getByRole('button', { name: /^Take the hedgerow lane · 5 min/ }).click();
   await expect(page.locator('.location-tag')).toContainText('The hedgerow lane');
   await walk(page, -16.4, 0);
