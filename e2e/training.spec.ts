@@ -93,7 +93,7 @@ test('throws logs in the glade by tapping twice or holding and letting go', asyn
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/');
   await takeStarterHome(page);
-  await walk(page, 8, 0);
+  await walk(page, 12.4, 0);
   await page.getByRole('button', { name: /Explore Clover Glade/ }).click();
   await expect(page.locator('.location-tag')).toContainText('Clover Glade');
   await walk(page, ...SPOTS.toss);
@@ -155,7 +155,7 @@ test('crosses the balance beam and runs the hurdles in the glade', async ({ page
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto('/');
   await takeStarterHome(page);
-  await walk(page, 8, 0);
+  await walk(page, 12.4, 0);
   await page.getByRole('button', { name: /Explore Clover Glade/ }).click();
   await expect(page.locator('.location-tag')).toContainText('Clover Glade');
 
@@ -325,9 +325,10 @@ test('runs a ranked Fledgling Cup against the rivals for a placing', async ({ pa
     state.areaId = 'colosseum';
     state.areaInstanceId = 'local-colosseum';
     state.player.coins = 30;
-    state.player.position = { x: -2.6, z: 1.3 };
+    // At the ladder registrar's booth in the forecourt.
+    state.player.position = { x: -4.6, z: 6 };
   });
-  await expect(page.locator('.interaction-dock')).toContainText('Today: the Fledgling Cup');
+  await expect(page.locator('.interaction-dock')).toContainText('today: the Fledgling Cup');
   await page.getByRole('button', { name: /^Enter the Fledgling Cup · 5 coins/ }).click();
   await expect(page.locator('.training-card')).toContainText('FLEDGLING CUP · 1 OF 2 · HURDLE RUN');
   const course = runCourse((await developmentState(page)).training!.seed!);

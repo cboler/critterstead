@@ -442,8 +442,8 @@ export const RHYTHM_STATION: Point = { x: -1.5, z: 0.4 };
 export const RHYTHM_FLOOR: Point = { x: 0.3, z: 0.5 };
 export const CHESS_TABLE: Point = { x: 3.3, z: 0.6 };
 
-// The farm field west of the cottage: six beds inside a fence with a gap on its south side,
-// the storage box by the cottage and the sales pickup by the lane path.
+// The farm field west of the cottage: six beds inside a fence open to the south, the
+// storage box by the cottage and the sales pickup by the lane path.
 export const FARM_FIELD = { x: -10.8, z: -5.6, hx: 1.8, hz: 2.6 } as const;
 export const FARM_BEDS: Point[] = [
   { x: -11.6, z: -4.3 },
@@ -453,23 +453,10 @@ export const FARM_BEDS: Point[] = [
   { x: -11.6, z: -7.3 },
   { x: -10, z: -7.3 },
 ];
-export const FARM_GAP = { from: -11.3, to: -10.3 } as const;
 const FARM_FENCE: Blocker[] = [
   { x: FARM_FIELD.x, z: FARM_FIELD.z - FARM_FIELD.hz, hx: FARM_FIELD.hx, hz: 0.1 },
   { x: FARM_FIELD.x - FARM_FIELD.hx, z: FARM_FIELD.z, hx: 0.1, hz: FARM_FIELD.hz },
   { x: FARM_FIELD.x + FARM_FIELD.hx, z: FARM_FIELD.z, hx: 0.1, hz: FARM_FIELD.hz },
-  {
-    x: (FARM_FIELD.x - FARM_FIELD.hx + FARM_GAP.from) / 2,
-    z: FARM_FIELD.z + FARM_FIELD.hz,
-    hx: (FARM_GAP.from - (FARM_FIELD.x - FARM_FIELD.hx)) / 2,
-    hz: 0.1,
-  },
-  {
-    x: (FARM_GAP.to + FARM_FIELD.x + FARM_FIELD.hx) / 2,
-    z: FARM_FIELD.z + FARM_FIELD.hz,
-    hx: (FARM_FIELD.x + FARM_FIELD.hx - FARM_GAP.to) / 2,
-    hz: 0.1,
-  },
 ];
 // What the pickup pays, as a share of the store's price.
 export const PICKUP_SHARE = 0.6;

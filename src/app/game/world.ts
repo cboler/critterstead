@@ -24,7 +24,6 @@ import {
   TAVERN_BIN,
   TOSS_STATION,
   FARM_FIELD,
-  FARM_GAP,
   SHELTER_PEN,
   STORE_COUNTER,
   TOWN_BUILDINGS,
@@ -1503,12 +1502,12 @@ export class GameWorld {
       ],
       1.2,
     );
-    // Into the farm field through its gap, past the pickup and the storage box.
+    // Up to the front of the farm field, past the storage box.
     this.path(
       [
         [-7.6, 1],
         [-9.6, -1],
-        [-10.8, -2.8],
+        [-10.8, -2.6],
       ],
       0.9,
     );
@@ -1888,7 +1887,7 @@ export class GameWorld {
     );
   }
 
-  /** The farm field's fence, its gap, and the dark worked soil the beds sit in. */
+  /** The farm field's fence, open to the south, and the dark worked soil of its beds. */
   private farmField(): void {
     const { x, z, hx, hz } = FARM_FIELD;
     const soil = this.mesh(this.box, '#b49a68', [x, 0.02, z], [hx * 2 - 0.3, 0.03, hz * 2 - 0.3]);
@@ -1897,8 +1896,6 @@ export class GameWorld {
     this.fence([x - hx, z - hz], [x + hx, z - hz], 3);
     this.fence([x - hx, z - hz], [x - hx, z + hz], 4);
     this.fence([x + hx, z - hz], [x + hx, z + hz], 4);
-    this.fence([x - hx, z + hz], [FARM_GAP.from, z + hz], 1);
-    this.fence([FARM_GAP.to, z + hz], [x + hx, z + hz], 1);
   }
 
   private gardenBeds(state: GameState): void {

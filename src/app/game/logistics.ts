@@ -54,7 +54,7 @@ export function initialContainers(
     {
       id: 'farm-box',
       kind: 'box',
-      location: { areaId: 'homestead', position: { x: -8.2, z: -2.4 } },
+      location: { areaId: 'homestead', position: { x: -7.4, z: -1.6 } },
       capacity: 40,
       allowed: [...itemIds],
       items: [],

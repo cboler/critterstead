@@ -75,7 +75,7 @@ retired, not migrated (D55): the game says so, keeps the record, and offers a ne
 
 ### M3 — The farm, the sales pickup and the barn
 
-- [x] The yard widens to 28 × 20; a fenced farm field west of the cottage holds six beds,
+- [x] The yard widens to 28 × 20; a farm field west of the cottage, fenced on three sides and open to the south, holds six beds,
       with a storage box by the cottage.
 - [x] A sales pickup by the lane gate: goods left in it (berries, turnips, wheat) are
       collected overnight at 60% of the store's price and paid at dawn with a journal note.
@@ -217,6 +217,17 @@ which the quality tiers already control, not from the library.
 - Browser: the earlier full suite (on M2) passed 69 of 70; the one failure, a landscape
   phone dock at exactly 60% height after the starting turnip seed added a row, is fixed by
   capping short screens' docks at 56%.
+
+## Browser suite repair — 2026-10-17
+
+M1–M5 were pushed before a clean browser run; that run then failed 13 tests. Fixes: the
+farm field is now open to the south (fenced on three sides), so its front beds can be
+reached from the path; the storage box moved to (-7.4, -1.6), clear of the beds; Grandpa's
+afternoon spot moved to the field's west fence, where he no longer takes the dock from a
+rancher at the beds; the tests' bed spots, glade gate (x 12.4), the ladder booth for ranked
+cups and the "Barn level" label were updated. The hurdle run's timing check failed once
+under load and passed on repeat. Gates: unit tests (184), lint, and the full browser suite,
+70 passed (desktop, both phone orientations, tablet).
 
 ## Current handoff
 
