@@ -1,5 +1,6 @@
 import { weatherFor } from './calendar';
 import { noise } from './noise';
+import { barnCritters, barnSpot } from './barn';
 import { GEMOTHY, gemothyAbout, gemothyMood, gemothyPosition } from './gemothy';
 import {
   Appearance,
@@ -377,5 +378,19 @@ export function castFor(state: GameState): CastMember[] {
     ...townsfolk(state),
     ...shelterCritters(state),
     ...gemothy(state),
+    ...barnFolk(state),
   ];
+}
+
+/** Your critters at home by the barn while another follows you. */
+function barnFolk(state: GameState): CastMember[] {
+  if (state.areaId !== 'homestead') return [];
+  return barnCritters(state).map((critter, index) => ({
+    id: critter.id,
+    areaId: 'homestead',
+    position: barnSpot(state, index),
+    name: critter.name,
+    activity: `${critter.name} is at home by the barn.`,
+    figure: { kind: 'critter', speciesId: critter.speciesId, visualTraits: critter.visualTraits },
+  }));
 }

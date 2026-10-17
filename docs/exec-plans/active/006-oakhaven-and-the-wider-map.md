@@ -128,11 +128,18 @@ retired, not migrated (D55): the game says so, keeps the record, and offers a ne
       within room, allowed items and weight; one journal note per move.
 - [x] A read-only list of every container on the stead and what is in it.
 
-### M8 — More than one critter: adoption, the roster and who follows
+### M8 — More than one critter: adoption, the barn's stalls and who follows
 
-- [ ] Adopt from the shelter; the newcomer lives in the barn.
-- [ ] A roster (at the barn and in the companion panel) chooses which critter follows
-      you; the others rest in the barn or go about the jobs they have learned.
+- [x] The barn has stalls: one in the old barn, two once mended, and more built from 4
+      lumber and 20 coins each, up to four.
+- [x] Adopt from the shelter for a 10-coin donation when a stall is free; the critter keeps
+      its name, family, age and story, and the shelter draws its next arrival.
+- [x] At the barn, or face to face with a barn critter, choose who follows you; the other
+      settles by the barn.
+- [x] Critters at home eat from the feed trough at dawn (or go hungry), and do the jobs
+      they have learned on their own: a forager brings two fine berries from the glade
+      before lunch, a hauler carries the sawmill's lumber to the yard chest in the afternoon.
+- [x] The journal's Critters tab lists your critters, where each is, and the stalls.
 
 ### M9 — Figures from model files
 
@@ -254,6 +261,19 @@ under load and passed on repeat. Gates: unit tests (184), lint, and the full bro
   including storing a whole stack in the pickup with one note.
 - Inspected in the dev server: the inventory screen with both bags and every container.
 
+## M8 evidence — 2026-10-17
+
+- Host: `barn.ts` (`BARN`, `barnStalls`, `ownedCritters`, `barnCritters`, `barnSpot`,
+  `critterFromCandidate`, now also building the starter); `adopt`, `add-stall` and
+  `follow:<id>` in `host.ts`; `barnBreakfast` at dawn and `barnChores` at 11:00 and
+  14:00; barn critters drawn through the cast. Unit tests: 193 passed, including stalls,
+  adoption needing a free stall and surviving a save, swapping who follows, breakfast from
+  the trough and a forager's berries.
+- Inspected in the dev server: an adopted bovine by the barn beside Mallow, with the swap
+  offered.
+- Routine decisions (provisional): stall costs, the adoption donation, chores' hours, and
+  barn critters' energy restored at dawn.
+
 ## Current handoff
 
-M1–M7 complete. Next: M8 — adoption, the barn's stalls and choosing who follows.
+M1–M8 complete. Next: M9 — figures from model files.

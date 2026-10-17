@@ -1,3 +1,12 @@
+import {
+  BARN,
+  barnCritters,
+  barnSpot,
+  barnStalls,
+  critterFromCandidate,
+  freeStalls,
+  ownedCritters,
+} from './barn';
 import { GEMOTHY, gemothyFind, gemothyMood, isFriend, SCRAPS } from './gemothy';
 import {
   castFor,
@@ -141,6 +150,8 @@ import {
 } from './model';
 
 const RESIDENT_REACH = 1.4;
+// Minutes after midnight when barn critters see to their learned jobs.
+const BARN_CHORES = { forage: 660, haul: 840 } as const;
 const clamp = (value: number, min = 0, max = 100) => Math.max(min, Math.min(max, value));
 const COTTAGE_COMPANION_SPOT: Point = { x: 0.5, z: 3.4 };
 // The rancher keeps this much space from anything solid.
@@ -244,34 +255,9 @@ export function createInitialState(starter: StarterCandidate = MALLOW, seed = 24
     work: null,
     activeCritterId: starter.id,
     critters: [
-      {
-        id: starter.id,
-        name: starter.name,
-        ownerId: 'player-local',
-        lastPettedDay: null,
-        speciesId: starter.speciesId,
-        ageDays: 18,
-        sex: starter.sex,
-        personality: starter.personality,
-        position: { x: -1, z: 0.6 },
-        stats: { ...starter.stats },
-        stamina: 100,
-        health: 100,
-        happiness: 70,
-        bond: 20,
-        hunger: 35,
-        learnedBehaviors: {},
-        hauling: { enabled: false, phase: 'idle', cued: false },
-        drills: { day: 1, sessions: {} },
-        practised: {},
-        skills: { harvesting: 0, racing: 0 },
-        visualTraits: { ...starter.visualTraits },
-        pedigree: { parentIds: [] },
-        genetics: { ...starter.genetics },
+      critterFromCandidate(starter, 'player-local', 1, {
         history: ['Day 1: A new home at Bramblewick Yard.'],
-        competitions: [],
-        ladder: { rank: 0, points: 0 },
-      },
+      }),
       createPip(1),
     ],
     containers: initialContainers(
@@ -732,6 +718,14 @@ export class LocalGameHost {
         description: townsperson.doing,
         actions: [this.chatAction(townsperson, action)],
       };
+    const resting = barnCritters(state).find((item) => item.id === id);
+    if (resting && state.areaId === 'homestead')
+      return {
+        id,
+        title: `${resting.name} · at home in the barn`,
+        description: `Hunger ${Math.round(resting.hunger)}/100 · energy ${Math.round(resting.stamina)}/100. ${this.barnDoing(resting)}`,
+        actions: [action(`follow:${resting.id}`, `Take ${resting.name} with you instead`)],
+      };
     const waiting = shelterWaiting(state).find((critter) => critter.id === id);
     if (member && waiting)
       return {
@@ -745,6 +739,15 @@ export class LocalGameHost {
             state.flags.includes(`visited:${id}`)
               ? `${waiting.name} has had a fuss already today.`
               : undefined,
+          ),
+          action(
+            'adopt',
+            `Give ${waiting.name} a home · ${BARN.adoptionFee} coins to the shelter`,
+            freeStalls(state) < 1
+              ? 'The barn has no free stall. Mend it, or build another with lumber.'
+              : state.player.coins < BARN.adoptionFee
+                ? `You need ${BARN.adoptionFee} coins.`
+                : undefined,
           ),
         ],
       };
@@ -1003,7 +1006,15 @@ export class LocalGameHost {
         return {
           id,
           title: state.shedLevel ? 'The barn, mended and snug' : 'The old barn',
-          description: `${critter.name} sleeps in a stall here, and so will any critter that is not following you. Rest costs time, not supplies: hunger rises and crops grow. A mended roof brings happier mornings.`,
+          description: `${ownedCritters(state).length} of ${barnStalls(state)} stall${barnStalls(state) > 1 ? 's' : ''} taken${
+            barnCritters(state).length
+              ? `; ${barnCritters(state)
+                  .map((resting) => resting.name)
+                  .join(
+                    ' and ',
+                  )} ${barnCritters(state).length > 1 ? 'are' : 'is'} at home here, fed from the trough and busy with what they have learned`
+              : ''
+          }. ${critter.name} follows you. Rest together costs time, not supplies: hunger rises and crops grow.`,
           actions: [
             action(
               'rest',
@@ -1014,6 +1025,26 @@ export class LocalGameHost {
                   ? 'You are both full of energy.'
                   : undefined,
             ),
+            ...barnCritters(state).map((resting) =>
+              action(
+                `follow:${resting.id}`,
+                `Take ${resting.name} with you instead`,
+                state.areaId !== 'homestead' ? 'Only at the barn.' : undefined,
+              ),
+            ),
+            ...(state.shedLevel >= 1 && barnStalls(state) < BARN.maxStalls
+              ? [
+                  action(
+                    'add-stall',
+                    `Build another stall · ${BARN.stall.lumber} lumber · ${BARN.stall.coins} coins · ${BARN.stall.minutes} min`,
+                    this.quantity('lumber') < BARN.stall.lumber
+                      ? `Bring ${BARN.stall.lumber} lumber in your backpack from the sawmill.`
+                      : state.player.coins < BARN.stall.coins
+                        ? `You need ${BARN.stall.coins} coins.`
+                        : undefined,
+                  ),
+                ]
+              : []),
             action(
               'upgrade',
               'Mend the roof and bedding · 12 coins · 60 min',
@@ -1313,6 +1344,7 @@ export class LocalGameHost {
     const plot = state.plots.find((item) => item.id === id);
     if (plot) return this.tend(plot, action);
     if (action.startsWith('chat:')) return this.chat(residentAbout(state, action.slice(5))!);
+    if (action.startsWith('follow:')) return this.follow(action.slice('follow:'.length));
     if (action.startsWith('buy-crop:')) {
       const crop = CROPS[action.slice('buy-crop:'.length) as CropId];
       state.player.coins -= crop.seedPrice;
@@ -1548,6 +1580,41 @@ export class LocalGameHost {
         this.advanceMinutes(5);
         this.note(grandpaSays(state, nextObjective(state)));
         this.flag('talked-grandpa');
+        return true;
+      case 'adopt': {
+        const waiting = shelterWaiting(state).find((item) => item.id === id)!;
+        const index = Number(waiting.id.split('-').at(-1)) - 1;
+        const adoptee = critterFromCandidate(waiting, state.player.id, state.day, {
+          ageDays: waiting.ageDays,
+          position: barnSpot(state, barnCritters(state).length),
+          history: [`Day ${state.day}: Adopted from the Oakhaven shelter. ${waiting.story}`],
+        });
+        state.critters.push(adoptee);
+        state.containers.push({
+          id: `satchel-${adoptee.id}`,
+          kind: 'satchel',
+          location: { actorId: adoptee.id },
+          capacity: null,
+          allowed: [...satchel(state).allowed],
+          items: [],
+        });
+        state.player.coins -= BARN.adoptionFee;
+        this.flag(`adopted:shelter-${index}`);
+        this.flag('adopted');
+        this.advanceMinutes(15);
+        this.note(
+          `Wren signs the papers with a flourish. “${waiting.name} will be waiting for you in the barn. Come back and see me, both of you.”`,
+        );
+        return true;
+      }
+      case 'add-stall':
+        this.take('lumber', BARN.stall.lumber);
+        state.player.coins -= BARN.stall.coins;
+        state.shedLevel += 1;
+        this.advanceMinutes(BARN.stall.minutes);
+        this.note(
+          `Sawdust, pegs and a fresh bed of straw: the barn has ${barnStalls(state)} stalls now.`,
+        );
         return true;
       case 'visit': {
         const waiting = shelterWaiting(state).find((critter) => critter.id === id)!;
@@ -2388,7 +2455,9 @@ export class LocalGameHost {
         this.note(`${worker.name} stretches, rested and ready to help again.`);
       }
     }
+    this.barnChores(previousMinutes);
     if (state.day > previousDay) {
+      this.barnBreakfast();
       this.collectPickup();
       this.gemothyFinds();
       for (const individual of state.critters) individual.ageDays += state.day - previousDay;
@@ -2740,6 +2809,93 @@ export class LocalGameHost {
     }
     return false;
   }
+  /** Swaps who follows you: the companion settles in the barn, the other comes along. */
+  private follow(id: string): boolean {
+    const state = this.state;
+    const next = barnCritters(state).find((item) => item.id === id);
+    if (!next || state.areaId !== 'homestead') return false;
+    const previous = this.critter;
+    previous.hauling = { ...previous.hauling, phase: 'idle', cued: false };
+    previous.position = barnSpot(state, barnCritters(state).length - 1);
+    state.activeCritterId = next.id;
+    state.haulLesson = null;
+    state.companionIndoors = false;
+    next.position = { x: state.player.position.x + 0.8, z: state.player.position.z + 0.6 };
+    this.note(`${next.name} trots out to your side. ${previous.name} settles into the barn.`);
+    return true;
+  }
+
+  /** What a barn critter does with its day, from what it has learned. */
+  private barnDoing(critter: Critter): string {
+    const forager = learnedStage(critter, foraging).id === 'autonomous';
+    const hauler = learnedStage(critter, hauling).id === 'autonomous';
+    if (forager && hauler)
+      return `${critter.name} forages the glade before lunch and hauls lumber in the afternoon.`;
+    if (forager) return `${critter.name} forages the glade before lunch, as it has learned.`;
+    if (hauler) return `${critter.name} hauls lumber from the sawmill each afternoon.`;
+    return `${critter.name} has no jobs of its own yet. Take it along to learn some.`;
+  }
+
+  /**
+   * The barn critters' learned jobs: a forager picks a ripe glade bush before lunch, a hauler
+   * carries the sawmill's lumber to the yard chest in the afternoon.
+   */
+  private barnChores(previousMinutes: number): void {
+    const state = this.state;
+    const crossed = (mark: number) => {
+      const at = (state.day - 1) * 1440 + mark;
+      return previousMinutes < at && at <= state.totalMinutes;
+    };
+    const chest = state.containers.find((container) => container.kind === 'chest')!;
+    for (const critter of barnCritters(state)) {
+      const weather = weatherFor(state.day);
+      if (
+        crossed(BARN_CHORES.forage) &&
+        learnedStage(critter, foraging).id === 'autonomous' &&
+        weather !== 'rain' &&
+        weather !== 'snow'
+      ) {
+        const node = state.resources.find((item) => item.areaId === 'glade' && item.available);
+        if (node && room(chest, 'berry') >= 2) {
+          node.available = false;
+          node.respawnAt = state.totalMinutes + GAME_CONFIG.berryRespawnMinutes;
+          addItem(chest, 'berry', 2, 2);
+          this.note(
+            `${critter.name} comes back from the glade and drops two fine berries in the yard chest.`,
+          );
+        }
+      }
+      if (crossed(BARN_CHORES.haul) && learnedStage(critter, hauling).id === 'autonomous') {
+        const output = state.containers.find((container) => container.kind === 'mill-output')!;
+        let carried = 0;
+        while (carried < 2 && containerQuantity(output, 'lumber') && room(chest, 'lumber'))
+          if (transfer(output, chest, 'lumber')) carried++;
+          else break;
+        if (carried)
+          this.note(`${critter.name} hauls ${carried} lumber from the sawmill to the yard chest.`);
+      }
+    }
+  }
+
+  /** At dawn the barn critters eat from the feed trough, or go hungry if it is empty. */
+  private barnBreakfast(): void {
+    const state = this.state;
+    const trough = state.containers.find((container) => container.kind === 'trough')!;
+    for (const critter of barnCritters(state)) {
+      critter.stamina = 100;
+      const meal = trough.items.find((item) => item.itemId === 'feed' && item.quantity > 0);
+      if (meal) {
+        meal.quantity -= 1;
+        trough.items = trough.items.filter((item) => item.quantity > 0);
+        critter.hunger = clamp(critter.hunger - 35);
+        critter.happiness = clamp(critter.happiness + 2);
+      } else {
+        critter.hunger = clamp(critter.hunger + 20);
+        this.note(`${critter.name} found the feed trough empty this morning.`);
+      }
+    }
+  }
+
   /** A chat with a townsperson, once a day; the first is an introduction. */
   private chatAction(
     resident: Resident,

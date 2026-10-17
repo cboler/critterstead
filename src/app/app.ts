@@ -56,6 +56,7 @@ import {
 import { eventInfo, ordinal, RANKS } from './game/ladder';
 import { GameWorld } from './game/world';
 import { familiesMet } from './game/cast';
+import { barnStalls, ownedCritters } from './game/barn';
 import { MAP_SIZE, minimap, worldMap } from './game/map';
 import {
   storedQualityChoice,
@@ -317,6 +318,8 @@ export class App implements AfterViewInit, OnDestroy {
       description: FAMILIES[id].description,
     }));
   });
+  protected readonly household = computed(() => ownedCritters(this.state()));
+  protected readonly stalls = computed(() => barnStalls(this.state()));
   protected readonly bag = computed(() => backpack(this.state()));
   /** Bags and their stacks, named and explained, for the inventory screen. */
   protected readonly carried = computed(() => {
