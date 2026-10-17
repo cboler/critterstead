@@ -121,9 +121,12 @@ retired, not migrated (D55): the game says so, keeps the record, and offers a ne
 
 ### M7 — Inventory screens
 
-- [ ] Backpack and satchel side by side with item details; standing at a container, the
-      container beside your backpack with move one, move all; a read-only household view
-      of every container.
+- [x] An inventory screen (the header's Bag button or `I`) replaces the journal's Supplies
+      tab: your backpack and your companion's satchel side by side, each stack with its
+      count, quality and what it is for, and your load against what you can carry.
+- [x] At a container the dock's rows add Store all and Take all beside the single moves,
+      within room, allowed items and weight; one journal note per move.
+- [x] A read-only list of every container on the stead and what is in it.
 
 ### M8 — More than one critter: adoption, the roster and who follows
 
@@ -242,6 +245,15 @@ under load and passed on repeat. Gates: unit tests (184), lint, and the full bro
 - Inspected in the dev server: the map beat in the opening, the minimap over the yard, the
   map panel with its legend.
 
+## M7 evidence — 2026-10-17
+
+- Host: `transfer-all:` actions in `containerActions` (backpack ↔ container, two or more
+  units) and their handling, which repeats single moves while they are allowed and leaves
+  one note; `containerName` in `logistics.ts`. App: the `inventory` panel and `I` key,
+  `carried` and `stores`, Store all and Take all in the dock. Unit tests: 188 passed,
+  including storing a whole stack in the pickup with one note.
+- Inspected in the dev server: the inventory screen with both bags and every container.
+
 ## Current handoff
 
-M1–M6 complete. Next: M7 — inventory screens.
+M1–M7 complete. Next: M8 — adoption, the barn's stalls and choosing who follows.

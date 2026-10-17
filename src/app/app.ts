@@ -1,4 +1,4 @@
-import { backpack, satchel } from './game/model';
+import { backpack, type InventoryItem, satchel } from './game/model';
 import {
   AfterViewInit,
   Component,
@@ -37,6 +37,7 @@ import {
 import { nextObjective, objectives } from './game/objectives';
 import { IndexedDbStorage } from './game/storage';
 import { encumbrance } from './game/checks';
+import { containerName } from './game/logistics';
 import {
   activeMoment,
   beamBand,
@@ -99,8 +100,8 @@ function storeAssist(on: boolean): void {
   }
 }
 
-type Panel = 'journal' | 'help' | 'developer' | 'calendar' | 'map';
-type JournalTab = 'quests' | 'critters' | 'history' | 'supplies';
+type Panel = 'journal' | 'help' | 'developer' | 'calendar' | 'map' | 'inventory';
+type JournalTab = 'quests' | 'critters' | 'history';
 
 /** Whether the details panel sits beside the world rather than over it. */
 function sidePanelLayout(): boolean {
@@ -162,6 +163,25 @@ const ITEM_NAMES: Record<string, [string, string]> = {
   'wheat-seed': ['wheat seed', 'wheat seeds'],
   'sunberry-seed': ['sunberry seed', 'sunberry seeds'],
   turnip: ['turnip', 'turnips'],
+  wheat: ['wheat', 'wheat'],
+  feed: ['feed', 'feed'],
+  timber: ['timber bundle', 'timber bundles'],
+  stone: ['stone slab', 'stone slabs'],
+  lumber: ['plank of lumber', 'lumber'],
+};
+// What each thing is for, as the inventory screen explains it.
+const ITEM_USES: Record<string, string> = {
+  berry: 'A treat for your companion, and good money at the store. Finer ones pay more.',
+  feed: 'A proper meal: eases hunger by up to 35.',
+  seed: 'Plants feed in a tilled bed; grows in spring, summer and autumn.',
+  'turnip-seed': 'Plants crisp turnips; spring and autumn.',
+  'wheat-seed': 'Plants grain wheat; spring and summer.',
+  'sunberry-seed': 'Plants garden sunberries; summer and autumn.',
+  turnip: 'Garden produce for the store or the pickup.',
+  wheat: 'Garden produce for the store or the pickup.',
+  timber: 'Heavy. The sawmill turns it into lumber.',
+  stone: 'Heavy. Kept for building, later on.',
+  lumber: 'Sawn planks, kept in the yard chest for building.',
 };
 
 /** What an action can visibly change; compared before and after to show its results. */
@@ -187,7 +207,9 @@ interface CargoRow {
   mine: number;
   here: number;
   store?: InteractionAction;
+  storeAll?: InteractionAction;
   take?: InteractionAction;
+  takeAll?: InteractionAction;
   carry?: InteractionAction;
   deposit?: InteractionAction;
 }
@@ -284,7 +306,6 @@ export class App implements AfterViewInit, OnDestroy {
     { id: 'quests', label: 'Quests' },
     { id: 'critters', label: 'Critters' },
     { id: 'history', label: 'History' },
-    { id: 'supplies', label: 'Supplies' },
   ];
   /** The nine families, and which of them you have met in the wild. */
   protected readonly metFamilies = computed(() => {
@@ -297,6 +318,43 @@ export class App implements AfterViewInit, OnDestroy {
     }));
   });
   protected readonly bag = computed(() => backpack(this.state()));
+  /** Bags and their stacks, named and explained, for the inventory screen. */
+  protected readonly carried = computed(() => {
+    const describe = (items: InventoryItem[]) =>
+      items
+        .filter((item) => item.quantity > 0)
+        .map((item) => ({
+          id: item.id,
+          name: (ITEM_NAMES[item.itemId]?.[item.quantity === 1 ? 0 : 1] ?? item.itemId).replace(
+            /^./,
+            (letter) => letter.toUpperCase(),
+          ),
+          quantity: item.quantity,
+          quality: ['', 'Plain', 'Fine', 'Excellent'][item.quality] ?? '',
+          use: ITEM_USES[item.itemId] ?? '',
+        }));
+    return {
+      backpack: describe(backpack(this.state()).items),
+      satchel: describe(satchel(this.state()).items),
+    };
+  });
+  /** Every container that stays put, and what is in it, wherever you are. */
+  protected readonly stores = computed(() =>
+    this.state()
+      .containers.filter((container) => 'areaId' in container.location)
+      .map((container) => ({
+        id: container.id,
+        name: containerName(container),
+        used: container.items.reduce((sum, item) => sum + item.quantity, 0),
+        capacity: container.capacity,
+        items: container.items
+          .filter((item) => item.quantity > 0)
+          .map(
+            (item) =>
+              `${item.quantity} ${ITEM_NAMES[item.itemId]?.[item.quantity === 1 ? 0 : 1] ?? item.itemId}`,
+          ),
+      })),
+  );
   protected readonly companionBag = computed(() => satchel(this.state()));
   protected readonly load = computed(() =>
     encumbrance(this.state().player, backpack(this.state()).items),
@@ -622,7 +680,7 @@ export class App implements AfterViewInit, OnDestroy {
     const rows = new Map<string, CargoRow>();
     for (const action of target.actions) {
       const [kind, source, destination, itemId] = action.id.split(':');
-      if (kind !== 'transfer') continue;
+      if (kind !== 'transfer' && kind !== 'transfer-all') continue;
       const row =
         rows.get(itemId) ??
         rows
@@ -635,7 +693,10 @@ export class App implements AfterViewInit, OnDestroy {
             here: count(place.items, itemId),
           })
           .get(itemId)!;
-      if (source === bag.id) row.store = action;
+      if (kind === 'transfer-all') {
+        if (source === bag.id) row.storeAll = action;
+        else row.takeAll = action;
+      } else if (source === bag.id) row.store = action;
       else if (destination === bag.id) row.take = action;
       else if (destination === helper.id) row.carry = action;
       else row.deposit = action;
@@ -644,7 +705,10 @@ export class App implements AfterViewInit, OnDestroy {
   });
   /** Dock actions that are not storage moves keep their full buttons. */
   protected readonly plainActions = computed(
-    () => this.nearby()?.actions.filter((action) => !action.id.startsWith('transfer:')) ?? [],
+    () =>
+      this.nearby()?.actions.filter(
+        (action) => !action.id.startsWith('transfer:') && !action.id.startsWith('transfer-all:'),
+      ) ?? [],
   );
   protected readonly placeName = computed(() => {
     const target = this.nearby();
@@ -1187,7 +1251,9 @@ export class App implements AfterViewInit, OnDestroy {
     const holding = this.nearby()?.id === this.companion().id;
     return [
       { action: row.store, text: holding ? 'Give' : 'Store' },
+      { action: row.storeAll, text: 'Store all' },
       { action: row.take, text: holding ? 'Take back' : 'Take' },
+      { action: row.takeAll, text: 'Take all' },
       { action: row.carry, text: `${name} carries` },
       { action: row.deposit, text: `${name} stores` },
     ].filter((move): move is { action: InteractionAction; text: string } => !!move.action);
@@ -1345,6 +1411,8 @@ export class App implements AfterViewInit, OnDestroy {
       this.zone.run(() => this.openPanel(this.panel() === 'journal' ? null : 'journal'));
     if (!event.repeat && key === 'm')
       this.zone.run(() => this.openPanel(this.panel() === 'map' ? null : 'map'));
+    if (!event.repeat && key === 'i')
+      this.zone.run(() => this.openPanel(this.panel() === 'inventory' ? null : 'inventory'));
     if (!event.repeat && key === '`')
       this.zone.run(() => this.openPanel(this.panel() === 'developer' ? null : 'developer'));
     if (!this.panel() && ['=', '+', '-', '_'].includes(key)) {

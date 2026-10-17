@@ -19,6 +19,20 @@ export const ITEM_IDS: InventoryItem['itemId'][] = [
 ];
 export const MILL_MINUTES = 12;
 
+/** What a container is called wherever it is shown. */
+export function containerName(container: Container): string {
+  return {
+    backpack: 'Your backpack',
+    satchel: 'Satchel',
+    chest: 'Wooden yard chest',
+    box: 'Farm storage box',
+    pickup: 'Sales pickup',
+    'mill-input': 'Sawmill · input hopper',
+    'mill-output': 'Sawmill · output crate',
+    trough: 'Feed trough',
+  }[container.kind];
+}
+
 export function initialContainers(
   playerId: string,
   critterId: string,

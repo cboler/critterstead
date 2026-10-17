@@ -60,6 +60,9 @@
       <button class="subtle journal-button" (click)="openPanel('map')">
         <span aria-hidden="true">⌖</span> Map <kbd>M</kbd>
       </button>
+      <button class="subtle journal-button" (click)="openPanel('inventory')">
+        <span aria-hidden="true">◫</span> Bag <kbd>I</kbd>
+      </button>
       <button class="subtle journal-button" (click)="openPanel('journal')">
         <span aria-hidden="true">▤</span> Field journal <kbd>J</kbd>
       </button>
@@ -904,7 +907,9 @@
                     ? 'The household calendar'
                     : currentPanel === 'map'
                       ? 'Grandpa’s map'
-                      : 'Developer field kit'
+                      : currentPanel === 'inventory'
+                        ? 'What you carry, and where things are'
+                        : 'Developer field kit'
             }}
           </h2>
         </div>
@@ -1036,6 +1041,59 @@
             </div>
           </div>
         }
+      } @else if (currentPanel === 'inventory') {
+        <div class="inventory-bags">
+          <section aria-labelledby="bag-heading">
+            <h3 id="bag-heading">Your backpack</h3>
+            <p class="panel-note">
+              {{ load().band }} · {{ load().mass.toFixed(1) }} of
+              {{ load().capacity.toFixed(0) }} kg before you slow down. Move things at a chest, box
+              or trough with Store and Take.
+            </p>
+            <ul class="inventory-list">
+              @for (item of carried().backpack; track item.id) {
+                <li>
+                  <strong>{{ item.name }} × {{ item.quantity }}</strong
+                  ><small>{{ item.quality }}</small
+                  ><span>{{ item.use }}</span>
+                </li>
+              } @empty {
+                <li><span>Empty.</span></li>
+              }
+            </ul>
+          </section>
+          <section aria-labelledby="satchel-heading">
+            <h3 id="satchel-heading">{{ companion().name }}’s satchel</h3>
+            <p class="panel-note">
+              {{ companion().name }} carries what you hand over when close by.
+            </p>
+            <ul class="inventory-list">
+              @for (item of carried().satchel; track item.id) {
+                <li>
+                  <strong>{{ item.name }} × {{ item.quantity }}</strong
+                  ><small>{{ item.quality }}</small
+                  ><span>{{ item.use }}</span>
+                </li>
+              } @empty {
+                <li><span>Empty.</span></li>
+              }
+            </ul>
+          </section>
+        </div>
+        <h3>Where things are</h3>
+        <ul class="family-list stores-list">
+          @for (store of stores(); track store.id) {
+            <li class="met">
+              <strong
+                >{{ store.name }}
+                @if (store.capacity) {
+                  <small>{{ store.used }}/{{ store.capacity }}</small>
+                }
+              </strong>
+              <span>{{ store.items.length ? store.items.join(', ') : 'Empty' }}</span>
+            </li>
+          }
+        </ul>
       } @else if (currentPanel === 'map') {
         <p class="panel-note">
           Bramblewick, the lanes, Oakhaven and the Colosseum, in Grandpa’s careful hand. You are in
@@ -1235,32 +1293,6 @@
               }
             </ul>
           }
-        </div>
-        <div role="tabpanel" aria-label="Supplies" [hidden]="journalTab() !== 'supplies'">
-          <h3>In your backpack</h3>
-          <div class="quality-items">
-            @for (item of bag().items; track item.id) {
-              <span
-                >{{ item.itemId }} × {{ item.quantity }}
-                <small>quality {{ item.quality }}</small></span
-              >
-            } @empty {
-              <span>Empty</span>
-            }
-          </div>
-          <h3>Supplies have a place</h3>
-          <div class="quality-items">
-            @for (container of state().containers; track container.id) {
-              <span
-                >{{ container.kind }}:
-                @for (item of container.items; track item.id) {
-                  {{ item.itemId }} × {{ item.quantity }}
-                } @empty {
-                  empty
-                }
-              </span>
-            }
-          </div>
         </div>
       } @else {
         <p>

@@ -318,3 +318,20 @@ describe('the sales pickup', () => {
     expect(host.state.journal.join(' ')).toContain('The pickup cart came by before dawn');
   });
 });
+
+describe('moving everything of a kind at once', () => {
+  it('stores all of a stack in one action, as far as there is room', () => {
+    const host = atBed((state) => {
+      state.player.position = { x: -11.2, z: 2 };
+      addItem(backpack(state), 'turnip', 5);
+    });
+    const pickup = host.state.containers.find((item) => item.kind === 'pickup')!;
+    const all = `transfer-all:${backpack(host.state).id}:${pickup.id}:turnip`;
+    expect(action(host, all)?.label).toBe('Store all turnip');
+    expect(act(host, pickup.id, all)).toBe(true);
+    expect(quantity(pickup, 'turnip')).toBe(5);
+    expect(quantity(backpack(host.state), 'turnip')).toBe(0);
+    expect(host.state.journal[0]).toBe('5 turnip moved from your backpack to sales pickup.');
+    expect(action(host, all)).toBeUndefined();
+  });
+});

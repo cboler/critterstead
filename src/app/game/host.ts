@@ -16,6 +16,7 @@ import {
   quantity as containerQuantity,
   room,
   transfer,
+  containerName,
 } from './logistics';
 import { backpack, satchel } from './model';
 import {
@@ -862,18 +863,7 @@ export class LocalGameHost {
     if (container)
       return {
         id,
-        title:
-          container.kind === 'chest'
-            ? 'Wooden yard chest'
-            : container.kind === 'box'
-              ? 'Farm storage box'
-              : container.kind === 'pickup'
-                ? 'Sales pickup'
-                : container.kind === 'trough'
-                  ? 'Feed trough'
-                  : container.kind === 'mill-input'
-                    ? 'Yard sawmill · input hopper'
-                    : 'Sawmill · output crate',
+        title: containerName(container),
         description: `${container.items.length ? container.items.map((item) => `${item.quantity} ${item.itemId}`).join(' · ') : 'Empty'} · ${containerQuantity(container)}/${container.capacity ?? '—'} units. ${
           container.kind.startsWith('mill')
             ? productionStatus(state.containers)
@@ -1260,6 +1250,26 @@ export class LocalGameHost {
   private interact(id: string, action: string): boolean {
     const state = this.state;
     const critter = activeCritter(state);
+    if (action.startsWith('transfer-all:')) {
+      // One unit at a time, as far as room and weight allow, with a single note at the end.
+      const single = `transfer:${action.slice('transfer-all:'.length)}`;
+      const [, sourceId, destinationId, itemId] = single.split(':');
+      const journal = state.journal;
+      let moved = 0;
+      while (moved < 500) {
+        const offer = this.describe(id)?.actions.find((entry) => entry.id === single);
+        if (!offer || offer.disabled || !this.interact(id, single)) break;
+        moved++;
+      }
+      if (!moved) return false;
+      const name = (containerId: string) =>
+        containerName(state.containers.find((container) => container.id === containerId)!);
+      state.journal = [
+        `${moved} ${itemId} moved from ${name(sourceId).toLowerCase()} to ${name(destinationId).toLowerCase()}.`,
+        ...journal,
+      ].slice(0, 30);
+      return true;
+    }
     if (action.startsWith('transfer:')) {
       const [, sourceId, destinationId, itemId] = action.split(':');
       const source = state.containers.find((container) => container.id === sourceId)!;
@@ -2893,9 +2903,28 @@ export class LocalGameHost {
         reason,
       });
     };
+    // Everything of a kind in one go, between your backpack and a container.
+    const offerAll = (
+      source: Container,
+      destination: Container,
+      itemId: InventoryItem['itemId'],
+    ) => {
+      const single = actions.find(
+        (action) => action.id === `transfer:${source.id}:${destination.id}:${itemId}`,
+      );
+      if (!single || single.disabled || containerQuantity(source, itemId) < 2) return;
+      actions.push({
+        id: `transfer-all:${source.id}:${destination.id}:${itemId}`,
+        label: `${source === bag ? 'Store' : 'Take'} all ${itemId}`,
+      });
+    };
     for (const itemId of ITEM_IDS) {
       offer(bag, container, itemId, `Store 1 ${itemId}`);
       offer(container, bag, itemId, `Take 1 ${itemId}`);
+      if (container !== helper) {
+        offerAll(bag, container, itemId);
+        offerAll(container, bag, itemId);
+      }
       if (container !== helper) {
         offer(container, helper, itemId, `Ask ${this.critter.name}: carry 1 ${itemId}`);
         offer(helper, container, itemId, `Ask ${this.critter.name}: deposit 1 ${itemId}`);
