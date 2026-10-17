@@ -7,7 +7,7 @@ Read the relevant active plan, not every historical handoff.
 
 | Plan                                                                              | Status                             | Next action                                                                    |
 | :-------------------------------------------------------------------------------- | :--------------------------------- | :----------------------------------------------------------------------------- |
-| [006 — Oakhaven and the wider map](active/006-oakhaven-and-the-wider-map.md)      | M1–M5 complete                     | M6: the map and minimap.                                                       |
+| [006 — Oakhaven and the wider map](completed/006-oakhaven-and-the-wider-map.md)   | Completed 2026-10-17               | Historical evidence; the open question on Colosseum deaths waits for bouts.    |
 | [005 — The Colosseum ladder](active/005-colosseum-ladder.md)                      | M1–M2 complete                     | M3: balancing simulator.                                                       |
 | [003 — Household and Opening](active/003-household-and-opening.md)                | Stage 2; M1–M3 complete            | M4 needs the story beats for the years with Grandpa.                           |
 | [004 — Training and exhibitions](completed/004-training-and-exhibitions.md)       | Completed 2026-10-04               | Historical evidence.                                                           |

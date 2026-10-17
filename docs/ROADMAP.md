@@ -182,13 +182,13 @@ staged progression (M1 through M9) that systematically builds the foundational v
 
 ---
 
-## Active Campaign 006 — Oakhaven and the wider map
+## Campaign 006 — Oakhaven and the wider map (completed 2026-10-17)
 
 Asked for by the product owner ([D54](DECISIONS.md#d54--a-wider-map-a-town-with-residents-and-selling-through-the-pickup-or-the-shop-accepted-2026-10-16)),
 pulling part of Stage 3's town commerce forward: roads between places where critters are
 met, a store, shelter and booth staff in Oakhaven, a farm with a sales pickup in place of
 the honesty stall, Gemothy at the tavern bin, a map and minimap, and inventory screens
-([plan 006](exec-plans/active/006-oakhaven-and-the-wider-map.md)).
+([plan 006](exec-plans/completed/006-oakhaven-and-the-wider-map.md)).
 
 ## Active Campaign 005 — The Colosseum ladder
 

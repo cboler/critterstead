@@ -2,7 +2,7 @@
 
 **Status:** authorized 2026-10-16 ([D54](../../DECISIONS.md#d54--a-wider-map-a-town-with-residents-and-selling-through-the-pickup-or-the-shop-accepted-2026-10-16),
 [D55](../../DECISIONS.md#d55--saves-from-earlier-builds-may-be-retired-before-release-accepted-2026-10-16)).
-M1–M5 complete; M6 next.
+Completed 2026-10-17: M1–M9 built and verified.
 
 ## Purpose
 
@@ -288,4 +288,4 @@ under load and passed on repeat. Gates: unit tests (184), lint, and the full bro
 
 ## Current handoff
 
-M1–M9 complete. Next: the full browser suite, then publish; after that, close the campaign.
+Completed 2026-10-17. Full browser suite on M9: 70 passed. Next work comes from a new plan; the open question on deaths in the Colosseum waits for turn-based bouts.

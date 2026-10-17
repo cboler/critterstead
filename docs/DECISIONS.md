@@ -51,8 +51,8 @@ For sequencing, see [ROADMAP.md](ROADMAP.md) and [exec-plans/README.md](exec-pla
 | **D31** | Monster Rancher training minigames family                 | Accepted       | [Training](GAME-DESIGN.md#training-system)                                                                                     |
 | **D32** | Viewport decoupling from interaction dock UI              | Accepted       | [Architecture](ARCHITECTURE.md#1-viewport--canvas-decoupling)                                                                  |
 | **D33** | Restructured Campaign 001 vertical slice runway           | Accepted       | [Roadmap](ROADMAP.md)                                                                                                          |
-| **D55** | Saves from earlier builds may be retired before release   | Accepted       | [Plan 006](exec-plans/active/006-oakhaven-and-the-wider-map.md)                                                                |
-| **D54** | A wider map; town residents; sell by pickup or shop       | Accepted       | [Plan 006](exec-plans/active/006-oakhaven-and-the-wider-map.md)                                                                |
+| **D55** | Saves from earlier builds may be retired before release   | Accepted       | [Plan 006](exec-plans/completed/006-oakhaven-and-the-wider-map.md)                                                             |
+| **D54** | A wider map; town residents; sell by pickup or shop       | Accepted       | [Plan 006](exec-plans/completed/006-oakhaven-and-the-wider-map.md)                                                             |
 | **D53** | A Colosseum ladder of athletic cups; bouts on top         | Accepted       | [Plan 005](exec-plans/active/005-colosseum-ladder.md)                                                                          |
 | **D52** | Colosseum events on the calendar (save v12)               | Implemented    | [Plan 004](exec-plans/completed/004-training-and-exhibitions.md)                                                               |
 | **D51** | Routines unlock by practice together (save v11)           | Implemented    | [Plan 004](exec-plans/completed/004-training-and-exhibitions.md)                                                               |
@@ -371,7 +371,7 @@ There are no players to protect yet, so a new save version may retire older save
 of migrating them. A retired save is never silently reset: the game names the problem,
 keeps the record and pauses saving until the player starts a new homestead from Help.
 Validation failures of current saves are still fail-closed.
-[Plan 006](exec-plans/active/006-oakhaven-and-the-wider-map.md).
+[Plan 006](exec-plans/completed/006-oakhaven-and-the-wider-map.md).
 
 ### D54 — A wider map, a town with residents, and selling through the pickup or the shop (accepted 2026-10-16)
 
@@ -384,7 +384,7 @@ pickup at baseline prices, or at the town store for more. Areas stay authored di
 (D29, D36). Gemothy stays a friend, never a party member, and leaves you weekly finds.
 A barn and shelter adoption bring more critters of your own; one follows you at a time
 while the others rest or do the jobs they have learned.
-[Plan 006](exec-plans/active/006-oakhaven-and-the-wider-map.md).
+[Plan 006](exec-plans/completed/006-oakhaven-and-the-wider-map.md).
 
 ### D53 — A Colosseum ladder of athletic cups (accepted 2026-10-05)
 

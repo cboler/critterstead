@@ -53,7 +53,7 @@ cup promotes and starts the points again.
 
 ### M2 — Promotion cups
 
-Built in [plan 006 M4](006-oakhaven-and-the-wider-map.md#m4-evidence--2026-10-16), at the
+Built in [plan 006 M4](../completed/006-oakhaven-and-the-wider-map.md#m4-evidence--2026-10-16), at the
 Colosseum's new promotion desk.
 
 - [x] Six ladder points qualify a critter for its rank's promotion cup: three legs against
