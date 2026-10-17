@@ -282,6 +282,19 @@ Saves before v14 are retired rather than migrated
 `readSave` names the old version and leaves the record untouched; the migration chain
 and the frozen legacy fixtures are gone.
 
+## Current implementation additions — plan 006 M2–M5 (2026-10-16)
+
+The cast grows: `RESIDENTS` (townsfolk with a post, hours, an introduction and daily
+lines; chats are `chat:<resident>` actions, offered face to face or across their counter),
+`shelterWaiting` (lasting shelter critters drawn by `shelterCandidate` from
+`GameState.origin`, the household's unchanging seed) and Gemothy (`gemothy.ts`; his trust
+and his last visit and find live in `GameState.gemothy`). Buying moved to the store and the
+stall is gone; `collectPickup` sells the `pickup` container at dawn at `PICKUP_SHARE` of the
+store's price. The farm field's beds and fence are `FARM_*` in `content.ts`. The
+Colosseum's booths are `exhibition`, `ladder` and `promotion` objects sharing one dock
+builder; promotion cups run on the event engine as `event: 'promotion'` with `cupDay`
+(`promotionLegs`, `promotionField`).
+
 ## Architectural reality audit (reconciliation baseline before M4)
 
 The following audit records the reconciled pre-M4 baseline. The dated additions
