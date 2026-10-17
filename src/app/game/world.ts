@@ -21,6 +21,8 @@ import {
   ROAD_SIGN,
   TAVERN_BIN,
   TOSS_STATION,
+  SHELTER_PEN,
+  STORE_COUNTER,
   TOWN_BUILDINGS,
   TOWN_CARTS,
   TOWN_WELL,
@@ -2278,7 +2280,8 @@ export class GameWorld {
   private town(): void {
     this.path(
       [
-        [9.2, 1],
+        [16.4, 1],
+        [11, 1.4],
         [6, 1.1],
         [3.4, 0.7],
       ],
@@ -2288,9 +2291,34 @@ export class GameWorld {
       [
         [-3.4, 0.7],
         [-6, 1.1],
-        [-9.2, 1],
+        [-11, 0.8],
+        [-16.4, 1],
       ],
       1.4,
+    );
+    // Lanes up to the back row of houses and round to the shelter's door.
+    this.path(
+      [
+        [-1.6, -3.2],
+        [-2.4, -6.6],
+        [-3.6, -8.2],
+      ],
+      0.8,
+    );
+    this.path(
+      [
+        [2, -3.6],
+        [3.4, -8],
+      ],
+      0.8,
+    );
+    this.path(
+      [
+        [-8.6, 0.9],
+        [-10.4, 0.2],
+        [-11.4, -0.8],
+      ],
+      0.9,
     );
     for (const [x, z] of [
       [-5.2, -3.4],
@@ -2335,6 +2363,11 @@ export class GameWorld {
       ['#e6c9a1', '#a0604a'],
       ['#e9dcc0', '#b76e54'],
       ['#f0e2c4', '#8a7660'],
+      ['#ead6b6', '#6f8ea0'],
+      ['#f1e6d2', '#b76e54'],
+      ['#e8d3ad', '#8a7660'],
+      ['#efe0c4', '#7f8f6a'],
+      ['#f4e8cf', '#5f8a6a'],
     ];
     TOWN_BUILDINGS.forEach(({ x, z, width, depth, name }, index) =>
       this.townhouse(x, z, width, depth, plaster[index][0], plaster[index][1], name),
@@ -2401,9 +2434,9 @@ export class GameWorld {
     }
     const planters = new THREE.Group();
     for (const [x, z] of [
-      [-6.6, -3.6],
-      [-3.8, -3.6],
-      [1.4, -4.2],
+      [-13.4, -0.6],
+      [-9.4, -0.8],
+      [10.4, -3.4],
       [6.6, -3.6],
       [-1.2, 4.6],
       [1.6, 4.4],
@@ -2423,9 +2456,17 @@ export class GameWorld {
       [8.2, 7.4, 0.75],
       [-1.4, 7.9, 0.6],
       [8.6, -1.8, 0.6],
-      [-8.6, -2, 0.6],
+      [-6.6, -2.4, 0.5],
+      [-14.6, -5.2, 0.85],
+      [14.4, -4.4, 0.8],
+      [-15, 6.6, 0.6],
+      [12.8, 6.8, 0.65],
+      [7.8, -9.6, 0.9],
+      [-8.2, -9.4, 0.85],
     ];
     trees.forEach(([x, z, scale], index) => this.tree(x, z, scale, index + 4));
+    this.storeCounter();
+    this.shelterPen();
     for (const [x, z] of [
       [-3.6, 2.4],
       [3.8, -1.9],
@@ -2433,8 +2474,10 @@ export class GameWorld {
       [6.8, 2.6],
     ] as [number, number][])
       this.lantern(x, z);
-    this.gate(8, 1, false);
-    this.gate(-8, 1, true);
+    this.lantern(-9.8, 2.2);
+    this.lantern(10.6, 2.4);
+    this.gate(15, 1, false);
+    this.gate(-15, 1, true);
     for (const object of AREAS.town.objects)
       this.label(
         object.id === 'gate'
@@ -2593,6 +2636,58 @@ export class GameWorld {
       post.add(arm);
     }
     this.scenery.add(post);
+  }
+
+  /** Marigold's counter under a striped awning, with crates of what is in season. */
+  private storeCounter(): void {
+    const stall = new THREE.Group();
+    stall.position.set(STORE_COUNTER.x, 0, STORE_COUNTER.z);
+    stall.add(this.mesh(this.box, '#a57e55', [0, 0.5, 0], [1.9, 1, 0.55]));
+    stall.add(this.mesh(this.box, '#c9a477', [0, 1.03, 0.02], [2, 0.08, 0.65]));
+    for (const side of [-1, 1])
+      stall.add(this.mesh(this.box, '#7d6448', [side * 1, 1.25, -0.25], [0.08, 2.5, 0.08]));
+    for (let stripe = 0; stripe < 6; stripe++) {
+      const awning = this.mesh(
+        this.box,
+        stripe % 2 ? '#f3ead2' : '#5e9186',
+        [-0.88 + stripe * 0.35, 2.35, 0.05],
+        [0.35, 0.06, 1.1],
+      );
+      awning.rotation.x = 0.28;
+      stall.add(awning);
+    }
+    for (const [x, color] of [
+      [-0.55, '#d8604f'],
+      [0, '#e9cc83'],
+      [0.55, '#b4c78a'],
+    ] as [number, string][]) {
+      stall.add(this.mesh(this.box, '#9b714b', [x, 1.15, 0.05], [0.42, 0.16, 0.36]));
+      stall.add(this.mesh(this.sphere, color, [x, 1.27, 0.05], [0.18, 0.1, 0.15]));
+    }
+    for (const [x, z] of [
+      [1.45, 0.25],
+      [-1.5, 0.3],
+    ])
+      stall.add(this.mesh(this.sphere, '#d8c49b', [x, 0.3, z], [0.3, 0.32, 0.28]));
+    this.scenery.add(stall);
+  }
+
+  /** The shelter's pen: a low fence round a patch of straw, with its gate toward the square. */
+  private shelterPen(): void {
+    const { x, z, hx, hz } = SHELTER_PEN;
+    this.fence([x - hx, z - hz], [x + hx - 0.9, z - hz], 3);
+    this.fence([x - hx, z + hz], [x + hx, z + hz], 3);
+    this.fence([x - hx, z - hz], [x - hx, z + hz], 2);
+    this.fence([x + hx, z - hz + 0.9], [x + hx, z + hz], 2);
+    const straw = this.mesh(this.box, '#e6cf8f', [x, 0.03, z], [hx * 2 - 0.2, 0.04, hz * 2 - 0.2]);
+    straw.receiveShadow = true;
+    this.scenery.add(straw);
+    this.scenery.add(
+      this.mesh(this.cylinder, '#857b60', [x - 1.5, 0.2, z + 0.9], [0.4, 0.35, 0.4]),
+    );
+    this.scenery.add(
+      this.mesh(this.cylinder, '#7fb0c8', [x - 1.5, 0.38, z + 0.9], [0.33, 0.03, 0.33]),
+    );
   }
 
   /** A town building: plaster walls, a pitched roof, a door, two windows and a name. */

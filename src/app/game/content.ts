@@ -439,6 +439,12 @@ export const RHYTHM_STATION: Point = { x: -1.5, z: 0.4 };
 export const RHYTHM_FLOOR: Point = { x: 0.3, z: 0.5 };
 export const CHESS_TABLE: Point = { x: 3.3, z: 0.6 };
 
+// The critter shelter on the west side of town, and the pen in front where its critters wait.
+export const SHELTER: Point = { x: -11.4, z: -2.4 };
+export const SHELTER_PEN = { x: -11.4, z: 3, hx: 2.2, hz: 1.5 } as const;
+// The general store's counter, under an awning in front of the shop.
+export const STORE_COUNTER: Point = { x: -5.2, z: -3.1 };
+
 // Oakhaven's buildings along the north of the square (footprints, without the plinth).
 export const TOWN_BUILDINGS: {
   x: number;
@@ -452,6 +458,11 @@ export const TOWN_BUILDINGS: {
   { x: 5.2, z: -5.2, width: 3.4, depth: 2.6, name: 'Tavern' },
   { x: -8.2, z: -5.6, width: 2.2, depth: 2.2 },
   { x: 8.4, z: -5.4, width: 2, depth: 2.2 },
+  { x: -12.4, z: -7.6, width: 3, depth: 2.4 },
+  { x: 12.6, z: -7.4, width: 3, depth: 2.4 },
+  { x: 3.4, z: -9.2, width: 2.6, depth: 2.2 },
+  { x: -3.6, z: -9.4, width: 2.4, depth: 2.2 },
+  { x: SHELTER.x, z: SHELTER.z, width: 3.6, depth: 2.6, name: 'Critter shelter' },
 ];
 export const TOWN_CARTS: Point[] = [
   { x: -4.6, z: 6 },
@@ -484,6 +495,8 @@ const TOWN_BLOCKERS: Blocker[] = [
     hz: (depth + 0.3) / 2,
   })),
   ...TOWN_CARTS.map(({ x, z }) => ({ x, z, hx: 0.95, hz: 0.6 })),
+  { ...STORE_COUNTER, hx: 0.95, hz: 0.3 },
+  { ...SHELTER_PEN },
   { ...TOWN_WELL, r: 0.9 },
   { ...TAVERN_BIN, r: 0.42 },
   { x: 2.6, z: 2.6, hx: 0.7, hz: 0.15 },
@@ -677,14 +690,14 @@ export const AREAS: Record<AreaId, AreaDefinition> = {
     id: 'town',
     name: 'Oakhaven',
     subtitle: 'Everyone here knows everyone',
-    half: { x: 10, z: 10 },
-    spawn: { x: 6.4, z: 1 },
+    half: { x: 16, z: 11 },
+    spawn: { x: 13.4, z: 1 },
     objects: [
       {
         id: 'gate',
         kind: 'gate',
         name: 'To the hedgerow lane',
-        position: { x: 8, z: 1 },
+        position: { x: 15, z: 1 },
         radius: 1,
         destination: 'lane',
         arrival: { x: -15.6, z: 0 },
@@ -693,10 +706,24 @@ export const AREAS: Record<AreaId, AreaDefinition> = {
         id: 'colosseum-gate',
         kind: 'gate',
         name: 'To the Colosseum road',
-        position: { x: -8, z: 1 },
+        position: { x: -15, z: 1 },
         radius: 1,
         destination: 'road',
         arrival: { x: 15.6, z: 0 },
+      },
+      {
+        id: 'store',
+        kind: 'shop',
+        name: 'General store',
+        position: { x: STORE_COUNTER.x, z: STORE_COUNTER.z + 0.9 },
+        radius: 0.9,
+      },
+      {
+        id: 'shelter',
+        kind: 'shelter',
+        name: 'Critter shelter',
+        position: { x: SHELTER.x + 2.2, z: SHELTER.z + 2.3 },
+        radius: 0.8,
       },
       {
         id: 'notices',
@@ -731,7 +758,7 @@ export const AREAS: Record<AreaId, AreaDefinition> = {
         position: { x: -17, z: 0 },
         radius: 1,
         destination: 'town',
-        arrival: { x: 6.4, z: 1 },
+        arrival: { x: 13.4, z: 1 },
       },
       {
         id: 'signpost',
@@ -758,7 +785,7 @@ export const AREAS: Record<AreaId, AreaDefinition> = {
         position: { x: 17, z: 0 },
         radius: 1,
         destination: 'town',
-        arrival: { x: -6.4, z: 1 },
+        arrival: { x: -13.4, z: 1 },
       },
       {
         id: 'colosseum-gate',

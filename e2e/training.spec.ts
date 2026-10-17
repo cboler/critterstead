@@ -58,7 +58,7 @@ test('trains strength with fading repeat gains, then earns a Colosseum exhibitio
   await walk(page, -16.4, 0);
   await page.getByRole('button', { name: /^Walk into Oakhaven · 5 min/ }).click();
   await expect(page.locator('.location-tag')).toContainText('Oakhaven');
-  await walk(page, -7.4, 1);
+  await walk(page, -14.4, 1);
   await page.getByRole('button', { name: /^Take the Colosseum road · 5 min/ }).click();
   await expect(page.locator('.location-tag')).toContainText('The Colosseum road');
   await walk(page, -16.4, 0);

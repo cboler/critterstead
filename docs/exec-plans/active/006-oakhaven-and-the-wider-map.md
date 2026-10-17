@@ -63,19 +63,23 @@ retired, not migrated (D55): the game says so, keeps the record, and offers a ne
 
 ### M2 — Oakhaven's store, shelter and residents
 
-- [ ] A larger Oakhaven: square, shop row, tavern and its bin, the critter shelter.
-- [ ] The general store's shopkeeper sells feed and seeds and buys berries and produce at
-      better prices than the pickup (M3), during opening hours.
-- [ ] The shelter's keeper looks after a few critters waiting for homes (adoption in M8).
-- [ ] Residents are named, keep their posts on a simple timetable and say a few lines;
-      Grandpa's reputation surfaces sparingly.
+- [x] A larger Oakhaven (32 × 22): the square, a back row of houses, the tavern and its
+      bin, the critter shelter and its pen.
+- [x] Marigold Hale's general store sells feed and seed from 8:00 to 18:00 and buys berries
+      and produce; the honesty stall now only buys (until M3) and the household starts with
+      two packets of turnip seed from Grandpa.
+- [x] Wren Ashby's shelter keeps three critters waiting for homes, lasting individuals drawn
+      from the household's `origin` seed; you can visit each once a day (adoption in M8).
+- [x] Four residents (store, shelter, tavern, clinic) keep their posts in their hours and
+      chat once a day, introducing themselves first; Grandpa's past surfaces in two lines.
 
 ### M3 — The farm, the sales pickup and the barn (save v15)
 
 - [ ] A farm field beside the cottage holds the garden plots, with a storage box.
 - [ ] A sales pickup: goods left in it are collected overnight at baseline prices, paid at
       dawn with a journal note. The honesty stall is retired; nothing sells instantly.
-- [ ] A barn on the stead where critters not following you sleep and rest.
+- [ ] The companion nook grows into a barn with a stall for each critter you own; critters
+      not following you sleep and rest there. Its own interior area comes later.
 
 ### M4 — The Colosseum forecourt, booths and promotion cups
 
@@ -151,6 +155,19 @@ which the quality tiers already control, not from the library.
   (yard to town is now 10 minutes plus the walk); two or three wild critters per road on a
   fair day, one in rain or snow, none from 20:00 to 06:00; trees stay off the camera side.
 
+## M2 evidence — 2026-10-16
+
+- Host: `RESIDENTS`, `residentsAbout`, `shelterWaiting` and the shelter's cast in
+  `cast.ts`; `shelterCandidate` in `families.ts`; `shop` and `shelter` objects, chats
+  (`chat:<resident>`, from face to face or across a counter), visits and the store's
+  `sellActions`/`buyActions` in `host.ts`; `GameState.origin` (v14, unreleased, so no
+  bump). Unit tests: 177 passed, including residents' hours and introductions, chatting
+  across the counter, the shelter's lasting critters and daily visits, the store's hours.
+- Inspected in the dev server: the square with the store's awning and Marigold, the
+  shelter pen with three named critters and Wren, Dr. Fenn and Bertram at their doors.
+- Routine decisions: working names Marigold Hale, Wren Ashby, Bertram Cobb and Dr. Isolde
+  Fenn; store prices are the stall's old prices; one chat per resident per day.
+
 ## Current handoff
 
-M1 complete. Next: M2 — a larger Oakhaven with the store, the shelter and residents.
+M1 and M2 complete. Next: M3 — the farm, the sales pickup and the nook grown into a barn.

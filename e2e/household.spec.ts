@@ -13,11 +13,6 @@ test('tills and sows a seasonal bed, reads the cottage calendar, and keeps it al
   await expect(page.locator('.world-canvas canvas')).toBeVisible();
   await expect(page.locator('.season')).toContainText('Spring 1 · Year 1');
 
-  await walk(page, -6, 5);
-  await page.getByRole('button', { name: /^Buy turnip seeds · 2 coins/ }).click();
-  await expect(page.getByRole('button', { name: /^Buy sunberry seeds/ })).toContainText(
-    'summer & autumn',
-  );
   await walk(page, ...SPOTS.secondBed);
   await expect(page.locator('.interaction-copy')).toContainText('Garden bed 2 · overgrown');
   await page.getByRole('button', { name: /^Till the soil/ }).click();

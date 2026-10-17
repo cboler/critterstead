@@ -193,3 +193,53 @@ export function kindName(speciesId: string): string {
     ? 'Brindlekin'
     : (FAMILIES[speciesId as FamilyId]?.name ?? speciesId);
 }
+
+const SHELTER_STORIES = [
+  'Found sheltering under a market cart after a storm.',
+  'Handed in when an old rancher moved away to the city.',
+  'Wandered in off the Colosseum road, footsore and hungry.',
+  'Outgrew a family who loved it but had no room left.',
+  'Brought over by the clinic after a long recovery.',
+  'Turned up on the shelter step one morning, as if it had an appointment.',
+];
+
+/** A critter waiting at the Oakhaven shelter for a home. */
+export interface ShelterCandidate extends StarterCandidate {
+  story: string;
+  ageDays: number;
+}
+
+/**
+ * The shelter's critters, in the order they arrive: the same for the same household seed,
+ * so each is a lasting individual long before anyone adopts it.
+ */
+export function shelterCandidate(seed: number, index: number): ShelterCandidate {
+  let state = (seed ^ Math.imul(index + 1, 2654435761)) >>> 0;
+  const roll = () => {
+    state = (Math.imul(1664525, state) + 1013904223) >>> 0;
+    return state / 4294967296;
+  };
+  roll();
+  const pick = <T>(items: readonly T[]) => items[Math.floor(roll() * items.length)];
+  const family = pick(FAMILY_IDS);
+  const definition = FAMILIES[family];
+  const coat = pick(definition.coats);
+  const accent = pick(definition.accents);
+  // A grown critter has a little more of its family's strengths than a youngster.
+  const stats = { ...definition.stats };
+  for (const key of Object.keys(stats) as (keyof Stats)[])
+    stats[key] = Math.round((stats[key] + roll() * 1.5) * 10) / 10;
+  return {
+    id: `critter-shelter-${index + 1}`,
+    name: pick(definition.names),
+    speciesId: family,
+    sex: roll() < 0.5 ? 'female' : 'male',
+    personality: pick(PERSONALITIES),
+    stats,
+    visualTraits: { coat, accent, size: Math.round((0.9 + roll() * 0.25) * 100) / 100 },
+    genetics: { coat: `${coat}/${pick(definition.coats)}` },
+    position: { x: 0, z: 0 },
+    story: pick(SHELTER_STORIES),
+    ageDays: 40 + Math.floor(roll() * 300),
+  };
+}

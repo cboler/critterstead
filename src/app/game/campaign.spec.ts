@@ -104,7 +104,6 @@ describe('the first living stead across three days', () => {
     travel(host, 'gate', -7.4, 0);
     go(host, -6, 5);
     must(host, 'market', 'sell');
-    must(host, 'market', 'buy-crop:turnip');
     go(host, -2.9, 1.3);
     must(host, 'plot-2', 'till');
     must(host, 'plot-2', 'plant:turnip');
@@ -150,7 +149,7 @@ describe('the first living stead across three days', () => {
     expect(host.state.areaId).toBe('lane');
     travel(host, 'town-gate', -16.4, 0);
     expect(host.state.areaId).toBe('town');
-    travel(host, 'colosseum-gate', -7.4, 1);
+    travel(host, 'colosseum-gate', -14.4, 1);
     expect(host.state.areaId).toBe('road');
     travel(host, 'colosseum-gate', -16.4, 0);
     expect(host.state.areaId).toBe('colosseum');
@@ -162,7 +161,7 @@ describe('the first living stead across three days', () => {
     expect(act(host, 'exhibition', 'exhibit')).toBe(false);
     travel(host, 'gate', -7.4, 4);
     travel(host, 'gate', 16.4, 0);
-    travel(host, 'gate', 7.4, 1);
+    travel(host, 'gate', 14.4, 1);
     travel(host, 'gate', 16.4, 0.4);
     expect(host.state.areaId).toBe('homestead');
     travel(host, 'gate', 7.4, 0);

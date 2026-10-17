@@ -176,26 +176,43 @@ describe('four-plot seasonal garden', () => {
     expect(host.state.journal.join(' ')).toContain('Morning rain soaks the tilled garden beds');
   });
 
-  it('buys seasonal seed and sells harvested produce at the stall', () => {
+  it('buys seasonal seed and sells harvested produce at the general store', () => {
     const host = atBed((state) => {
-      state.player.position = { x: -6, z: 5 };
+      state.areaId = 'town';
+      state.minute = 600;
+      state.totalMinutes = 600;
+      state.player.position = { x: -5.2, z: -2.2 };
       state.player.coins = 5;
       addItem(backpack(state), 'turnip', 3);
       addItem(satchel(state), 'wheat', 2);
-      state.critters[0].position = { x: -6, z: 4.5 };
+      state.critters[0].position = { x: -5.6, z: -1.6 };
     });
+    expect(host.interaction()!.title).toBe('Marigold’s general store');
     expect(action(host, 'buy-crop:wheat')?.label).toBe(
       'Buy wheat seeds · 2 coins · spring & summer',
     );
-    expect(act(host, 'market', 'buy-crop:wheat')).toBe(true);
+    expect(act(host, 'store', 'buy-crop:wheat')).toBe(true);
     expect(host.state.player.coins).toBe(3);
     expect(action(host, 'sell-produce')?.label).toContain('10 coins');
-    expect(act(host, 'market', 'sell-produce')).toBe(true);
+    expect(act(host, 'store', 'sell-produce')).toBe(true);
     expect(host.state.player.coins).toBe(13);
     expect(quantity(backpack(host.state), 'turnip')).toBe(0);
     expect(quantity(satchel(host.state), 'wheat')).toBe(0);
     expect(quantity(backpack(host.state), 'wheat-seed')).toBe(2);
-    expect(act(host, 'market', 'sell-produce')).toBe(false);
+    expect(act(host, 'store', 'sell-produce')).toBe(false);
+  });
+
+  it('sells no feed or seed at the stall, and the store keeps hours', () => {
+    const stall = atBed((state) => (state.player.position = { x: -6, z: 5 }));
+    expect(action(stall, 'buy-feed')).toBeUndefined();
+    const closed = atBed((state) => {
+      state.areaId = 'town';
+      state.minute = 1200;
+      state.totalMinutes = 1200;
+      state.player.position = { x: -5.2, z: -2.2 };
+    });
+    expect(closed.interaction()!.description).toContain('shutters are down');
+    expect(act(closed, 'store', 'buy-feed')).toBe(false);
   });
 });
 

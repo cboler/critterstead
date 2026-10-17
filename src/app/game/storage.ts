@@ -137,6 +137,7 @@ export function validateSave(value: unknown): asserts value is GameState {
   }
   ensureFiniteTree(value);
   number(root['seed'], 'seed', 0, 4294967295, true);
+  number(root['origin'], 'origin', 0, 4294967295, true);
   number(root['day'], 'day', 1, Number.MAX_SAFE_INTEGER, true);
   number(root['minute'], 'minute', 0, 1440);
   number(root['totalMinutes'], 'totalMinutes');

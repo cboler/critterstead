@@ -219,6 +219,8 @@ export interface Training {
 export interface GameState {
   version: 14;
   seed: number;
+  // The seed the household began with; it never changes, so what it draws is lasting.
+  origin: number;
   day: number;
   minute: number;
   totalMinutes: number;
@@ -289,7 +291,9 @@ export interface WorldObject {
     | 'chess'
     | 'exhibition'
     | 'notices'
-    | 'sign';
+    | 'sign'
+    | 'shop'
+    | 'shelter';
   name: string;
   position: Point;
   radius: number;

@@ -1,4 +1,11 @@
-import { castFor, familiesMet } from './cast';
+import {
+  castFor,
+  familiesMet,
+  Resident,
+  residentAbout,
+  SHELTER_HOURS,
+  shelterWaiting,
+} from './cast';
 import {
   addItem,
   initialContainers,
@@ -41,7 +48,7 @@ import {
   weatherFor,
 } from './calendar';
 import { advanceGarden, plotReady } from './garden';
-import { MALLOW, StarterCandidate } from './families';
+import { kindName, MALLOW, StarterCandidate } from './families';
 import {
   createPip,
   GRANDPA,
@@ -209,6 +216,7 @@ export function createInitialState(starter: StarterCandidate = MALLOW, seed = 24
   return {
     version: 14,
     seed,
+    origin: seed,
     day: 1,
     minute: 480,
     totalMinutes: 480,
@@ -263,6 +271,8 @@ export function createInitialState(starter: StarterCandidate = MALLOW, seed = 24
       [
         { id: 'stack-feed-1', itemId: 'feed', quantity: 4, quality: 1 },
         { id: 'stack-seed-1', itemId: 'seed', quantity: 3, quality: 1 },
+        // Grandpa's spare turnip seed, so the first garden needs no trip to town.
+        { id: 'stack-turnip-seed-1', itemId: 'turnip-seed', quantity: 2, quality: 1 },
       ],
       [starter.id, PIP_ID],
     ),
@@ -704,6 +714,30 @@ export class LocalGameHost {
           ? `${critter.name} needs some rest. Rest together at the nook or offer food.`
           : undefined;
     const member = castFor(state).find((item) => item.id === id);
+    const townsperson = residentAbout(state, id);
+    if (townsperson)
+      return {
+        id,
+        title: `${townsperson.name} · ${townsperson.role}`,
+        description: townsperson.doing,
+        actions: [this.chatAction(townsperson, action)],
+      };
+    const waiting = shelterWaiting(state).find((critter) => critter.id === id);
+    if (member && waiting)
+      return {
+        id,
+        title: `${waiting.name} · ${kindName(waiting.speciesId)} at the shelter`,
+        description: `${waiting.story} ${waiting.personality}. About ${waiting.ageDays} days old.`,
+        actions: [
+          action(
+            'visit',
+            `Reach over the fence to ${waiting.name} · 5 min`,
+            state.flags.includes(`visited:${id}`)
+              ? `${waiting.name} has had a fuss already today.`
+              : undefined,
+          ),
+        ],
+      };
     if (member?.id.startsWith('wild-') && member.figure.kind === 'critter') {
       const family = member.figure.speciesId;
       const met = state.flags.includes(`met:${family}`);
@@ -972,42 +1006,44 @@ export class LocalGameHost {
         return {
           id,
           title: 'The honesty stall',
-          description: `${this.quantity('berry')} berries, ${this.quantity('turnip')} turnips, ${this.quantity('wheat')} wheat in your basket. Better harvests earn better prices. Seeds only grow in their seasons.`,
+          description: `${this.quantity('berry')} berries, ${this.quantity('turnip')} turnips, ${this.quantity('wheat')} wheat in your basket. Better harvests earn better prices. Feed and seed are sold at the general store in Oakhaven.`,
+          actions: this.sellActions(action),
+        };
+      case 'shop': {
+        const keeper = residentAbout(state, 'resident-store');
+        if (!keeper)
+          return {
+            id,
+            title: 'General store',
+            description:
+              'The shutters are down. Marigold opens the counter from 8:00 until 18:00 every day.',
+            actions: [],
+          };
+        return {
+          id,
+          title: 'Marigold’s general store',
+          description: `${this.quantity('berry')} berries, ${this.quantity('turnip')} turnips, ${this.quantity('wheat')} wheat in your basket. Marigold pays fair for good berries and produce. Seeds only grow in their seasons.`,
           actions: [
-            action(
-              'sell',
-              `Sell berries · ${this.berryValue()} coins · 5 min`,
-              !this.berryValue()
-                ? 'Bring berries in your backpack or your nearby companion’s satchel.'
-                : undefined,
-            ),
-            action(
-              'sell-produce',
-              `Sell garden produce · ${this.produceValue()} coins · 5 min`,
-              !this.produceValue() ? 'Harvest turnips or wheat from the garden first.' : undefined,
-            ),
-            action(
-              'buy-feed',
-              'Buy feed · 2 coins',
-              state.player.coins < 2 ? 'You need 2 coins.' : undefined,
-            ),
-            action(
-              'buy-seed',
-              'Buy feed seeds · 1 coin',
-              state.player.coins < 1 ? 'You need 1 coin.' : undefined,
-            ),
-            ...(['turnip', 'wheat', 'sunberry'] as CropId[]).map((cropId) => {
-              const crop = CROPS[cropId];
-              return action(
-                `buy-crop:${cropId}`,
-                `Buy ${crop.seedLabel}s · ${crop.seedPrice} coins · ${crop.seasons.join(' & ')}`,
-                state.player.coins < crop.seedPrice
-                  ? `You need ${crop.seedPrice} coins.`
-                  : undefined,
-              );
-            }),
+            ...this.sellActions(action),
+            ...this.buyActions(action),
+            this.chatAction(keeper, action),
           ],
         };
+      }
+      case 'shelter': {
+        const waiting = shelterWaiting(state);
+        const open = state.minute >= SHELTER_HOURS.start && state.minute < SHELTER_HOURS.end;
+        return {
+          id,
+          title: 'Oakhaven critter shelter',
+          description: open
+            ? `${waiting.map((critter) => critter.name).join(', ')} are waiting for homes in the pen. Wren looks after them until someone does.`
+            : 'The shelter is shut for the night. Through the window, three shapes are curled up asleep. It opens at 7:00.',
+          actions: residentAbout(state, 'resident-shelter')
+            ? [this.chatAction(residentAbout(state, 'resident-shelter')!, action)]
+            : [],
+        };
+      }
       case 'gate': {
         const route = ROUTES[object.destination!];
         return {
@@ -1182,6 +1218,7 @@ export class LocalGameHost {
     }
     const plot = state.plots.find((item) => item.id === id);
     if (plot) return this.tend(plot, action);
+    if (action.startsWith('chat:')) return this.chat(residentAbout(state, action.slice(5))!);
     if (action.startsWith('buy-crop:')) {
       const crop = CROPS[action.slice('buy-crop:'.length) as CropId];
       state.player.coins -= crop.seedPrice;
@@ -1417,6 +1454,15 @@ export class LocalGameHost {
         this.note(grandpaSays(state, nextObjective(state)));
         this.flag('talked-grandpa');
         return true;
+      case 'visit': {
+        const waiting = shelterWaiting(state).find((critter) => critter.id === id)!;
+        this.flag(`visited:${id}`);
+        this.advanceMinutes(5);
+        this.note(
+          `${waiting.name} ${waiting.personality.startsWith('Gentle') || waiting.personality.startsWith('Watchful') ? 'hangs back, then edges close enough to sniff your hand' : 'bounds over to the fence and leans into your hand'}. Wren smiles: “They remember who comes back.”`,
+        );
+        return true;
+      }
       case 'greet-wild': {
         const member = castFor(state).find((item) => item.id === id)!;
         const family = member.figure.kind === 'critter' ? member.figure.speciesId : '';
@@ -2160,7 +2206,9 @@ export class LocalGameHost {
           flag !== 'petted-today' &&
           flag !== 'greeted-pip-today' &&
           !flag.startsWith('pip-') &&
-          !flag.startsWith('greeted:'),
+          !flag.startsWith('greeted:') &&
+          !flag.startsWith('chatted:') &&
+          !flag.startsWith('visited:'),
       );
     }
     for (const node of state.materialNodes)
@@ -2501,6 +2549,71 @@ export class LocalGameHost {
     }
     return false;
   }
+  /** A chat with a townsperson, once a day; the first is an introduction. */
+  private chatAction(
+    resident: Resident,
+    action: (id: string, label: string, reason?: string) => InteractionAction,
+  ): InteractionAction {
+    return action(
+      `chat:${resident.id}`,
+      `Chat with ${resident.name.split(' ').at(-1) === 'Fenn' ? 'Dr. Fenn' : resident.name.split(' ')[0]} · 5 min`,
+      this.state.flags.includes(`chatted:${resident.id}`)
+        ? 'You have already had a good chat today.'
+        : undefined,
+    );
+  }
+
+  private chat(resident: Resident): boolean {
+    const state = this.state;
+    const introduced = state.flags.includes(`introduced:${resident.id}`);
+    this.flag(`introduced:${resident.id}`);
+    this.flag(`chatted:${resident.id}`);
+    this.advanceMinutes(5);
+    this.note(
+      `${resident.name}: ${introduced ? resident.lines[state.day % resident.lines.length] : resident.intro}`,
+    );
+    return true;
+  }
+
+  /** Selling what you carry, at the stall or the store. */
+  private sellActions(
+    action: (id: string, label: string, reason?: string) => InteractionAction,
+  ): InteractionAction[] {
+    return [
+      action(
+        'sell',
+        `Sell berries · ${this.berryValue()} coins · 5 min`,
+        !this.berryValue()
+          ? 'Bring berries in your backpack or your nearby companion’s satchel.'
+          : undefined,
+      ),
+      action(
+        'sell-produce',
+        `Sell garden produce · ${this.produceValue()} coins · 5 min`,
+        !this.produceValue() ? 'Harvest turnips or wheat from the garden first.' : undefined,
+      ),
+    ];
+  }
+
+  /** Feed and seed, from the general store. */
+  private buyActions(
+    action: (id: string, label: string, reason?: string) => InteractionAction,
+  ): InteractionAction[] {
+    const coins = this.state.player.coins;
+    return [
+      action('buy-feed', 'Buy feed · 2 coins', coins < 2 ? 'You need 2 coins.' : undefined),
+      action('buy-seed', 'Buy feed seeds · 1 coin', coins < 1 ? 'You need 1 coin.' : undefined),
+      ...(['turnip', 'wheat', 'sunberry'] as CropId[]).map((cropId) => {
+        const crop = CROPS[cropId];
+        return action(
+          `buy-crop:${cropId}`,
+          `Buy ${crop.seedLabel}s · ${crop.seedPrice} coins · ${crop.seasons.join(' & ')}`,
+          coins < crop.seedPrice ? `You need ${crop.seedPrice} coins.` : undefined,
+        );
+      }),
+    ];
+  }
+
   private produceValue(): number {
     return [
       ...backpack(this.state).items,

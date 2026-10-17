@@ -157,7 +157,7 @@ describe('diminishing same-day training returns', () => {
 
 describe('Colosseum exhibition', () => {
   it('opens through Oakhaven, scores sprint and stone pull, pays a medal once per day', () => {
-    const host = at(-7.4, 1, (state) => (state.areaId = 'town'));
+    const host = at(-14.4, 1, (state) => (state.areaId = 'town'));
     expect(host.interaction()!.actions[0].label).toBe('Take the Colosseum road · 5 min');
     const minutes = host.state.totalMinutes;
     expect(act(host, 'colosseum-gate', 'travel')).toBe(true);
