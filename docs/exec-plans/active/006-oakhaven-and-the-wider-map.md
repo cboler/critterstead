@@ -110,10 +110,14 @@ retired, not migrated (D55): the game says so, keeps the record, and offers a ne
 
 ### M6 — The map and the minimap
 
-- [ ] Grandpa gives you the map on the opening walk.
-- [ ] A map screen of every area and road, where you, your critters, Grandpa and Pip are,
-      and what matters today.
-- [ ] An optional minimap, off by default, toggled in Help; a device preference.
+- [x] Grandpa gives you the map on the opening walk, in a beat as you set out.
+- [x] A map screen (the header's Map button or `M`): every place west to east with its
+      roads, where you, your companion, Grandpa and Pip are, and today's notes (beds ready
+      or dry, the pickup's load, ripe bushes, the store's hours, the day's Colosseum events
+      and cups, wild critters about).
+- [x] An optional minimap under the place name, off by default and switched in Help; a
+      device preference. It shows the area's bounds, places, exits, the cast, your
+      companion and you, and takes no pointer input.
 
 ### M7 — Inventory screens
 
@@ -229,8 +233,15 @@ cups and the "Barn level" label were updated. The hurdle run's timing check fail
 under load and passed on repeat. Gates: unit tests (184), lint, and the full browser suite,
 70 passed (desktop, both phone orientations, tablet).
 
+## M6 evidence — 2026-10-17
+
+- Host: `map.ts` (`worldMap`, `minimap`, `MAP_SIZE`), pure readings of the save; the
+  `the-map` opening beat. App: the `map` panel, the `M` key, the minimap overlay and its
+  `critterstead-minimap` preference. Unit tests: 187 passed, including the map's layout,
+  who is where (the cottage counts as the yard), today's notes, and the minimap's marks.
+- Inspected in the dev server: the map beat in the opening, the minimap over the yard, the
+  map panel with its legend.
+
 ## Current handoff
 
-M1–M5 complete and published. Next: M6 — the map and minimap (Grandpa gives the map on the
-opening walk), then M7 inventory screens, M8 adoption and the roster, M9 figures from model
-files.
+M1–M6 complete. Next: M7 — inventory screens.

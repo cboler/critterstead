@@ -55,12 +55,31 @@ import {
 import { eventInfo, ordinal, RANKS } from './game/ladder';
 import { GameWorld } from './game/world';
 import { familiesMet } from './game/cast';
+import { MAP_SIZE, minimap, worldMap } from './game/map';
 import {
   storedQualityChoice,
   storeQualityChoice,
   type Quality,
   type QualityChoice,
 } from './game/render/quality';
+
+// The minimap is a device preference too, off until asked for.
+const MINIMAP_KEY = 'critterstead-minimap';
+function storedMinimap(): boolean {
+  try {
+    return localStorage.getItem(MINIMAP_KEY) === 'on';
+  } catch {
+    return false;
+  }
+}
+function storeMinimap(on: boolean): void {
+  try {
+    if (on) localStorage.setItem(MINIMAP_KEY, 'on');
+    else localStorage.removeItem(MINIMAP_KEY);
+  } catch {
+    // Private browsing: the choice lasts for this visit.
+  }
+}
 
 // Wider timing windows are a device preference, like the visual quality.
 const ASSIST_KEY = 'critterstead-wide-timing';
@@ -80,7 +99,7 @@ function storeAssist(on: boolean): void {
   }
 }
 
-type Panel = 'journal' | 'help' | 'developer' | 'calendar';
+type Panel = 'journal' | 'help' | 'developer' | 'calendar' | 'map';
 type JournalTab = 'quests' | 'critters' | 'history' | 'supplies';
 
 /** Whether the details panel sits beside the world rather than over it. */
@@ -402,6 +421,14 @@ export class App implements AfterViewInit, OnDestroy {
     return name + ' · ' + entry.time + ' points · ' + entry.medal;
   }
   protected readonly assist = signal(storedAssist());
+  protected readonly showMinimap = signal(storedMinimap());
+  protected readonly mapSize = MAP_SIZE;
+  protected readonly mapPlaces = computed(() => worldMap(this.state()));
+  protected readonly minimapView = computed(() => minimap(this.state()));
+  protected setMinimap(on: boolean): void {
+    this.showMinimap.set(on);
+    storeMinimap(on);
+  }
   protected setAssist(on: boolean): void {
     this.assist.set(on);
     storeAssist(on);
@@ -1316,6 +1343,8 @@ export class App implements AfterViewInit, OnDestroy {
       });
     if (!event.repeat && key === 'j')
       this.zone.run(() => this.openPanel(this.panel() === 'journal' ? null : 'journal'));
+    if (!event.repeat && key === 'm')
+      this.zone.run(() => this.openPanel(this.panel() === 'map' ? null : 'map'));
     if (!event.repeat && key === '`')
       this.zone.run(() => this.openPanel(this.panel() === 'developer' ? null : 'developer'));
     if (!this.panel() && ['=', '+', '-', '_'].includes(key)) {

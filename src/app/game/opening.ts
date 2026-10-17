@@ -49,6 +49,15 @@ export const OPENING: readonly OpeningBeat[] = [
     line: 'Shoes on, sleepyhead. Today we walk to Oakhaven, and you come home with a partner of your own.',
   },
   {
+    id: 'the-map',
+    areaId: 'homestead',
+    minute: 460,
+    player: { x: -1.6, z: 0.4 },
+    stage: stage({ x: -2.7, z: -0.2 }, { x: -2.9, z: 0.9 }),
+    speaker: null,
+    line: '“Before we go, this is yours,” Grandpa says, and presses a folded map into your hands, soft from years in his coat pocket. “The yard, the lane, Oakhaven, the Colosseum. Every place worth going is on it.”',
+  },
+  {
     id: 'west-road',
     areaId: 'homestead',
     minute: 470,

@@ -16,6 +16,8 @@ test('walks to Oakhaven with Grandpa and Pip, meets Gemothy, and chooses a first
   expect(await savedState(page).catch(() => undefined)).toBeUndefined();
   const next = page.getByRole('button', { name: 'Continue' });
   await next.click();
+  await expect(card).toContainText('folded map');
+  await next.click();
   await next.click();
   await expect(card).toContainText('sunberry hedge');
   await expect(page.locator('.location-tag')).toContainText('The hedgerow lane');

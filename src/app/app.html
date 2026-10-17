@@ -18,11 +18,48 @@
         <span class="location-dot"></span>
         <h1>{{ areas[state().areaId].name }}</h1>
       </div>
+      @if (showMinimap() && ready()) {
+        <svg
+          class="minimap"
+          [attr.viewBox]="
+            -minimapView().half.x -
+            1 +
+            ' ' +
+            (-minimapView().half.z - 1) +
+            ' ' +
+            (minimapView().half.x * 2 + 2) +
+            ' ' +
+            (minimapView().half.z * 2 + 2)
+          "
+          role="img"
+          [attr.aria-label]="'Minimap of ' + areas[state().areaId].name"
+        >
+          <rect
+            class="minimap-ground"
+            [attr.x]="-minimapView().half.x"
+            [attr.y]="-minimapView().half.z"
+            [attr.width]="minimapView().half.x * 2"
+            [attr.height]="minimapView().half.z * 2"
+            rx="1.5"
+          />
+          @for (mark of minimapView().marks; track $index) {
+            <circle
+              [class]="'minimap-mark ' + mark.kind"
+              [attr.cx]="mark.point.x"
+              [attr.cy]="mark.point.z"
+              [attr.r]="mark.kind === 'you' ? 1.1 : mark.kind === 'place' ? 0.7 : 0.8"
+            />
+          }
+        </svg>
+      }
     </div>
     <nav class="header-actions" aria-label="Game menus">
       @if (canInstall()) {
         <button class="subtle" (click)="install()">Install</button>
       }
+      <button class="subtle journal-button" (click)="openPanel('map')">
+        <span aria-hidden="true">⌖</span> Map <kbd>M</kbd>
+      </button>
       <button class="subtle journal-button" (click)="openPanel('journal')">
         <span aria-hidden="true">▤</span> Field journal <kbd>J</kbd>
       </button>
@@ -865,7 +902,9 @@
                   ? 'Welcome to your little corner.'
                   : currentPanel === 'calendar'
                     ? 'The household calendar'
-                    : 'Developer field kit'
+                    : currentPanel === 'map'
+                      ? 'Grandpa’s map'
+                      : 'Developer field kit'
             }}
           </h2>
         </div>
@@ -883,9 +922,10 @@
             <p>
               Use <kbd>WASD</kbd> or the arrow keys to walk. On a touch screen, hold a finger on the
               world and your rancher walks toward it; tap to walk to a spot (the mouse works the
-              same way). Walk close to a place, then press <kbd>E</kbd> or choose an action. Results
-              appear just above the actions; stats live in {{ companion().name }}’s details panel.
-              Scroll, pinch, or press <kbd>+</kbd> and <kbd>−</kbd> to zoom the camera.
+              same way). Walk close to a place, then press <kbd>E</kbd> or choose an action. Press
+              <kbd>M</kbd> for Grandpa’s map; a minimap can be switched on below. Results appear
+              just above the actions; stats live in {{ companion().name }}’s details panel. Scroll,
+              pinch, or press <kbd>+</kbd> and <kbd>−</kbd> to zoom the camera.
             </p>
           </article>
           <article>
@@ -946,6 +986,23 @@
           }
         </div>
         <div class="quality-setting">
+          <span>Minimap</span>
+          <button
+            [class.primary]="!showMinimap()"
+            [attr.aria-pressed]="!showMinimap()"
+            (click)="setMinimap(false)"
+          >
+            Off
+          </button>
+          <button
+            [class.primary]="showMinimap()"
+            [attr.aria-pressed]="showMinimap()"
+            (click)="setMinimap(true)"
+          >
+            On
+          </button>
+        </div>
+        <div class="quality-setting">
           <span>Drill timing windows</span>
           <button
             [class.primary]="!assist()"
@@ -979,6 +1036,59 @@
             </div>
           </div>
         }
+      } @else if (currentPanel === 'map') {
+        <p class="panel-note">
+          Bramblewick, the lanes, Oakhaven and the Colosseum, in Grandpa’s careful hand. You are in
+          {{ areas[state().areaId].name }}.
+        </p>
+        <svg
+          class="world-map"
+          [attr.viewBox]="'0 0 ' + mapSize.width + ' ' + mapSize.height"
+          role="img"
+          aria-label="Map of Bramblewick, the roads, Oakhaven and the Colosseum"
+        >
+          @for (place of mapPlaces(); track place.id; let i = $index) {
+            @if (i > 0) {
+              <line
+                class="map-road"
+                [attr.x1]="mapPlaces()[i - 1].x + mapPlaces()[i - 1].width"
+                [attr.y1]="mapSize.height / 2"
+                [attr.x2]="place.x"
+                [attr.y2]="mapSize.height / 2"
+              />
+            }
+            <rect
+              class="map-place"
+              [class.here]="place.here"
+              [attr.x]="place.x"
+              [attr.y]="place.y"
+              [attr.width]="place.width"
+              [attr.height]="place.height"
+              rx="1.2"
+            />
+            <text
+              class="map-name"
+              [attr.x]="place.x + place.width / 2"
+              [attr.y]="i % 2 ? place.y + place.height + 2.6 : place.y - 1.2"
+              text-anchor="middle"
+            >
+              {{ place.name }}
+            </text>
+          }
+        </svg>
+        <ul class="map-legend">
+          @for (place of mapPlaces(); track place.id) {
+            <li [class.here]="place.here">
+              <strong>{{ place.name }}</strong>
+              @if (place.who.length) {
+                <span class="map-who">{{ place.who.join(', ') }}</span>
+              }
+              @for (note of place.notes; track note) {
+                <span>{{ note }}</span>
+              }
+            </li>
+          }
+        </ul>
       } @else if (currentPanel === 'calendar') {
         @let view = calendar();
         <p class="calendar-today">
