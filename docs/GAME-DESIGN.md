@@ -850,5 +850,5 @@ Pip and Gemothy are the only named story critters so far.
   world's rules he is a chimera, somewhere between a bear crossed with a cat and a dog.
   The player finds him again some days near the tavern bin and can earn his trust
   ([D54](DECISIONS.md#d54--a-wider-map-a-town-with-residents-and-selling-through-the-pickup-or-the-shop-accepted-2026-10-16));
-  whether he then joins them is open. The
+  he stays a friend who brings them things he finds, never a party member. The
   reference is if-you-know-you-know; it need not land for everyone.
