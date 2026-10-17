@@ -2143,3 +2143,39 @@
     animation: none;
   }
 }
+
+/* The Critters journal tab: the nine families, met ones named. */
+.panel-note {
+  margin: 0 0 10px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+.family-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 6px;
+  margin: 0 0 18px;
+  padding: 0;
+  list-style: none;
+}
+.family-list li {
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: #fffdf55e;
+  border: 1px dashed var(--line);
+  color: var(--muted);
+}
+.family-list li.met {
+  background: #fffdf5b8;
+  border-style: solid;
+  color: inherit;
+}
+.family-list strong {
+  display: block;
+  font-size: 13px;
+}
+.family-list span {
+  font-size: 11.5px;
+  line-height: 1.4;
+}

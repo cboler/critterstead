@@ -1,3 +1,4 @@
+import { castFor, familiesMet } from './cast';
 import {
   addItem,
   initialContainers,
@@ -166,15 +167,24 @@ const ROUTES: Record<GameState['areaId'], { label: string; description: string; 
       arrival: 'Clover Glade smells of warm grass and sunberries. {name}’s ears perk up.',
     },
     town: {
-      label: 'Walk to Oakhaven',
-      description: 'The lane west of the yard winds down into town.',
+      label: 'Walk into Oakhaven',
+      description: 'The lane opens out into the town square.',
       arrival: 'Oakhaven bustles around its square. {name} sticks close to your heels.',
     },
     colosseum: {
-      label: 'Walk to the Colosseum',
-      description:
-        'Past the edge of town, half-built stands full of neighbours who love a good show.',
+      label: 'Walk up to the Colosseum',
+      description: 'Half-built stands full of neighbours who love a good show.',
       arrival: 'Banners, half-built stands, and a cheerful crowd. {name} stands a little taller.',
+    },
+    lane: {
+      label: 'Take the hedgerow lane',
+      description: 'The lane between Bramblewick and Oakhaven, hedged on both sides.',
+      arrival: 'The hedgerow lane. Something small rustles in the hawthorn as {name} trots past.',
+    },
+    road: {
+      label: 'Take the Colosseum road',
+      description: 'A broad road west out of town, bunting on every post.',
+      arrival: 'The Colosseum road. Far off, a crowd cheers at something. {name} pricks up.',
     },
     cottage: { label: '', description: '', arrival: '' },
   };
@@ -620,6 +630,7 @@ export class LocalGameHost {
         )
         .map((container) => ({ id: container.id, position: this.containerPosition(container) })),
       ...this.residents(),
+      ...castFor(state),
     ].filter((target) => this.inReach(target.id));
     candidates.sort(
       (a, b) =>
@@ -639,6 +650,9 @@ export class LocalGameHost {
         resident.areaId === state.areaId &&
         distance(resident.position, state.player.position) <= RESIDENT_REACH
       );
+    const member = castFor(state).find((item) => item.id === id);
+    // Wild critters amble, so they can be greeted from a little farther off.
+    if (member) return distance(member.position, state.player.position) <= RESIDENT_REACH + 0.4;
     const container = state.containers.find((item) => item.id === id);
     if (container)
       return (
@@ -689,6 +703,29 @@ export class LocalGameHost {
         : critter.stamina < companion
           ? `${critter.name} needs some rest. Rest together at the nook or offer food.`
           : undefined;
+    const member = castFor(state).find((item) => item.id === id);
+    if (member?.id.startsWith('wild-') && member.figure.kind === 'critter') {
+      const family = member.figure.speciesId;
+      const met = state.flags.includes(`met:${family}`);
+      return {
+        id,
+        title: member.name,
+        description: `${member.activity} ${
+          met
+            ? 'You have met one of its family before.'
+            : 'You have never met one of its family up close.'
+        } Wild critters belong to nobody; for now, a greeting is all they will take.`,
+        actions: [
+          action(
+            'greet-wild',
+            'Crouch and say hello · 5 min',
+            state.flags.includes(`greeted:${id}`)
+              ? 'You have already said hello today.'
+              : undefined,
+          ),
+        ],
+      };
+    }
     const resident = this.residents().find((item) => item.id === id);
     if (resident?.id === GRANDPA.id)
       return {
@@ -858,11 +895,13 @@ export class LocalGameHost {
           actions: [action('read-calendar', 'Read the calendar')],
         };
       }
+      case 'sign':
+        return { id, title: object.name, description: object.text ?? '', actions: [] };
       case 'notices':
         return {
           id,
           title: 'Oakhaven notice board',
-          description: `${formatDate(state.day)} · ${weatherFor(state.day)}. The Colosseum grounds, just west of the square, hold an exhibition every day. ${
+          description: `${formatDate(state.day)} · ${weatherFor(state.day)}. The Colosseum, up the road west of the square, holds an exhibition every day. ${
             critter.competitions.some(
               (entry) => entry.event === 'exhibition' && entry.day === state.day,
             )
@@ -976,10 +1015,7 @@ export class LocalGameHost {
           title: object.name,
           description: route.description.replaceAll('{name}', critter.name),
           actions: [
-            action(
-              'travel',
-              `${state.areaId === 'colosseum' ? 'Back to Oakhaven' : route.label} · ${this.travelMinutes(object.destination!)} min`,
-            ),
+            action('travel', `${route.label} · ${this.travelMinutes(object.destination!)} min`),
           ],
         };
       }
@@ -1381,6 +1417,21 @@ export class LocalGameHost {
         this.note(grandpaSays(state, nextObjective(state)));
         this.flag('talked-grandpa');
         return true;
+      case 'greet-wild': {
+        const member = castFor(state).find((item) => item.id === id)!;
+        const family = member.figure.kind === 'critter' ? member.figure.speciesId : '';
+        const first = !state.flags.includes(`met:${family}`);
+        this.flag(`met:${family}`);
+        this.flag(`greeted:${id}`);
+        this.advanceMinutes(5);
+        const kind = member.name.replace('Wild ', '');
+        this.note(
+          first
+            ? `You crouch and hold out a hand. The ${kind} considers you, sniffs your fingers and wanders off. That is ${familiesMet(state).length} of the nine families you have met.`
+            : `The ${kind} lets you come close for a moment before going back to its business.`,
+        );
+        return true;
+      }
       case 'greet-pip': {
         const pip = state.critters.find((item) => item.id === PIP_ID)!;
         pip.happiness = clamp(pip.happiness + 5);
@@ -1397,13 +1448,13 @@ export class LocalGameHost {
         state.player.position = { ...gate.arrival! };
         critter.position = { x: gate.arrival!.x, z: gate.arrival!.z + 1.2 };
         this.advanceMinutes(minutes);
-        this.flag(
-          destination === 'colosseum'
-            ? 'visited-colosseum'
-            : destination === 'town'
-              ? 'visited-town'
-              : 'explored',
-        );
+        const visited: Partial<Record<GameState['areaId'], string>> = {
+          colosseum: 'visited-colosseum',
+          town: 'visited-town',
+          glade: 'explored',
+          homestead: 'explored',
+        };
+        if (visited[destination]) this.flag(visited[destination]);
         this.note(ROUTES[destination].arrival.replaceAll('{name}', critter.name));
         return true;
       }
@@ -1430,10 +1481,10 @@ export class LocalGameHost {
       (1 + Math.min(0.8, (this.state.player.stats.speed - 4) * 0.015)) *
       (load.drain && this.state.player.stamina <= 0 ? 0.5 : 1);
     const position = this.state.player.position;
-    const edge = AREAS[this.state.areaId].halfSize - 0.5;
+    const half = AREAS[this.state.areaId].half;
     const next = {
-      x: clamp(position.x + (x / length) * step, -edge, edge),
-      z: clamp(position.z + (z / length) * step, -edge, edge),
+      x: clamp(position.x + (x / length) * step, 0.5 - half.x, half.x - 0.5),
+      z: clamp(position.z + (z / length) * step, 0.5 - half.z, half.z - 0.5),
     };
     const area = AREAS[this.state.areaId];
     const solid: Blocker[] = [
@@ -1890,9 +1941,9 @@ export class LocalGameHost {
       : 'Full gains for the first session today.';
   }
   private travelMinutes(destination: GameState['areaId']): number {
-    // Oakhaven is a longer walk from the yard than the glade; the Colosseum is at its edge.
+    // Stepping onto or off a road is quick; the walking happens on the road itself.
     const ends = [destination, this.state.areaId];
-    return ends.includes('town') && ends.includes('homestead') ? 20 : 10;
+    return ends.includes('lane') || ends.includes('road') ? 5 : 10;
   }
 
   private gather(node: ResourceNode, actor: 'player' | 'command' | 'autonomous'): void {
@@ -2106,7 +2157,10 @@ export class LocalGameHost {
       for (const individual of state.critters) individual.ageDays += state.day - previousDay;
       state.flags = state.flags.filter(
         (flag) =>
-          flag !== 'petted-today' && flag !== 'greeted-pip-today' && !flag.startsWith('pip-'),
+          flag !== 'petted-today' &&
+          flag !== 'greeted-pip-today' &&
+          !flag.startsWith('pip-') &&
+          !flag.startsWith('greeted:'),
       );
     }
     for (const node of state.materialNodes)

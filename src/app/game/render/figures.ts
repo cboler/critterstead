@@ -580,3 +580,61 @@ export function buildFigure(
 export function appearanceKey(speciesId: string, appearance: Appearance): string {
   return `${speciesId}:${appearance.coat}:${appearance.accent}:${appearance.size}`;
 }
+
+/** The parts of a person the world animates. */
+export interface PersonParts {
+  body: THREE.Group;
+  legs: THREE.Mesh[];
+  arms: THREE.Group[];
+  eyes: THREE.Mesh[];
+  height: number;
+}
+
+/** Looks of a townsperson: clothes, skin and hair, and optionally a hat and an apron. */
+export interface PersonColours {
+  coat: string;
+  trim: string;
+  legs: string;
+  skin: string;
+  hair: string;
+  hat?: string;
+  apron?: string;
+}
+
+/** A townsperson in the same toy style as the rancher and Grandpa. */
+export function buildPerson(kit: FigureKit, root: THREE.Group, look: PersonColours): PersonParts {
+  const body = new THREE.Group();
+  root.add(body);
+  const { mesh, sphere, cylinder } = kit;
+  body.add(mesh(sphere, look.coat, [0, 0.86, 0], [0.3, 0.43, 0.22]));
+  body.add(mesh(sphere, look.trim, [0, 1.12, 0.06], [0.26, 0.12, 0.2]));
+  if (look.apron) body.add(mesh(sphere, look.apron, [0, 0.78, 0.13], [0.24, 0.32, 0.1]));
+  body.add(mesh(sphere, look.skin, [0, 1.4, 0.035], [0.25, 0.27, 0.235]));
+  body.add(mesh(sphere, look.hair, [0, 1.48, -0.035], [0.265, 0.21, 0.245]));
+  if (look.hat) {
+    body.add(mesh(cylinder, look.hat, [0, 1.62, 0], [0.42, 0.06, 0.4]));
+    body.add(mesh(cylinder, look.hat, [0, 1.71, 0], [0.26, 0.17, 0.25]));
+  }
+  const eyes: THREE.Mesh[] = [];
+  const arms: THREE.Group[] = [];
+  const legs: THREE.Mesh[] = [];
+  for (const side of [-1, 1]) {
+    const eye = mesh(sphere, '#3f362c', [side * 0.08, 1.42, 0.27], [0.02, 0.025, 0.018]);
+    eye.userData['open'] = eye.scale.y;
+    body.add(eye);
+    eyes.push(eye);
+    const shoulder = new THREE.Group();
+    shoulder.position.set(side * 0.31, 1.12, 0);
+    const arm = mesh(cylinder, look.coat, [side * 0.02, -0.2, 0], [0.092, 0.42, 0.092]);
+    arm.rotation.z = side * 0.2;
+    shoulder.add(arm);
+    shoulder.add(mesh(sphere, look.skin, [side * 0.065, -0.42, 0.015], [0.085, 0.1, 0.085]));
+    body.add(shoulder);
+    arms.push(shoulder);
+    const leg = mesh(cylinder, look.legs, [side * 0.13, 0.34, 0], [0.1, 0.48, 0.1]);
+    leg.add(mesh(kit.sphere, '#5d4c3c', [0, -0.45, 0.25], [1.2, 0.35, 1.6]));
+    legs.push(leg);
+    root.add(leg);
+  }
+  return { body, legs, arms, eyes, height: look.hat ? 2 : 1.85 };
+}

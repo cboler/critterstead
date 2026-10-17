@@ -18,7 +18,7 @@ test('walks to Oakhaven with Grandpa and Pip, meets Gemothy, and chooses a first
   await next.click();
   await next.click();
   await expect(card).toContainText('sunberry hedge');
-  await expect(page.locator('.location-tag')).toContainText('Oakhaven');
+  await expect(page.locator('.location-tag')).toContainText('The hedgerow lane');
   for (let beat = 0; beat < 3; beat++) await next.click();
   await expect(card).toContainText('That’s Gemothy');
   await page.screenshot({ path: info.outputPath('gemothy.png'), fullPage: true });
@@ -39,6 +39,6 @@ test('walks to Oakhaven with Grandpa and Pip, meets Gemothy, and chooses a first
   expect(state.day).toBe(1);
   expect(state.minute).toBeLessThan(500);
   expect(activeCritter(state).name).toBe('Mallow');
-  await expect.poll(async () => (await savedState(page)).version).toBe(13);
+  await expect.poll(async () => (await savedState(page)).version).toBe(14);
   expect(errors).toEqual([]);
 });

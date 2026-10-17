@@ -1,4 +1,4 @@
-export type AreaId = 'homestead' | 'glade' | 'cottage' | 'colosseum' | 'town';
+export type AreaId = 'homestead' | 'glade' | 'cottage' | 'colosseum' | 'town' | 'lane' | 'road';
 // Colosseum events; 'exhibition' is the athletic showing held every day.
 export type ExhibitionId = 'exhibition' | 'hedgerow' | 'strongpaw' | 'clever' | 'meadow' | 'grand';
 // A ranked cup on the Colosseum ladder, or one of the events above.
@@ -288,10 +288,13 @@ export interface WorldObject {
     | 'rhythm'
     | 'chess'
     | 'exhibition'
-    | 'notices';
+    | 'notices'
+    | 'sign';
   name: string;
   position: Point;
   radius: number;
+  // Signs: what they say.
+  text?: string;
   // Gates: where they lead and where the rancher arrives.
   destination?: AreaId;
   arrival?: Point;
@@ -300,7 +303,8 @@ export interface AreaDefinition {
   id: AreaId;
   name: string;
   subtitle: string;
-  halfSize: number;
+  // Half the walkable extent along x and z; roads are longer than they are wide.
+  half: Point;
   objects: WorldObject[];
   spawn: Point;
   // Scenery that blocks walking, beyond the solid objects.

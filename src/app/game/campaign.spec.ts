@@ -147,8 +147,12 @@ describe('the first living stead across three days', () => {
     expect(host.haulingLearning().label).toBe('Hauls on cue');
     // Then an exhibition at the Colosseum, through Oakhaven, and a lap of the glade's loop.
     travel(host, 'town-gate', -7.4, 1.2);
+    expect(host.state.areaId).toBe('lane');
+    travel(host, 'town-gate', -16.4, 0);
     expect(host.state.areaId).toBe('town');
     travel(host, 'colosseum-gate', -7.4, 1);
+    expect(host.state.areaId).toBe('road');
+    travel(host, 'colosseum-gate', -16.4, 0);
     expect(host.state.areaId).toBe('colosseum');
     go(host, -3, 1.9);
     must(host, 'exhibition', 'exhibit');
@@ -157,7 +161,10 @@ describe('the first living stead across three days', () => {
     expect(host.critter.competitions.at(-1)).toMatchObject({ day: 2, event: 'exhibition' });
     expect(act(host, 'exhibition', 'exhibit')).toBe(false);
     travel(host, 'gate', -7.4, 4);
+    travel(host, 'gate', 16.4, 0);
     travel(host, 'gate', 7.4, 1);
+    travel(host, 'gate', 16.4, 0.4);
+    expect(host.state.areaId).toBe('homestead');
     travel(host, 'gate', 7.4, 0);
     go(host, 1.2, 6);
     must(host, 'pace', 'pace');

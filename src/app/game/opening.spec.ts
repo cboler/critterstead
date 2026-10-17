@@ -23,11 +23,11 @@ describe('the walk to Oakhaven', () => {
     for (const beat of OPENING) {
       expect(beat.minute).toBeGreaterThanOrEqual(minute);
       minute = beat.minute;
-      const half = AREAS[beat.areaId].halfSize;
+      const half = AREAS[beat.areaId].half;
       for (const point of [beat.player, beat.stage.grandpa, beat.stage.pip, beat.stage.gemothy])
         if (point) {
-          expect(Math.abs(point.x), beat.id).toBeLessThan(half);
-          expect(Math.abs(point.z), beat.id).toBeLessThan(half);
+          expect(Math.abs(point.x), beat.id).toBeLessThan(half.x);
+          expect(Math.abs(point.z), beat.id).toBeLessThan(half.z);
         }
     }
   });

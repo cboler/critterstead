@@ -260,6 +260,28 @@ passes; `finishCup` places the companion in the field and pays purse and ladder 
 Save v13 gives every critter `ladder` (rank and points); cup results add `placing`,
 `field` and `rank` to the competition entry.
 
+## Current implementation additions — plan 006 M1 (2026-10-16)
+
+Areas are rectangles: `AreaDefinition.half` gives the walkable half extents, and walking,
+the camera, pointer targets, grass and `buildSurroundings` (which measures distance from
+the playable edge as if from the old 20×20 square, offset per side) all follow it. Two
+road areas, `lane` (yard ↔ Oakhaven) and `road` (Oakhaven ↔ Colosseum), sit between the
+old ones; stepping onto or off a road costs 5 minutes. `sign` objects show their `text`.
+
+`cast.ts` holds everyone besides the household as a pure function of the save, like
+Grandpa's routine: `castFor(state)` lists the current area's members, each with a
+position, a line and a figure (a critter's family and looks, or a person's colours). For
+now that is `wildCritters`: two or three wild critters per road per day, drawn by
+`noise(day, …)`, ambling about a home spot by day. Greeting one records `met:<family>`
+(kept) and `greeted:<id>` (cleared at dawn); the journal's Critters tab lists the
+families met. `GameWorld.animateCast` builds, moves and drops cast figures as the list
+changes; `buildPerson` draws townsfolk for later milestones.
+
+Saves before v14 are retired rather than migrated
+([D55](DECISIONS.md#d55--saves-from-earlier-builds-may-be-retired-before-release-accepted-2026-10-16)):
+`readSave` names the old version and leaves the record untouched; the migration chain
+and the frozen legacy fixtures are gone.
+
 ## Architectural reality audit (reconciliation baseline before M4)
 
 The following audit records the reconciled pre-M4 baseline. The dated additions
@@ -499,12 +521,11 @@ architectural generalizations must be introduced incrementally:
 
 ## Save contract and evolution rules
 
-1. **Explicit version migration**: All changes to `GameState` schema require incrementing
-   `GameState.version` and providing a dedicated, chained migration function in `storage.ts`
-   (e.g., `migrateV3ToV4`).
-2. **Frozen legacy fixtures**: Every schema migration must be accompanied by frozen historical
-   fixtures in `src/app/game/fixtures/` proving that legacy saves migrate with 100% data
-   fidelity.
+1. **Explicit versions**: All changes to `GameState` schema increment `GameState.version`
+   (`SAVE_VERSION` in `storage.ts`). Until release, older saves are retired, not migrated
+   (D55); once players' saves matter, chained migrations and frozen fixtures return.
+2. **Retired saves are kept**: a retired save is named to the player and left in storage
+   until they choose to start a new homestead.
 3. **Fail-closed guarantees**: If a loaded save contains corrupted, unrecognized, or
    out-of-bounds data, `validateSave` must reject it without modifying the persisted store.
 4. **No data discarding**: Never drop unrecognized fields or silently reset player progress

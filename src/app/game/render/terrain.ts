@@ -65,13 +65,17 @@ function tileMeshes(batch: Batch): THREE.InstancedMesh[] {
   });
 }
 
-/** Whether scenery of this height at (x, z) would stand between the camera and play. */
-function occludesPlay(x: number, z: number, height: number): boolean {
+/**
+ * Whether scenery of this height at (x, z) would stand between the camera and play. The
+ * playable rectangle reaches PLAYABLE_EDGE plus the area's offsets (ox, oz) from 10.
+ */
+function occludesPlay(x: number, z: number, height: number, ox: number, oz: number): boolean {
   const reach = height * OCCLUSION_PER_HEIGHT;
   for (let t = 0; t <= reach; t += 0.75) {
     const qx = x - TOWARD_CAMERA.x * t;
     const qz = z - TOWARD_CAMERA.y * t;
-    if (Math.abs(qx) < PLAYABLE_EDGE - 0.4 && Math.abs(qz) < PLAYABLE_EDGE - 0.4) return true;
+    if (Math.abs(qx) < PLAYABLE_EDGE + ox - 0.4 && Math.abs(qz) < PLAYABLE_EDGE + oz - 0.4)
+      return true;
   }
   return false;
 }
@@ -143,6 +147,48 @@ const LAYOUTS: Partial<Record<AreaId, Layout>> = {
       ],
     ],
     openings: [[-10, 4]],
+  },
+  lane: {
+    seed: 523,
+    paths: [
+      [
+        [17, 0.4],
+        [21, 0.8],
+        [30, 2],
+        [52, 4],
+      ],
+      [
+        [-17, 0],
+        [-21, -0.3],
+        [-30, -1.4],
+        [-52, -3],
+      ],
+    ],
+    openings: [
+      [18.3, 0.4],
+      [-18.3, 0],
+    ],
+  },
+  road: {
+    seed: 617,
+    paths: [
+      [
+        [17, 0],
+        [21, 0.2],
+        [30, 1],
+        [52, 3],
+      ],
+      [
+        [-17, 0],
+        [-21, 0.4],
+        [-30, 2],
+        [-52, 5],
+      ],
+    ],
+    openings: [
+      [18.3, 0],
+      [-18.3, 0],
+    ],
   },
   town: {
     seed: 419,
@@ -286,8 +332,19 @@ function bush(colors: [string, string]) {
 }
 
 /** Builds terrain, forest, brook and paths beyond an outdoor area's fence. */
-export function buildSurroundings(area: AreaId, season: Season, detail: number): Surroundings {
+export function buildSurroundings(
+  area: AreaId,
+  season: Season,
+  detail: number,
+  half: { x: number; z: number } = { x: 10, z: 10 },
+): Surroundings {
   const layout = LAYOUTS[area] ?? { seed: 11, paths: [], openings: [] };
+  // Distances from the playable edge are measured as if the area were the old 20×20 square,
+  // shifted outward by how much larger (or smaller) each side is.
+  const ox = half.x - 10;
+  const oz = half.z - 10;
+  const spread = Math.max(ox, oz, 0);
+  const edgeOf = (x: number, z: number) => Math.max(Math.abs(x) - ox, Math.abs(z) - oz);
   const palette: SeasonPalette = PALETTES[season];
   const group = new THREE.Group();
   const disposables: { dispose(): void }[] = [];
@@ -303,7 +360,7 @@ export function buildSurroundings(area: AreaId, season: Season, detail: number):
     paths.reduce((best, path) => Math.min(best, distanceToPolyline(x, z, path)), Infinity);
 
   const height = (x: number, z: number): number => {
-    const edge = Math.max(Math.abs(x), Math.abs(z));
+    const edge = edgeOf(x, z);
     let rim = smoothstep(PLAYABLE_EDGE + 0.3, 18, edge) * smoothstep(1.4, 5.5, pathDistance(x, z));
     let h =
       rim * (0.45 + fbm(x * 0.07, z * 0.07, layout.seed) * 3.3) + smoothstep(24, 46, edge) * 3;
@@ -318,8 +375,8 @@ export function buildSurroundings(area: AreaId, season: Season, detail: number):
   };
 
   // Ground: one faceted sheet, flat inside the playable square.
-  const size = 96;
-  const segments = Math.round(64 + 32 * detail);
+  const size = 96 + spread * 2;
+  const segments = Math.round((64 + 32 * detail) * (size / 96));
   const ground = keep(new THREE.PlaneGeometry(size, size, segments, segments));
   ground.rotateX(-Math.PI / 2);
   const positions = ground.attributes['position'];
@@ -335,7 +392,7 @@ export function buildSurroundings(area: AreaId, season: Season, detail: number):
     const z = positions.getZ(index);
     const y = height(x, z);
     positions.setY(index, y);
-    const edge = Math.max(Math.abs(x), Math.abs(z));
+    const edge = edgeOf(x, z);
     color.copy(grass).lerp(grassLight, fbm(x * 0.16, z * 0.16, layout.seed + 5));
     color.lerp(meadow, smoothstep(PLAYABLE_EDGE, PLAYABLE_EDGE + 3, edge) * 0.8);
     color.lerp(forestFloor, smoothstep(14, 22, edge) * 0.75);
@@ -405,16 +462,17 @@ export function buildSurroundings(area: AreaId, season: Season, detail: number):
     attempt < treeBudget * 9 && rounds.count + conifers.count < treeBudget;
     attempt++
   ) {
-    const x = (random() * 2 - 1) * 34;
-    const z = (random() * 2 - 1) * 34;
-    const edge = Math.max(Math.abs(x), Math.abs(z));
+    const x = (random() * 2 - 1) * (34 + Math.max(ox, 0));
+    const z = (random() * 2 - 1) * (34 + Math.max(oz, 0));
+    const edge = edgeOf(x, z);
     if (edge < PLAYABLE_EDGE + 2.2) continue;
     if (random() > smoothstep(PLAYABLE_EDGE + 1.5, 17, edge) * 0.95) continue;
     if (riverDistance(x, z) < RIVER_HALF + 2 || pathDistance(x, z) < 2.6) continue;
     const scale = 0.85 + random() * 0.45 + smoothstep(14, 30, edge) * 0.35;
     // Trees on the camera side stay back far enough that the yard is never hidden.
-    if (occludesPlay(x, z, 4.4 * scale)) {
-      if (random() < 0.45 && !occludesPlay(x, z, 0.9)) place(bushes, x, z, 0.7 + random() * 0.6);
+    if (occludesPlay(x, z, 4.4 * scale, ox, oz)) {
+      if (random() < 0.45 && !occludesPlay(x, z, 0.9, ox, oz))
+        place(bushes, x, z, 0.7 + random() * 0.6);
       continue;
     }
     const pick = random();
@@ -424,26 +482,22 @@ export function buildSurroundings(area: AreaId, season: Season, detail: number):
   }
 
   // Hedges mark the playable edge wherever a fence does not.
-  for (const side of [-1, 1])
-    for (let t = -PLAYABLE_EDGE; t <= PLAYABLE_EDGE; t += 1.05) {
-      for (const [x, z] of [
-        [t, side * PLAYABLE_EDGE],
-        [side * PLAYABLE_EDGE, t],
-      ] as Pair[]) {
-        if (layout.openings.some(([ox, oz]) => Math.hypot(x - ox, z - oz) < 2.3)) continue;
-        if (riverDistance(x, z) < RIVER_HALF + 0.6) continue;
-        place(
-          bushes,
-          x + (random() - 0.5) * 0.4,
-          z + (random() - 0.5) * 0.4,
-          0.7 + random() * 0.45,
-        );
-      }
-    }
+  const hedgeX = PLAYABLE_EDGE + ox;
+  const hedgeZ = PLAYABLE_EDGE + oz;
+  const hedgeLine: Pair[] = [];
+  for (const side of [-1, 1]) {
+    for (let t = -hedgeX; t <= hedgeX; t += 1.05) hedgeLine.push([t, side * hedgeZ]);
+    for (let t = -hedgeZ; t <= hedgeZ; t += 1.05) hedgeLine.push([side * hedgeX, t]);
+  }
+  for (const [x, z] of hedgeLine) {
+    if (layout.openings.some(([gx, gz]) => Math.hypot(x - gx, z - gz) < 2.3)) continue;
+    if (riverDistance(x, z) < RIVER_HALF + 0.6) continue;
+    place(bushes, x + (random() - 0.5) * 0.4, z + (random() - 0.5) * 0.4, 0.7 + random() * 0.45);
+  }
   for (let extra = 0; extra < 40 * detail; extra++) {
-    const x = (random() * 2 - 1) * 20;
-    const z = (random() * 2 - 1) * 20;
-    const edge = Math.max(Math.abs(x), Math.abs(z));
+    const x = (random() * 2 - 1) * (20 + ox);
+    const z = (random() * 2 - 1) * (20 + oz);
+    const edge = edgeOf(x, z);
     if (
       edge < PLAYABLE_EDGE + 1 ||
       riverDistance(x, z) < RIVER_HALF + 1 ||
@@ -471,9 +525,9 @@ export function buildSurroundings(area: AreaId, season: Season, detail: number):
     { cast: false, receive: false },
   );
   for (let attempt = 0; attempt < blades.limit * 2; attempt++) {
-    const x = (random() * 2 - 1) * 19;
-    const z = (random() * 2 - 1) * 19;
-    const edge = Math.max(Math.abs(x), Math.abs(z));
+    const x = (random() * 2 - 1) * (19 + ox);
+    const z = (random() * 2 - 1) * (19 + oz);
+    const edge = edgeOf(x, z);
     if (
       edge < PLAYABLE_EDGE - 0.4 ||
       riverDistance(x, z) < RIVER_HALF + 0.4 ||

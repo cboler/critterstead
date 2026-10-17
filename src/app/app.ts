@@ -16,6 +16,7 @@ import { createInitialState, LocalGameHost } from './game/host';
 import { OFFER_BEAT, OPENING, openingFarewell, stageOpening } from './game/opening';
 import {
   FAMILIES,
+  FAMILY_IDS,
   kindName,
   MALLOW,
   starterName,
@@ -53,6 +54,7 @@ import {
 } from './game/drills';
 import { eventInfo, ordinal, RANKS } from './game/ladder';
 import { GameWorld } from './game/world';
+import { familiesMet } from './game/cast';
 import {
   storedQualityChoice,
   storeQualityChoice,
@@ -79,7 +81,7 @@ function storeAssist(on: boolean): void {
 }
 
 type Panel = 'journal' | 'help' | 'developer' | 'calendar';
-type JournalTab = 'quests' | 'history' | 'supplies';
+type JournalTab = 'quests' | 'critters' | 'history' | 'supplies';
 
 /** Whether the details panel sits beside the world rather than over it. */
 function sidePanelLayout(): boolean {
@@ -261,9 +263,20 @@ export class App implements AfterViewInit, OnDestroy {
   protected readonly haulingSteps = Array.from({ length: this.hauling().goal }, (_, i) => i + 1);
   protected readonly journalTabs: { id: JournalTab; label: string }[] = [
     { id: 'quests', label: 'Quests' },
+    { id: 'critters', label: 'Critters' },
     { id: 'history', label: 'History' },
     { id: 'supplies', label: 'Supplies' },
   ];
+  /** The nine families, and which of them you have met in the wild. */
+  protected readonly metFamilies = computed(() => {
+    const met = familiesMet(this.state());
+    return FAMILY_IDS.map((id) => ({
+      id,
+      name: FAMILIES[id].name,
+      met: met.includes(id),
+      description: FAMILIES[id].description,
+    }));
+  });
   protected readonly bag = computed(() => backpack(this.state()));
   protected readonly companionBag = computed(() => satchel(this.state()));
   protected readonly load = computed(() =>

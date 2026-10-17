@@ -460,6 +460,16 @@ export const TOWN_CARTS: Point[] = [
 export const TOWN_WELL: Point = { x: 0, z: 0 };
 export const TAVERN_BIN: Point = { x: 3.3, z: -3.3 };
 
+// The lane's sunberry hedge, where Pip picks on the walk to town, and its signpost.
+export const LANE_HEDGE: Point[] = [
+  { x: -11.2, z: -2.6 },
+  { x: -10.1, z: -3 },
+  { x: -12.3, z: -3 },
+];
+export const LANE_SIGN: Point = { x: 2.2, z: -2.2 };
+export const ROAD_SIGN: Point = { x: 1.6, z: 2.3 };
+export const ROAD_CARTS: Point[] = [{ x: -7.5, z: -3.4 }];
+
 const COLOSSEUM_BLOCKERS: Blocker[] = [
   ...arenaPosts().map(({ x, z }) => ({ x, z, r: 0.45 })),
   ...arenaSeats().map(({ x, z }) => ({ x, z, r: 0.65 })),
@@ -484,7 +494,7 @@ export const AREAS: Record<AreaId, AreaDefinition> = {
     id: 'homestead',
     name: 'Bramblewick Yard',
     subtitle: 'A little patch of possibility',
-    halfSize: 10,
+    half: { x: 10, z: 10 },
     spawn: { x: 0, z: 0 },
     objects: [
       { id: 'house', kind: 'house', name: 'Your cottage', position: { x: -5, z: -4 }, radius: 1.9 },
@@ -515,11 +525,11 @@ export const AREAS: Record<AreaId, AreaDefinition> = {
       {
         id: 'town-gate',
         kind: 'gate',
-        name: 'To Oakhaven',
+        name: 'To the hedgerow lane',
         position: { x: -8, z: 1.2 },
         radius: 1,
-        destination: 'town',
-        arrival: { x: 6.4, z: 1 },
+        destination: 'lane',
+        arrival: { x: 15.6, z: 0.4 },
       },
       {
         id: 'lift',
@@ -541,7 +551,7 @@ export const AREAS: Record<AreaId, AreaDefinition> = {
     id: 'cottage',
     name: 'Inside your cottage',
     subtitle: 'Warm boards and a crackling hearth',
-    halfSize: 5,
+    half: { x: 5, z: 5 },
     spawn: { x: 1.6, z: 3.3 },
     // The chess table stands in the way; the gramophone sits by the wall of the rug.
     blockers: [{ ...CHESS_TABLE, r: 0.5 }],
@@ -595,7 +605,7 @@ export const AREAS: Record<AreaId, AreaDefinition> = {
     id: 'glade',
     name: 'Clover Glade',
     subtitle: 'Good things grow a little off the path',
-    halfSize: 10,
+    half: { x: 10, z: 10 },
     spawn: { x: -6, z: 0 },
     objects: [
       {
@@ -641,17 +651,17 @@ export const AREAS: Record<AreaId, AreaDefinition> = {
     id: 'colosseum',
     name: 'The Colosseum grounds',
     subtitle: 'Unfinished stands, very finished enthusiasm',
-    halfSize: 10,
+    half: { x: 10, z: 10 },
     spawn: { x: -6, z: 4 },
     objects: [
       {
         id: 'gate',
         kind: 'gate',
-        name: 'Back to Oakhaven',
+        name: 'To the Colosseum road',
         position: { x: -8, z: 4 },
         radius: 1,
-        destination: 'town',
-        arrival: { x: -6.4, z: 1 },
+        destination: 'road',
+        arrival: { x: -15.6, z: 0 },
       },
       {
         id: 'exhibition',
@@ -667,26 +677,26 @@ export const AREAS: Record<AreaId, AreaDefinition> = {
     id: 'town',
     name: 'Oakhaven',
     subtitle: 'Everyone here knows everyone',
-    halfSize: 10,
+    half: { x: 10, z: 10 },
     spawn: { x: 6.4, z: 1 },
     objects: [
       {
         id: 'gate',
         kind: 'gate',
-        name: 'Back to Bramblewick',
+        name: 'To the hedgerow lane',
         position: { x: 8, z: 1 },
         radius: 1,
-        destination: 'homestead',
-        arrival: { x: -6.4, z: 1.2 },
+        destination: 'lane',
+        arrival: { x: -15.6, z: 0 },
       },
       {
         id: 'colosseum-gate',
         kind: 'gate',
-        name: 'To the Colosseum grounds',
+        name: 'To the Colosseum road',
         position: { x: -8, z: 1 },
         radius: 1,
-        destination: 'colosseum',
-        arrival: { x: -6, z: 4 },
+        destination: 'road',
+        arrival: { x: 15.6, z: 0 },
       },
       {
         id: 'notices',
@@ -697,6 +707,81 @@ export const AREAS: Record<AreaId, AreaDefinition> = {
       },
     ],
     blockers: TOWN_BLOCKERS,
+  },
+  lane: {
+    id: 'lane',
+    name: 'The hedgerow lane',
+    subtitle: 'Hawthorn on both sides, and something always rustling in it',
+    half: { x: 18, z: 6 },
+    spawn: { x: 15.6, z: 0.4 },
+    objects: [
+      {
+        id: 'gate',
+        kind: 'gate',
+        name: 'Home to Bramblewick',
+        position: { x: 17, z: 0.4 },
+        radius: 1,
+        destination: 'homestead',
+        arrival: { x: -6.4, z: 1.2 },
+      },
+      {
+        id: 'town-gate',
+        kind: 'gate',
+        name: 'On to Oakhaven',
+        position: { x: -17, z: 0 },
+        radius: 1,
+        destination: 'town',
+        arrival: { x: 6.4, z: 1 },
+      },
+      {
+        id: 'signpost',
+        kind: 'sign',
+        name: 'Signpost',
+        position: LANE_SIGN,
+        radius: 0.6,
+        text: 'Bramblewick, east. Oakhaven, west. Someone has carved a little critter face beneath the arrows.',
+      },
+    ],
+    blockers: [{ ...LANE_SIGN, r: 0.3 }, ...LANE_HEDGE.map(({ x, z }) => ({ x, z, r: 0.55 }))],
+  },
+  road: {
+    id: 'road',
+    name: 'The Colosseum road',
+    subtitle: 'Bunting on every fence post, all the way to the stands',
+    half: { x: 18, z: 6 },
+    spawn: { x: 15.6, z: 0 },
+    objects: [
+      {
+        id: 'gate',
+        kind: 'gate',
+        name: 'Back to Oakhaven',
+        position: { x: 17, z: 0 },
+        radius: 1,
+        destination: 'town',
+        arrival: { x: -6.4, z: 1 },
+      },
+      {
+        id: 'colosseum-gate',
+        kind: 'gate',
+        name: 'On to the Colosseum',
+        position: { x: -17, z: 0 },
+        radius: 1,
+        destination: 'colosseum',
+        arrival: { x: -6, z: 4 },
+      },
+      {
+        id: 'signpost',
+        kind: 'sign',
+        name: 'Milestone',
+        position: ROAD_SIGN,
+        radius: 0.6,
+        text: 'Oakhaven, east. The Colosseum, west. The stone is worn smooth where generations of hands have patted it for luck.',
+      },
+    ],
+    blockers: [
+      { ...ROAD_SIGN, r: 0.45 },
+      ...ROAD_CARTS.map(({ x, z }) => ({ x, z, hx: 0.95, hz: 0.6 })),
+    ],
   },
 };
 

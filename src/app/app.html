@@ -1069,6 +1069,21 @@
             }
           </ol>
         </div>
+        <div role="tabpanel" aria-label="Critters" [hidden]="journalTab() !== 'critters'">
+          <h3>Families you have met</h3>
+          <p class="panel-note">
+            Wild critters wander the hedgerow lane and the Colosseum road by day. Crouch and say
+            hello to meet their families.
+          </p>
+          <ul class="family-list">
+            @for (family of metFamilies(); track family.id) {
+              <li [class.met]="family.met">
+                <strong>{{ family.met ? family.name : '?' }}</strong
+                ><span>{{ family.met ? family.description : 'Not met yet.' }}</span>
+              </li>
+            }
+          </ul>
+        </div>
         <div role="tabpanel" aria-label="History" [hidden]="journalTab() !== 'history'">
           <div class="journal-summary">
             <span>Day {{ state().day }}</span

@@ -53,10 +53,16 @@ test('trains strength with fading repeat gains, then earns a Colosseum exhibitio
   );
 
   await walk(page, -7.4, 1.2);
-  await page.getByRole('button', { name: /^Walk to Oakhaven · 20 min/ }).click();
+  await page.getByRole('button', { name: /^Take the hedgerow lane · 5 min/ }).click();
+  await expect(page.locator('.location-tag')).toContainText('The hedgerow lane');
+  await walk(page, -16.4, 0);
+  await page.getByRole('button', { name: /^Walk into Oakhaven · 5 min/ }).click();
   await expect(page.locator('.location-tag')).toContainText('Oakhaven');
   await walk(page, -7.4, 1);
-  await page.getByRole('button', { name: /^Walk to the Colosseum · 10 min/ }).click();
+  await page.getByRole('button', { name: /^Take the Colosseum road · 5 min/ }).click();
+  await expect(page.locator('.location-tag')).toContainText('The Colosseum road');
+  await walk(page, -16.4, 0);
+  await page.getByRole('button', { name: /^Walk up to the Colosseum · 5 min/ }).click();
   await expect(page.locator('.location-tag')).toContainText('The Colosseum grounds');
   // Into the entrance gap: anywhere the walk stops there is within reach of the booth.
   await walk(page, -2.6, 1.3);

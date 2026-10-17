@@ -15,6 +15,10 @@ import {
   RHYTHM_STATION,
   RUN_HALF_LENGTH,
   RUN_LANE,
+  LANE_HEDGE,
+  LANE_SIGN,
+  ROAD_CARTS,
+  ROAD_SIGN,
   TAVERN_BIN,
   TOSS_STATION,
   TOWN_BUILDINGS,
@@ -51,7 +55,14 @@ import {
 import { type Appearance } from './families';
 import { GRANDPA, grandpaWhereabouts, PIP_ID, pipWhereabouts } from './household';
 import { type SceneStage } from './opening';
-import { appearanceKey, buildFigure, type FigureKit, type FigureParts } from './render/figures';
+import {
+  appearanceKey,
+  buildFigure,
+  buildPerson,
+  type FigureKit,
+  type FigureParts,
+} from './render/figures';
+import { castFor, type CastMember } from './cast';
 import {
   detectQuality,
   pixelRatioFor,
@@ -159,6 +170,21 @@ export interface GuestCritter {
   visualTraits: Appearance;
   position: Point;
 }
+/** A wild critter or townsperson drawn from the cast. */
+interface CastView {
+  key: string;
+  root: THREE.Group;
+  legs: THREE.Mesh[];
+  tail: THREE.Group | null;
+  eyes: THREE.Mesh[];
+  label: HTMLDivElement;
+  shadow: THREE.Mesh;
+  height: number;
+  at: Point | null;
+  last: THREE.Vector2;
+  phase: number;
+  blink: number;
+}
 interface Guest {
   id: string;
   root: THREE.Group;
@@ -247,6 +273,7 @@ export class GameWorld {
   private figureKey = '';
   private critterHeight = 1.9;
   private guests: Guest[] = [];
+  private readonly castViews = new Map<string, CastView>();
   private guestFocus: string | null = null;
   // Grandpa and Pip: figures, eased view positions, labels and shadows.
   private readonly grandpa = new THREE.Group();
@@ -699,6 +726,7 @@ export class GameWorld {
       !this.staging;
     this.animateGuests(state, dt);
     this.animateResidents(state, dt);
+    this.animateCast(state, dt);
     // The opening walk tips the tavern bin and empties one bush of the hedge.
     this.townHedge[0]?.traverse((part) => (part.visible = !this.staging?.berriesPicked));
     if (this.townBin) {
@@ -888,6 +916,7 @@ export class GameWorld {
 
   dispose(): void {
     this.setGuests(null);
+    for (const id of [...this.castViews.keys()]) this.dropCast(id);
     this.observer.disconnect();
     this.renderer.domElement.removeEventListener('pointerdown', this.walk);
     this.renderer.domElement.removeEventListener('pointermove', this.pointerMove);
@@ -979,10 +1008,10 @@ export class GameWorld {
     );
     this.raycaster.setFromCamera(this.pointer, this.camera);
     if (!this.raycaster.ray.intersectPlane(this.ground, this.intersection)) return null;
-    const edge = (AREAS[this.area as AreaId]?.halfSize ?? 10) - 1.2;
+    const half = AREAS[this.area as AreaId]?.half ?? { x: 10, z: 10 };
     return {
-      x: THREE.MathUtils.clamp(this.intersection.x, -edge, edge),
-      z: THREE.MathUtils.clamp(this.intersection.z, -edge, edge),
+      x: THREE.MathUtils.clamp(this.intersection.x, 1.2 - half.x, half.x - 1.2),
+      z: THREE.MathUtils.clamp(this.intersection.z, 1.2 - half.z, half.z - 1.2),
     };
   }
 
@@ -1165,9 +1194,9 @@ export class GameWorld {
     else if (state.training)
       this.focusGoal.set((player.x + companionView.x) / 2, 0, (player.z + companionView.z) / 2);
     else this.focusGoal.set(player.x, 0, player.z);
-    const edge = (AREAS[state.areaId]?.halfSize ?? 10) - 2;
-    this.focusGoal.x = THREE.MathUtils.clamp(this.focusGoal.x, -edge, edge);
-    this.focusGoal.z = THREE.MathUtils.clamp(this.focusGoal.z, -edge, edge);
+    const half = AREAS[state.areaId]?.half ?? { x: 10, z: 10 };
+    this.focusGoal.x = THREE.MathUtils.clamp(this.focusGoal.x, 2 - half.x, half.x - 2);
+    this.focusGoal.z = THREE.MathUtils.clamp(this.focusGoal.z, 2 - half.z, half.z - 2);
     const shiftGoalX = (this.insets.left - this.insets.right) / 2;
     const shiftGoalY = (this.insets.top - this.insets.bottom) / 2;
     if (this.snapCamera) {
@@ -1303,6 +1332,7 @@ export class GameWorld {
         state.areaId,
         calendarDate(state.day).season,
         QUALITY_SETTINGS[this.qualityTier].detail,
+        AREAS[state.areaId].half,
       );
       this.scenery.add(this.surroundings.group);
       if (state.areaId === 'homestead') {
@@ -1310,6 +1340,8 @@ export class GameWorld {
         this.gardenBeds(state);
       } else if (state.areaId === 'colosseum') this.colosseum();
       else if (state.areaId === 'town') this.town();
+      else if (state.areaId === 'lane') this.lane();
+      else if (state.areaId === 'road') this.road();
       else this.glade(state);
     }
     for (const node of state.materialNodes.filter((node) => node.areaId === state.areaId)) {
@@ -1391,7 +1423,7 @@ export class GameWorld {
       this.scenery.add(frame);
     }
     if (state.areaId !== 'cottage' && state.areaId !== 'colosseum')
-      this.grass(state.areaId === 'homestead' ? 97 : state.areaId === 'town' ? 419 : 301);
+      this.grass({ homestead: 97, town: 419, lane: 523, road: 617 }[state.areaId as string] ?? 301);
   }
 
   private path(points: [number, number][], width = 1.2, color = '#e1ce9b'): void {
@@ -2234,7 +2266,7 @@ export class GameWorld {
     const heights: Partial<Record<string, number>> = { gate: 2.4, exhibition: 2.3 };
     for (const object of AREAS.colosseum.objects)
       this.label(
-        object.kind === 'gate' ? '↙ Back to Oakhaven' : object.name,
+        object.kind === 'gate' ? '↙ Colosseum road' : object.name,
         object.position.x,
         heights[object.kind] ?? 1.8,
         object.position.z,
@@ -2335,33 +2367,7 @@ export class GameWorld {
       board.add(this.mesh(this.box, color, [x, y, 0.05], [0.42, 0.3, 0.02]));
     this.scenery.add(board);
     this.pennants(-3.2, -2.8, 3.2, -2.8, 3);
-    // A sunberry hedge along the lane into town, and the tavern's bin.
-    this.townHedge = [];
-    for (const [x, z] of [
-      [5.9, -1.5],
-      [6.9, -1.9],
-      [4.9, -1.8],
-    ]) {
-      const bush = new THREE.Group();
-      bush.position.set(x, 0, z);
-      bush.add(this.mesh(this.sphere, '#6f9a5c', [0, 0.45, 0], [0.62, 0.48, 0.5]));
-      bush.add(this.mesh(this.sphere, '#7fa868', [0.3, 0.55, 0.12], [0.4, 0.36, 0.36]));
-      const berries = new THREE.Group();
-      for (let berry = 0; berry < 6; berry++) {
-        const angle = berry * 1.1;
-        berries.add(
-          this.mesh(
-            this.sphere,
-            '#d8604f',
-            [Math.cos(angle) * 0.5, 0.45 + (berry % 3) * 0.13, 0.25 + Math.sin(angle) * 0.18],
-            [0.07, 0.07, 0.07],
-          ),
-        );
-      }
-      bush.add(berries);
-      this.townHedge.push(berries);
-      this.scenery.add(bush);
-    }
+    // The tavern's bin.
     const bin = new THREE.Group();
     bin.position.set(TAVERN_BIN.x, 0, TAVERN_BIN.z);
     const can = new THREE.Group();
@@ -2432,15 +2438,161 @@ export class GameWorld {
     for (const object of AREAS.town.objects)
       this.label(
         object.id === 'gate'
-          ? 'Back to Bramblewick ↗'
+          ? 'Hedgerow lane ↗'
           : object.id === 'colosseum-gate'
-            ? '↙ Colosseum grounds'
+            ? '↙ Colosseum road'
             : object.name,
         object.position.x,
         object.kind === 'gate' ? 2.4 : 1.9,
         object.position.z,
         object.kind === 'gate',
       );
+  }
+
+  /** The hedgerow lane between the yard and town: hawthorn, a signpost and Pip's sunberries. */
+  private lane(): void {
+    this.path(
+      [
+        [18.6, 0.4],
+        [12, 0.9],
+        [6, -0.3],
+        [0, 0.4],
+        [-6, -0.5],
+        [-12, 0.2],
+        [-18.6, 0],
+      ],
+      1.5,
+    );
+    const trees: [number, number, number][] = [
+      [13.5, -4.4, 0.8],
+      [6.5, -4.7, 0.7],
+      [-2.5, -4.6, 0.85],
+      [-8.6, -4.5, 0.75],
+      [-15.2, -4.3, 0.7],
+    ];
+    trees.forEach(([x, z, scale], index) => this.tree(x, z, scale, index + 2));
+    // Pip's sunberry hedge, near the town end; the opening walk empties the first bush.
+    this.townHedge = [];
+    for (const { x, z } of LANE_HEDGE) {
+      const bush = new THREE.Group();
+      bush.position.set(x, 0, z);
+      bush.add(this.mesh(this.sphere, '#6f9a5c', [0, 0.45, 0], [0.62, 0.48, 0.5]));
+      bush.add(this.mesh(this.sphere, '#7fa868', [0.3, 0.55, 0.12], [0.4, 0.36, 0.36]));
+      const berries = new THREE.Group();
+      for (let berry = 0; berry < 6; berry++) {
+        const angle = berry * 1.1;
+        berries.add(
+          this.mesh(
+            this.sphere,
+            '#d8604f',
+            [Math.cos(angle) * 0.5, 0.45 + (berry % 3) * 0.13, 0.25 + Math.sin(angle) * 0.18],
+            [0.07, 0.07, 0.07],
+          ),
+        );
+      }
+      bush.add(berries);
+      this.townHedge.push(berries);
+      this.scenery.add(bush);
+    }
+    this.label('Sunberry hedge', LANE_HEDGE[0].x, 1.6, LANE_HEDGE[0].z);
+    // A stile over the field fence on the north side, and stones along the verge.
+    const stile = new THREE.Group();
+    stile.position.set(8.4, 0, -3.6);
+    for (const side of [-1, 1])
+      stile.add(this.mesh(this.box, '#a5865d', [side * 0.5, 0.6, 0], [0.12, 1.2, 0.12]));
+    for (const y of [0.35, 0.7])
+      stile.add(this.mesh(this.box, '#c3a77a', [0, y, 0.15], [1.1, 0.08, 0.3]));
+    this.scenery.add(stile);
+    this.fence([5.6, -3.8], [11.2, -3.8], 3);
+    this.fence([-4.6, 3.9], [1.6, 3.9], 3);
+    [
+      [4, 2.3],
+      [-5.8, -2.6],
+      [11.6, 2.6],
+    ].forEach(([x, z], index) => {
+      const rock = this.mesh(this.pebble, '#a3aea0', [x, 0.25, z], [0.55, 0.45, 0.42]);
+      rock.rotation.y = index * 1.9;
+      this.scenery.add(rock);
+    });
+    this.signpost(LANE_SIGN.x, LANE_SIGN.z);
+    this.lantern(14.6, -1.6);
+    this.lantern(-14.4, 1.6);
+    this.gate(17, 0.4, false);
+    this.gate(-17, 0, true);
+    this.label('Bramblewick ↗', 17, 2.4, 0.4, true);
+    this.label('↙ Oakhaven', -17, 2.4, 0, true);
+    this.label('Signpost', LANE_SIGN.x, 2.2, LANE_SIGN.z);
+  }
+
+  /** The Colosseum road: a broad road with bunting on the fences and a lucky milestone. */
+  private road(): void {
+    this.path(
+      [
+        [18.6, 0],
+        [9, 0.3],
+        [0, -0.2],
+        [-9, 0.3],
+        [-18.6, 0],
+      ],
+      2,
+    );
+    this.fence([-15.5, -2.6], [15.5, -2.6], 12);
+    this.fence([-15.5, 2.9], [-1, 2.9], 6);
+    this.fence([4, 2.9], [15.5, 2.9], 5);
+    this.pennants(-14, -2.6, -6, -2.6, 2.2);
+    this.pennants(-4, -2.6, 4, -2.6, 2.2);
+    this.pennants(6, -2.6, 14, -2.6, 2.2);
+    this.pennants(-14, 2.9, -6, 2.9, 2.2);
+    this.pennants(6, 2.9, 14, 2.9, 2.2);
+    const stone = new THREE.Group();
+    stone.position.set(ROAD_SIGN.x, 0, ROAD_SIGN.z);
+    stone.add(this.mesh(this.box, '#b9b1a0', [0, 0.45, 0], [0.5, 0.9, 0.3]));
+    stone.add(this.mesh(this.sphere, '#c9c1ae', [0, 0.9, 0], [0.25, 0.14, 0.15]));
+    this.scenery.add(stone);
+    for (const { x, z } of ROAD_CARTS) {
+      const cart = new THREE.Group();
+      cart.position.set(x, 0, z);
+      cart.add(this.mesh(this.box, '#9b714b', [0, 0.65, 0], [1.9, 0.45, 1.1]));
+      for (const side of [-1, 1])
+        cart.add(this.mesh(this.cylinder, '#6e5640', [side * 0.6, 0.35, 0.6], [0.35, 0.08, 0.35]));
+      cart.children.slice(-2).forEach((wheel) => (wheel.rotation.x = Math.PI / 2));
+      for (const [dx, color] of [
+        [-0.45, '#d69265'],
+        [0, '#e9cc83'],
+        [0.45, '#c8866a'],
+      ] as [number, string][])
+        cart.add(this.mesh(this.sphere, color, [dx, 1, 0], [0.32, 0.28, 0.32]));
+      this.scenery.add(cart);
+    }
+    const trees: [number, number, number][] = [
+      [12.8, -4.6, 0.75],
+      [-11, -4.6, 0.8],
+    ];
+    trees.forEach(([x, z, scale], index) => this.tree(x, z, scale, index + 5));
+    this.lantern(9.4, 1.6);
+    this.lantern(-3.4, -1.7);
+    this.lantern(-13.8, 1.7);
+    this.gate(17, 0, false);
+    this.gate(-17, 0, true);
+    this.label('Oakhaven ↗', 17, 2.4, 0, true);
+    this.label('↙ The Colosseum', -17, 2.4, 0, true);
+    this.label('Milestone', ROAD_SIGN.x, 1.7, ROAD_SIGN.z);
+  }
+
+  /** A wooden signpost with two arms. */
+  private signpost(x: number, z: number): void {
+    const post = new THREE.Group();
+    post.position.set(x, 0, z);
+    post.add(this.mesh(this.box, '#8c6a45', [0, 0.9, 0], [0.12, 1.8, 0.12]));
+    for (const [y, turn] of [
+      [1.55, 0.15],
+      [1.3, -0.2],
+    ] as [number, number][]) {
+      const arm = this.mesh(this.box, '#d9c49a', [0, y, 0], [1.1, 0.2, 0.05]);
+      arm.rotation.y = turn;
+      post.add(arm);
+    }
+    this.scenery.add(post);
   }
 
   /** A town building: plaster walls, a pitched roof, a door, two windows and a name. */
@@ -2872,9 +3024,12 @@ export class GameWorld {
     let flowerCount = 0;
     let lavenderCount = 0;
     for (let attempt = 0; attempt < 650 && grassCount < 360; attempt++) {
-      const x = random() * 17 - 8.5;
-      const z = random() * 17 - 8.5;
-      if (Math.abs(x) > 7.3 && Math.abs(z) > 7.3) continue;
+      const half = AREAS[this.area as AreaId]?.half ?? { x: 10, z: 10 };
+      const x = (random() * 2 - 1) * (half.x - 1.5);
+      const z = (random() * 2 - 1) * (half.z - 1.5);
+      if (Math.abs(x) > half.x - 2.7 && Math.abs(z) > half.z - 2.7) continue;
+      // Roads keep their walking line clear.
+      if ((this.area === 'lane' || this.area === 'road') && Math.abs(z) < 1.4) continue;
       // Keep the authored central walkways and facilities visually open.
       if (
         this.area === 'homestead' &&
@@ -3094,6 +3249,103 @@ export class GameWorld {
       } else this.grandpaBody.scale.y = 1 + breath;
       view.shadow.position.set(view.at.x, 0.045, view.at.z);
       this.positionLabel(view.label, this.projection.set(view.at.x, resident.height, view.at.z));
+    }
+  }
+
+  /** Builds a cast member's figure, label and shadow. */
+  private castView(member: CastMember, key: string): CastView {
+    const root = new THREE.Group();
+    let view: Pick<CastView, 'legs' | 'tail' | 'eyes' | 'height'>;
+    if (member.figure.kind === 'critter') {
+      const parts = buildFigure(
+        this.figureKit,
+        root,
+        member.figure.speciesId,
+        member.figure.visualTraits,
+        false,
+      );
+      view = { legs: parts.legs, tail: parts.tail, eyes: parts.eyes, height: parts.height + 0.1 };
+    } else {
+      const parts = buildPerson(this.figureKit, root, member.figure.look);
+      view = { legs: parts.legs, tail: null, eyes: parts.eyes, height: parts.height + 0.15 };
+    }
+    this.glaze(root);
+    const shadow = this.contactShadows[1].clone();
+    shadow.visible = true;
+    this.scene.add(root, shadow);
+    return {
+      ...view,
+      key,
+      root,
+      label: this.makeLabel(member.name, member.figure.kind === 'critter'),
+      shadow,
+      at: null,
+      last: new THREE.Vector2(),
+      phase: member.id.length * 1.3,
+      blink: 1 + Math.random() * 3,
+    };
+  }
+
+  private dropCast(id: string): void {
+    const view = this.castViews.get(id);
+    if (!view) return;
+    this.scene.remove(view.root, view.shadow);
+    view.label.remove();
+    this.castViews.delete(id);
+  }
+
+  /**
+   * Draws everyone in the cast where the simulation says they are: easing toward that spot,
+   * stepping, blinking, wagging, and turning to look at a rancher who stands still nearby.
+   */
+  private animateCast(state: GameState, dt: number): void {
+    const members = this.guests.length && !this.staging ? [] : castFor(state);
+    const present = new Set(members.map((member) => member.id));
+    for (const id of [...this.castViews.keys()]) if (!present.has(id)) this.dropCast(id);
+    const player = state.player.position;
+    for (const member of members) {
+      const key = JSON.stringify(member.figure);
+      let view = this.castViews.get(member.id);
+      if (view && view.key !== key) {
+        this.dropCast(member.id);
+        view = undefined;
+      }
+      if (!view) {
+        view = this.castView(member, key);
+        this.castViews.set(member.id, view);
+      }
+      const target = member.position;
+      const gap = view.at ? Math.hypot(target.x - view.at.x, target.z - view.at.z) : Infinity;
+      if (!view.at || gap > 5 || this.reducedMotion) {
+        view.at = { ...target };
+        view.last.set(target.x, target.z);
+      } else if (gap > 0.01) {
+        const step = Math.min(gap, 2.2 * dt);
+        view.at = {
+          x: view.at.x + ((target.x - view.at.x) / gap) * step,
+          z: view.at.z + ((target.z - view.at.z) / gap) * step,
+        };
+      }
+      const moving = this.animateActor(view.root, view.at, view.last, view.legs, 0.22);
+      if (!moving && Math.hypot(player.x - view.at.x, player.z - view.at.z) < 3.5) {
+        const facing = Math.atan2(player.x - view.at.x, player.z - view.at.z);
+        view.root.rotation.y +=
+          Math.atan2(
+            Math.sin(facing - view.root.rotation.y),
+            Math.cos(facing - view.root.rotation.y),
+          ) * Math.min(1, dt * 2);
+      }
+      if (view.tail)
+        view.tail.rotation.z = this.reducedMotion
+          ? 0
+          : Math.sin(this.clock * (moving ? 6 : 1.8) + view.phase) * 0.14;
+      view.blink -= dt;
+      const shut = view.blink < 0 && view.blink > -0.15;
+      for (const eye of view.eyes)
+        eye.scale.y = ((eye.userData['open'] as number) ?? 1) * (shut ? 0.12 : 1);
+      if (view.blink < -0.15) view.blink = 2.5 + Math.random() * 3;
+      view.shadow.position.set(view.at.x, 0.045, view.at.z);
+      this.positionLabel(view.label, this.projection.set(view.at.x, view.height, view.at.z));
     }
   }
 

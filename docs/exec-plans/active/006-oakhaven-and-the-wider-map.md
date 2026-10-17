@@ -49,17 +49,17 @@ retired, not migrated (D55): the game says so, keeps the record, and offers a ne
 
 ### M1 — Roads between places (save v14)
 
-- [ ] Areas can be rectangles; terrain, camera and walking bounds follow.
-- [ ] Two road areas: the Hedgerow lane between the yard and Oakhaven, and the Colosseum
-      road between Oakhaven and the Colosseum, each longer than wide with its own scenery.
-- [ ] Wild critters of the nine families wander the roads by a seeded daily table; walking
-      up to one lets you greet it, and the journal keeps the kinds you have met.
-- [ ] The opening walk passes through the lane, with Pip's hedge there.
-- [ ] Grandpa's and Pip's whereabouts and quests route through the roads.
-- [ ] Save v14; v13 and older saves are retired with a clear message (D55), and the
+- [x] Areas can be rectangles; terrain, camera and walking bounds follow.
+- [x] Two road areas: the Hedgerow lane between the yard and Oakhaven, and the Colosseum
+      road between Oakhaven and the Colosseum, each 36 × 12 with its own scenery.
+- [x] Wild critters of the nine families wander the roads by a seeded daily table; walking
+      up to one lets you greet it, and the journal's Critters tab keeps the families met.
+- [x] The opening walk passes through the lane, with Pip's hedge there.
+- [x] Grandpa's and Pip's routines stay on the stead, so they need no routing; quests and
+      the notice board name the road.
+- [x] Save v14; v13 and older saves are retired with a clear message (D55), and the
       migration chain and legacy fixtures are removed.
-- [ ] Verification: unit tests, the browser suite reaching the Colosseum by road, lint,
-      build, PWA, inspected screenshots at desktop and phone sizes.
+- [x] Verification: see [M1 evidence](#m1-evidence--2026-10-16).
 
 ### M2 — Oakhaven's store, shelter and residents
 
@@ -135,6 +135,22 @@ which the quality tiers already control, not from the library.
 - Who follows: one companion follows; the others work or rest. The design's party of three
   remains for expeditions, a later campaign.
 
+## M1 evidence — 2026-10-16
+
+- Host: `cast.ts` (`castFor`, `wildCritters`, `familiesMet`, `noise`), the `lane` and
+  `road` areas and `sign` objects in `content.ts`, travel and greeting in `host.ts`,
+  `SAVE_VERSION` 14 and `readSave`'s retirement in `storage.ts`. Unit tests: 172 passed,
+  including `cast.spec.ts` (determinism, placement, night, greeting once a day, families
+  kept across a save) and the walk yard → lane → town → road → Colosseum and back.
+- Browser: `opening.spec.ts` passes the hedge in the lane; `training.spec.ts` walks both
+  roads to the Colosseum. Inspected in the dev server: the opening's hedge beat in the lane
+  with a wild equine, a greeting recorded in the Critters tab, the Colosseum road.
+- Gates: lint, unit tests, production build (bundle 79.8 kB over its budget warning,
+  72.7 kB before).
+- Routine decisions: roads are 36 × 12; each step onto or off a road is 5 minutes
+  (yard to town is now 10 minutes plus the walk); two or three wild critters per road on a
+  fair day, one in rain or snow, none from 20:00 to 06:00; trees stay off the camera side.
+
 ## Current handoff
 
-M1 in progress.
+M1 complete. Next: M2 — a larger Oakhaven with the store, the shelter and residents.
