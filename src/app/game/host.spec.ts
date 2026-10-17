@@ -4,7 +4,7 @@ import { BEHAVIORS, GAME_CONFIG } from './content';
 import { createInitialState, learnedStage, LocalGameHost } from './host';
 import { activeCritter, GameState, Point } from './model';
 import { readSave } from './storage';
-import { legacyV2 } from './fixtures/legacy-v2';
+import { withDormantExpert } from './fixtures/household';
 
 function at(position: Point, modify?: (state: GameState) => void): LocalGameHost {
   const state = createInitialState();
@@ -196,61 +196,6 @@ describe('progression, resources, and persistence', () => {
 });
 
 describe('learning conditions and continuity', () => {
-  it.each(['gather', 'critter-gather', 'autonomous'] as const)(
-    'retains M1 %s rewards, progression and seeds with M3 effort costs',
-    (actor) => {
-      const state = readSave(legacyV2);
-      state.training = null;
-      state.areaId = 'glade';
-      state.areaInstanceId = 'local-glade';
-      state.player.position = { x: -3, z: -2 };
-      activeCritter(state).position = { x: -3, z: -2 };
-      activeCritter(state).learnedBehaviors['sunberry-foraging'] =
-        actor === 'gather' ? 2 : actor === 'critter-gather' ? 5 : 7;
-      state.resources[0].available = true;
-      const host = new LocalGameHost(state);
-      if (actor === 'autonomous') host.update(0.1);
-      else expect(act(host, 'berries-west', actor)).toBe(true);
-      // M1 golden rewards/progress/seeds are retained; M3 deliberately changes companion effort from 8 to 12.
-      const player = actor === 'gather';
-      expect(host.state.seed).toBe(player ? 777197 : 1892584552);
-      expect(host.learning().progress).toBe(player ? 3 : actor === 'critter-gather' ? 7 : 8);
-      expect(host.critter.stamina).toBe(player ? 63 : 51);
-      expect(host.state.player.stamina).toBe(player ? 51 : actor === 'critter-gather' ? 55 : 57);
-      expect(host.state.totalMinutes).toBe(
-        player ? 9487 : actor === 'critter-gather' ? 9492 : 9472.08,
-      );
-      expect(host.critter.skills).toEqual({ harvesting: player ? 4 : 5, racing: 6 });
-      expect(backpack(host.state).items.filter((item) => item.itemId === 'berry')).toEqual(
-        player
-          ? [
-              { id: 'stack-berry-2', itemId: 'berry', quantity: 7, quality: 2 },
-              { id: 'stack-berry-1', itemId: 'berry', quantity: 2, quality: 1 },
-            ]
-          : [{ id: 'stack-berry-2', itemId: 'berry', quantity: 7, quality: 2 }],
-      );
-      expect(satchel(host.state).items).toEqual(
-        player
-          ? []
-          : [
-              {
-                id: `satchel-${host.critter.id}-berry-2`,
-                itemId: 'berry',
-                quantity: 3,
-                quality: 2,
-              },
-            ],
-      );
-      expect(host.critter.history).toEqual([
-        ...legacyV2.critters[1].history,
-        ...(actor === 'autonomous'
-          ? []
-          : [player ? 'Day 7: Harvests on cue.' : 'Day 7: Independent forager.']),
-      ]);
-      expect(host.state.critters[0]).toEqual(state.critters[0]);
-    },
-  );
-
   function berries(progress = 7): GameState {
     const state = createInitialState();
     state.areaId = 'glade';
@@ -446,9 +391,10 @@ describe('learning conditions and continuity', () => {
     expect(host.learning().progress).toBe(8);
   });
 
-  it('isolates observation, cued and autonomous learning from a dormant expert across migration/reload', () => {
-    const state = readSave(legacyV2);
-    state.training = null;
+  it('isolates observation, cued and autonomous learning from a dormant expert across reload', () => {
+    const state = withDormantExpert(createInitialState());
+    // After Pip's morning picks, which would take bushes from under the test.
+    state.minute = state.totalMinutes = 660;
     state.areaId = 'glade';
     state.player.position = { x: 0, z: 0 };
     activeCritter(state).position = { x: 0, z: 0 };

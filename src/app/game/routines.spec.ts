@@ -1,7 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { DRILLS, ROUTINE } from './content';
-import { kept } from './fixtures/household';
-import { legacyV10 } from './fixtures/legacy-v10';
 import { createInitialState, LocalGameHost } from './host';
 import { activeCritter, GameState } from './model';
 import { readSave, validateSave } from './storage';
@@ -127,62 +125,5 @@ describe('routines', () => {
     for (let tick = 0; tick < 400 && host.state.training; tick++) host.update(0.05);
     expect(host.critter.practised).toEqual({ lift: 1 });
     expect(host.interaction()!.actions.find((item) => item.id === 'routine')!.disabled).toBe(false);
-  });
-});
-
-describe('save v11 practice', () => {
-  it('migrates frozen v10, unlocking what each companion had already played together', () => {
-    const before = structuredClone(legacyV10);
-    const migrated = readSave(before);
-    expect(before).toEqual(legacyV10);
-    expect(migrated.version).toBe(13);
-    // Two lifts were counted as a skill; the household's hoops flag is the companion's.
-    expect(activeCritter(migrated).practised).toEqual({ hoops: 1, lift: 2 });
-    expect(migrated.critters.find((critter) => critter.ownerId === 'grandpa')!.practised).toEqual(
-      {},
-    );
-    expect(kept(migrated.critters)).toEqual(kept(legacyV10.critters as never));
-    expect({ ...migrated, critters: [] }).toEqual({ ...legacyV10, version: 13, critters: [] });
-    expect(readSave(migrated)).toEqual(migrated);
-  });
-
-  it('protects saves with damaged practice or routines', () => {
-    const damage: ((state: GameState) => void)[] = [
-      (state) => (activeCritter(state).practised = { juggling: 1 } as never),
-      (state) => (activeCritter(state).practised = { lift: 0 }),
-      (state) => delete (activeCritter(state) as Partial<GameState['critters'][0]>).practised,
-      (state) =>
-        (state.training = {
-          critterId: state.activeCritterId,
-          phase: 0,
-          hits: [],
-          elapsed: 0,
-          kind: 'routine',
-          scores: [0.5],
-        }),
-      (state) =>
-        (state.training = {
-          critterId: state.activeCritterId,
-          phase: 0,
-          hits: [],
-          elapsed: 0,
-          kind: 'routine',
-          drill: 'lift',
-        }),
-    ];
-    const invalid: unknown[] = damage.map((change) => {
-      const state = createInitialState();
-      change(state);
-      return state;
-    });
-    invalid.push({
-      ...structuredClone(legacyV10),
-      critters: legacyV10.critters.map((critter) => ({ ...critter, practised: {} })),
-    });
-    for (const value of invalid) {
-      const copy = structuredClone(value);
-      expect(() => readSave(value)).toThrow(/kept/);
-      expect(value).toEqual(copy);
-    }
   });
 });

@@ -197,7 +197,7 @@ const hauling = BEHAVIORS['lumber-hauling'];
 /** A new household with its chosen first companion and the seed its offer was drawn from. */
 export function createInitialState(starter: StarterCandidate = MALLOW, seed = 240921): GameState {
   return {
-    version: 13,
+    version: 14,
     seed,
     day: 1,
     minute: 480,

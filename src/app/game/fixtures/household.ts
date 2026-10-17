@@ -1,16 +1,28 @@
-import { PIP_ID } from '../household';
+import { GameState } from '../model';
 
 /**
- * What a migration kept: leaves out Grandpa's Pip and his satchel, which v10 adds, the
- * practice record v11 gives every critter, and the ladder standing v13 gives it.
+ * A household with a second critter of the player's own, an expert forager who is not the
+ * companion, placed first in the roster so tests can check it is never touched.
  */
-export function kept<T extends { id: string }>(items: T[]): T[] {
-  return items
-    .filter((item) => item.id !== PIP_ID && item.id !== `satchel-${PIP_ID}`)
-    .map((item) => {
-      const rest: Record<string, unknown> = { ...item };
-      delete rest['practised'];
-      delete rest['ladder'];
-      return rest as T;
-    });
+export function withDormantExpert(state: GameState): GameState {
+  const companion = state.critters.find((critter) => critter.id === state.activeCritterId)!;
+  const dormant = {
+    ...structuredClone(companion),
+    id: 'critter-dormant',
+    name: 'Bramble',
+    position: { x: 6, z: 6 },
+    learnedBehaviors: { 'sunberry-foraging': 8 },
+    skills: { harvesting: 6, racing: 6 },
+    history: ['Day 1: An old hand at the berry bushes.'],
+  };
+  state.critters.unshift(dormant);
+  state.containers.push({
+    id: `satchel-${dormant.id}`,
+    kind: 'satchel',
+    location: { actorId: dormant.id },
+    capacity: null,
+    allowed: [...state.containers.find((item) => item.kind === 'satchel')!.allowed],
+    items: [],
+  });
+  return state;
 }

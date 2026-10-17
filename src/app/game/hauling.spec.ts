@@ -1,9 +1,8 @@
-import { kept } from './fixtures/household';
 import { createInitialState, LocalGameHost } from './host';
-import { addItem, ITEM_IDS, quantity } from './logistics';
+import { addItem, quantity } from './logistics';
 import { backpack, satchel } from './model';
 import { readSave, validateSave } from './storage';
-import { legacyV5 } from './fixtures/legacy-v5';
+import { withDormantExpert } from './fixtures/household';
 
 function tick(host: LocalGameHost, seconds: number) {
   for (let i = 0; i < seconds; i++) host.update(1);
@@ -144,7 +143,7 @@ describe('compositional learned hauling', () => {
   });
 
   it('pauses work outside the yard and during training without losing cargo or mutating dormant critters', () => {
-    const state = readSave(legacyV5);
+    const state = withDormantExpert(createInitialState());
     state.work = null;
     const host = new LocalGameHost(state);
     host.critter.learnedBehaviors['lumber-hauling'] = 6;
@@ -170,28 +169,5 @@ describe('compositional learned hauling', () => {
         'lumber',
       ),
     ).toBe(1);
-  });
-
-  it('migrates frozen v5 without moving goods or rerolling the seed and rejects invalid tasks', () => {
-    const before = structuredClone(legacyV5);
-    const state = readSave(before);
-    // Contents and places are unchanged; general containers also accept v7 garden goods.
-    expect(kept(state.containers).map((item) => ({ ...item, allowed: [] }))).toEqual(
-      before.containers.map((item) => ({ ...item, allowed: [] })),
-    );
-    for (const container of state.containers)
-      expect(container.allowed).toEqual(
-        ['mill-input', 'mill-output', 'trough'].includes(container.kind)
-          ? before.containers.find((item) => item.id === container.id)!.allowed
-          : ITEM_IDS,
-      );
-    expect(state.production).toEqual(before.production);
-    expect(state.seed).toBe(before.seed);
-    expect(readSave(state)).toEqual(state);
-    expect(before).toEqual(legacyV5);
-    expect(() => readSave({ ...before, haulLesson: {} })).toThrow(/ambiguous/);
-    const fresh = createInitialState();
-    fresh.critters[0].hauling.enabled = true;
-    expect(() => validateSave(fresh)).toThrow(/assignment/);
   });
 });

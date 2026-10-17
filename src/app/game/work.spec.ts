@@ -1,9 +1,7 @@
-import { kept } from './fixtures/household';
 import { backpack } from './model';
 import { resolveCheck, encumbrance } from './checks';
 import { createInitialState, LocalGameHost } from './host';
 import { readSave, validateSave } from './storage';
-import { legacyV3 } from './fixtures/legacy-v3';
 
 describe('physical work and rancher capabilities', () => {
   it('resolves deterministic degrees and realizes tool quality through proficiency', () => {
@@ -92,35 +90,5 @@ describe('physical work and rancher capabilities', () => {
       5,
     );
     expect(restored.state.groundCargo).toHaveLength(0);
-  });
-
-  it('migrates frozen v3 without changing any existing player or critter progress', () => {
-    const old = structuredClone(legacyV3);
-    const migrated = readSave(old);
-    expect(migrated.player).toMatchObject(old.player);
-    expect(kept(migrated.critters)).toEqual(
-      old.critters.map((critter) => ({
-        ...critter,
-        hauling: { enabled: false, phase: 'idle', cued: false },
-        drills: { day: old.day, sessions: {} },
-        speciesId: 'canine',
-        visualTraits: { ...critter.visualTraits, size: 1 },
-      })),
-    );
-    expect(backpack(migrated).items).toEqual(old.inventory);
-    expect(migrated.training).toEqual(old.training);
-    expect(migrated.seed).toBe(old.seed);
-    expect(old).toEqual(legacyV3);
-    expect(readSave(migrated)).toEqual(migrated);
-  });
-
-  it('protects malformed and ambiguous new schema data', () => {
-    expect(() => readSave({ ...legacyV3, work: {} })).toThrow(/ambiguous work/);
-    const state = createInitialState();
-    state.materialNodes[0].remaining = -1;
-    expect(() => validateSave(state)).toThrow(/materialNode.remaining/);
-    state.materialNodes[0].remaining = 6;
-    state.player.skills['mining'] = Number.NaN;
-    expect(() => validateSave(state)).toThrow(/non-finite/);
   });
 });

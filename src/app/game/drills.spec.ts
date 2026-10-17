@@ -1,11 +1,9 @@
-import { kept } from './fixtures/household';
 import { describe, expect, it } from 'vitest';
 import { EXHIBITION } from './content';
 import { liftScore, paceScore, startGauge, stepLift, stepPace, push } from './drills';
 import { createInitialState, LocalGameHost } from './host';
 import { activeCritter, GameState, Training } from './model';
 import { readSave, validateSave } from './storage';
-import { legacyV7 } from './fixtures/legacy-v7';
 
 function act(host: LocalGameHost, targetId: string, action: string): boolean {
   return host.dispatch({ type: 'interact', targetId, action });
@@ -203,68 +201,5 @@ describe('Colosseum exhibition', () => {
       return host.critter.competitions.at(-1)!.time;
     };
     expect(points(12) - points(4)).toBeGreaterThan(30);
-  });
-});
-
-describe('save v8 training migration', () => {
-  it('migrates frozen v7 with no remembered sessions and protects damaged training data', () => {
-    const before = structuredClone(legacyV7);
-    const state = readSave(before);
-    expect(before).toEqual(legacyV7);
-    expect(state.version).toBe(13);
-    expect(kept(state.critters).map((critter) => critter.drills)).toEqual([
-      { day: before.day, sessions: {} },
-      { day: before.day, sessions: {} },
-    ]);
-    expect(state.plots).toEqual(before.plots);
-    expect(state.training).toEqual(before.training);
-    expect(readSave(state)).toEqual(state);
-
-    const invalid: unknown[] = [
-      { ...structuredClone(legacyV7), areaId: 'colosseum' },
-      {
-        ...structuredClone(legacyV7),
-        critters: legacyV7.critters.map((critter) => ({ ...critter, drills: {} })),
-      },
-    ];
-    const damage: ((state: GameState) => void)[] = [
-      (value) => (value.critters[0].drills = { day: 1, sessions: { juggling: 2 } as never }),
-      (value) => (value.critters[0].drills.sessions.lift = -1),
-      (value) =>
-        (value.training = {
-          critterId: value.activeCritterId,
-          phase: 0,
-          hits: [],
-          elapsed: 0,
-          kind: 'lift',
-        }),
-      (value) =>
-        (value.training = {
-          critterId: value.activeCritterId,
-          phase: 0,
-          hits: [],
-          elapsed: 0,
-          kind: 'pace',
-          meter: 2,
-          progress: 0,
-        }),
-      (value) =>
-        value.critters[0].competitions.push({
-          day: 1,
-          time: 50,
-          medal: 'gold',
-          event: 'rodeo' as never,
-        }),
-    ];
-    for (const change of damage) {
-      const value = createInitialState();
-      change(value);
-      invalid.push(value);
-    }
-    for (const value of invalid) {
-      const copy = structuredClone(value);
-      expect(() => readSave(value)).toThrow(/kept/);
-      expect(value).toEqual(copy);
-    }
   });
 });

@@ -1,10 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { upcomingEvents } from './calendar';
-import { legacyV12 } from './fixtures/legacy-v12';
 import { booth, perform } from './fixtures/play';
 import { createInitialState, LocalGameHost } from './host';
 import { CUP, CUP_DAYS, cupLegs, ordinal, placingOf, RANKS, RIVALS, rivalPoints } from './ladder';
-import { activeCritter, Competition, GameState, Training } from './model';
+import { activeCritter, Training } from './model';
 import { readSave, validateSave } from './storage';
 
 const enterCup = (host: LocalGameHost) =>
@@ -146,51 +145,5 @@ describe('the ladder’s ranked cups', () => {
     perform(resumed, kinds);
     expect(kinds).toEqual(['run', 'lift']);
     expect(resumed.critter.competitions.at(-1)).toMatchObject({ event: 'cup', day: 4 });
-  });
-});
-
-describe('save v13 ladder', () => {
-  it('migrates frozen v12 with every critter at the first rank', () => {
-    const before = structuredClone(legacyV12);
-    const migrated = readSave(before);
-    expect(before).toEqual(legacyV12);
-    expect(migrated.version).toBe(13);
-    expect(migrated.critters.map((critter) => critter.ladder)).toEqual(
-      legacyV12.critters.map(() => ({ rank: 0, points: 0 })),
-    );
-    expect({ ...migrated, critters: [] }).toEqual({ ...legacyV12, version: 13, critters: [] });
-    expect(
-      migrated.critters.map((critter) => {
-        const rest: Partial<typeof critter> = { ...critter };
-        delete rest.ladder;
-        return rest;
-      }),
-    ).toEqual(legacyV12.critters);
-    expect(readSave(migrated)).toEqual(migrated);
-  });
-
-  it('protects damaged ladders, cup results and cups in progress', () => {
-    const early = structuredClone(legacyV12) as unknown as GameState;
-    activeCritter(early).ladder = { rank: 0, points: 0 };
-    expect(() => readSave(early)).toThrow(/kept/);
-    const host = booth(3);
-    enterCup(host);
-    const result = (entry: Competition) => (state: GameState) =>
-      activeCritter(state).competitions.push(entry);
-    const damage: ((state: GameState) => void)[] = [
-      (state) => (activeCritter(state).ladder = { rank: 9, points: 0 }),
-      (state) => (activeCritter(state).ladder = { rank: 0, points: -1 }),
-      (state) => delete (activeCritter(state) as Partial<GameState['critters'][0]>).ladder,
-      (state) => delete state.training!.cupDay,
-      (state) => (state.training!.kind = 'toss'),
-      result({ day: 1, time: 50, medal: 'none', event: 'cup' }),
-      result({ day: 1, time: 50, medal: 'gold', event: 'cup', placing: 8, field: 7, rank: 0 }),
-      result({ day: 1, time: 50, medal: 'gold', placing: 1 }),
-    ];
-    for (const harm of damage) {
-      const save = structuredClone(host.state);
-      harm(save);
-      expect(() => readSave(save)).toThrow(/kept/);
-    }
   });
 });

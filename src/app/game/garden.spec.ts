@@ -1,4 +1,3 @@
-import { kept } from './fixtures/household';
 import { describe, expect, it } from 'vitest';
 import { calendarDate, calendarView, nextDawn, upcomingEvents, weatherFor } from './calendar';
 import { CROPS } from './content';
@@ -6,7 +5,6 @@ import { createInitialState, LocalGameHost } from './host';
 import { addItem, quantity } from './logistics';
 import { backpack, GameState, satchel } from './model';
 import { readSave, validateSave } from './storage';
-import { legacyV6 } from './fixtures/legacy-v6';
 
 function act(host: LocalGameHost, targetId: string, action: string): boolean {
   return host.dispatch({ type: 'interact', targetId, action });
@@ -276,78 +274,5 @@ describe('cottage interior and household calendar', () => {
     expect(host.state.companionIndoors).toBe(true);
     expect(host.critter.position).toEqual({ x: 0.5, z: 3.4 });
     expect(host.state.journal[0]).toContain('joins you indoors');
-  });
-});
-
-describe('save v7 garden and cottage migration', () => {
-  it('migrates frozen v6 into four plots without losing growth, goods or seed', () => {
-    const before = structuredClone(legacyV6);
-    const state = readSave(before);
-    expect(state.version).toBe(13);
-    expect(before).toEqual(legacyV6);
-    expect(state.plots.map((plot) => plot.id)).toEqual(['plot-1', 'plot-2', 'plot-3', 'plot-4']);
-    expect(state.plots[0]).toMatchObject({
-      tilled: true,
-      crop: { speciesId: 'feed', plantedAt: 9300, growthMinutes: 102 },
-    });
-    expect(state.plots.slice(1).every((plot) => !plot.tilled && !plot.crop)).toBe(true);
-    expect(state.companionIndoors).toBe(false);
-    expect(state.seed).toBe(before.seed);
-    expect(kept(state.containers).map((item) => item.items)).toEqual(
-      before.containers.map((item) => item.items),
-    );
-    expect(readSave(state)).toEqual(state);
-    // The old promise holds: remaining growth finishes before the soil dries.
-    const host = new LocalGameHost(state);
-    for (let second = 0; second < 100; second++) host.update(1);
-    expect(host.state.plots[0].crop!.growthMinutes).toBe(CROPS.feed.growthMinutes);
-
-    for (const crop of [
-      { id: 'crop-feed', plantedAt: null, watered: false, readyAt: null },
-      { id: 'crop-feed', plantedAt: 9400, watered: false, readyAt: null },
-    ]) {
-      const migrated = readSave({ ...structuredClone(legacyV6), crop });
-      expect(migrated.plots[0].tilled).toBe(true);
-      expect(migrated.plots[0].moistUntil).toBe(0);
-      expect(migrated.plots[0].crop?.growthMinutes ?? 0).toBe(0);
-    }
-  });
-
-  it('rejects ambiguous, damaged or impossible garden and cottage data without mutating it', () => {
-    const invalid: unknown[] = [
-      { ...structuredClone(legacyV6), plots: [] },
-      { ...structuredClone(legacyV6), areaId: 'cottage' },
-    ];
-    const damage: ((state: GameState) => void)[] = [
-      (state) => (state.plots[1].position = { x: 0, z: 0 }),
-      (state) => state.plots.pop(),
-      (state) =>
-        (state.plots[1].crop = {
-          speciesId: 'feed',
-          plantedAt: 0,
-          growthMinutes: 0,
-          withered: false,
-        }),
-      (state) =>
-        (state.plots[0].crop = {
-          speciesId: 'feed',
-          plantedAt: 0,
-          growthMinutes: 999,
-          withered: false,
-        }),
-      (state) => ((state.plots[0] as unknown as { crop: object }).crop = { speciesId: 'rose' }),
-      (state) => (state.companionIndoors = true),
-      (state) => ((state as unknown as { crop: object }).crop = {}),
-    ];
-    for (const change of damage) {
-      const state = createInitialState();
-      change(state);
-      invalid.push(state);
-    }
-    for (const value of invalid) {
-      const before = structuredClone(value);
-      expect(() => readSave(value)).toThrow(/kept/);
-      expect(value).toEqual(before);
-    }
   });
 });

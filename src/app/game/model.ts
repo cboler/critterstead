@@ -217,7 +217,7 @@ export interface Training {
   scores?: number[];
 }
 export interface GameState {
-  version: 13;
+  version: 14;
   seed: number;
   day: number;
   minute: number;

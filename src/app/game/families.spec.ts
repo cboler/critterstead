@@ -1,9 +1,7 @@
-import { kept } from './fixtures/household';
 import { FAMILIES, FAMILY_IDS, MALLOW, starterName, starterOffer } from './families';
 import { createInitialState, LocalGameHost } from './host';
 import { activeCritter } from './model';
-import { readSave, validateSave } from './storage';
-import { legacyV8 } from './fixtures/legacy-v8';
+import { validateSave } from './storage';
 
 describe('the nine families and the starter offer', () => {
   it('gives every family the same provisional stat total', () => {
@@ -66,37 +64,5 @@ describe('the nine families and the starter offer', () => {
       host.update(5);
       expect(() => validateSave(JSON.parse(JSON.stringify(host.state)))).not.toThrow();
     }
-  });
-});
-
-describe('save v9 families', () => {
-  it('turns a v8 Brindlekin into Canine and changes nothing else', () => {
-    const before = structuredClone(legacyV8);
-    const migrated = readSave(before);
-    expect(before).toEqual(legacyV8);
-    expect(kept(migrated.critters)).toEqual(
-      before.critters.map((critter) => ({
-        ...critter,
-        speciesId: 'canine',
-        visualTraits: { ...critter.visualTraits, size: 1 },
-      })),
-    );
-    expect(readSave(structuredClone(migrated))).toEqual(migrated);
-  });
-
-  it('refuses unknown families, missing sizes and ambiguous older records', () => {
-    const unknown = createInitialState();
-    unknown.critters[0].speciesId = 'dragon';
-    expect(() => validateSave(unknown)).toThrow(/speciesId/);
-    const sizeless = createInitialState() as unknown as {
-      critters: { visualTraits: Record<string, unknown> }[];
-    };
-    delete sizeless.critters[0].visualTraits['size'];
-    expect(() => validateSave(sizeless)).toThrow(/size/);
-    const ambiguous = structuredClone(legacyV8) as unknown as {
-      critters: { visualTraits: Record<string, unknown> }[];
-    };
-    ambiguous.critters[0].visualTraits['size'] = 1;
-    expect(() => readSave(ambiguous)).toThrow(/size/);
   });
 });

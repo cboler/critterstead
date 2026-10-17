@@ -1,41 +1,9 @@
-import { kept } from './fixtures/household';
 import { LocalGameHost } from './host';
 import { backpack, satchel } from './model';
 import { addItem, productionStatus, quantity, transfer } from './logistics';
 import { readSave, validateSave } from './storage';
-import { legacyV4 } from './fixtures/legacy-v4';
 
 describe('localized storage and the first production chain', () => {
-  it('preserves every v4 item, capability, ground pile and paid action', () => {
-    const before = structuredClone(legacyV4);
-    const state = readSave(before);
-    expect(backpack(state).items).toEqual(before.inventory);
-    expect(state.player).toEqual({
-      ...before.player,
-      skills: { ...before.player.skills, farming: 1 },
-    });
-    for (const key of ['seed', 'work', 'groundCargo', 'materialNodes', 'journal'] as const)
-      expect(state[key]).toEqual(before[key]);
-    expect(state.plots[0].crop).toMatchObject({ speciesId: 'feed', growthMinutes: 102 });
-    expect(kept(state.critters)).toEqual(
-      before.critters.map((critter) => ({
-        ...critter,
-        hauling: { enabled: false, phase: 'idle', cued: false },
-        drills: { day: before.day, sessions: {} },
-        speciesId: 'canine',
-        visualTraits: { ...critter.visualTraits, size: 1 },
-      })),
-    );
-    expect('inventory' in state).toBe(false);
-    expect(kept(state.containers).filter((item) => item.kind === 'satchel')).toHaveLength(2);
-    expect(readSave(state)).toEqual(state);
-    expect(before).toEqual(legacyV4);
-    const host = new LocalGameHost(state);
-    host.update(1);
-    expect(host.state.work).toBeNull();
-    expect(host.state.player.stamina).toBe(before.player.stamina);
-  });
-
   it('preserves quantities and quality, rejects full or incompatible destinations atomically', () => {
     const host = new LocalGameHost();
     const bag = backpack(host.state);
@@ -97,16 +65,5 @@ describe('localized storage and the first production chain', () => {
     expect(quantity(resumed.state.containers.find((item) => item.kind === 'mill-input')!)).toBe(0);
     expect(quantity(resumed.state.containers.find((item) => item.kind === 'mill-output')!)).toBe(4);
     expect(() => validateSave(resumed.state)).not.toThrow();
-  });
-
-  it('rejects missing, overfull, misplaced, ambiguous or duplicate containers', () => {
-    expect(() => readSave({ ...legacyV4, containers: [] })).toThrow(/ambiguous/);
-    const host = new LocalGameHost();
-    const input = host.state.containers.find((item) => item.kind === 'mill-input')!;
-    addItem(input, 'timber', 5);
-    expect(() => validateSave(host.state)).toThrow(/capacity/);
-    input.items = [];
-    input.location = { areaId: 'glade', position: { x: 5, z: 1 } };
-    expect(() => validateSave(host.state)).toThrow(/position/);
   });
 });

@@ -1,20 +1,19 @@
-import { Critter, ExhibitionId, GameState, Training } from './model';
+import { ExhibitionId, GameState } from './model';
 import { CRITTER_KINDS } from './families';
-import { createPip, GRANDPA, PIP_ID } from './household';
+import { GRANDPA, PIP_ID } from './household';
 import {
   BEHAVIORS,
   CROPS,
   DRILL_IDS,
   EXHIBITION_IDS,
   EXHIBITIONS,
-  initialMaterialNodes,
   initialPlots,
   legKind,
 } from './content';
+import { AREAS } from './content';
 import { chessMoments, rhythmSong, runCourse } from './drills';
 import { ATHLETIC_RANKS, cupLegs, RANKS } from './ladder';
-import { nextDawn } from './calendar';
-import { initialContainers, ITEM_IDS, LEGACY_ITEM_IDS, MILL_MINUTES } from './logistics';
+import { initialContainers, ITEM_IDS, MILL_MINUTES } from './logistics';
 
 export interface SaveStorage {
   load(): Promise<GameState | null>;
@@ -114,330 +113,24 @@ export class IndexedDbStorage implements SaveStorage {
   }
 }
 
-/** Decode without writing: failed validation/migration leaves the stored record intact. */
+/** Saves from builds before this version are retired, not migrated (D55). */
+export const SAVE_VERSION = 14;
+
+/** Decode without writing: a failed validation leaves the stored record intact. */
 export function readSave(value: unknown): GameState {
-  const root = record(value, 'save');
-  if (root['version'] === 1) {
-    validateState(value, 1);
-    const { critter, ...legacy } = structuredClone(value as LegacyGameStateV1);
-    const migrated: LegacyGameStateV2 = {
-      ...legacy,
-      version: 2,
-      critters: [
-        {
-          ...critter,
-          ownerId: legacy.player.id,
-          lastPettedDay: legacy.flags.includes('petted-today') ? legacy.day : null,
-        },
-      ],
-      activeCritterId: critter.id,
-      training: legacy.training ? { ...legacy.training, critterId: critter.id } : null,
-    };
-    return readSave(migrated);
-  }
-  if (root['version'] === 2) {
-    validateState(value, 2);
-    const legacy = structuredClone(value as LegacyGameStateV2);
-    const migrated: LegacyGameStateV3 = {
-      ...legacy,
-      version: 3,
-      critters: legacy.critters.map(({ berryKnowledge, ...critter }) => ({
-        ...critter,
-        learnedBehaviors: { 'sunberry-foraging': berryKnowledge },
-      })),
-    };
-    return readSave(migrated);
-  }
-  if (root['version'] === 3) {
-    validateState(value, 3);
-    for (const key of ['materialNodes', 'groundCargo', 'work'])
-      if (root[key] !== undefined) corrupt(`ambiguous ${key}`);
-    const legacy = structuredClone(value as LegacyGameStateV3);
-    if ('stats' in legacy.player || 'skills' in legacy.player)
-      corrupt('ambiguous player capabilities');
-    const migrated: LegacyGameStateV4 = {
-      ...legacy,
-      version: 4,
-      player: {
-        ...legacy.player,
-        stats: { strength: 5, endurance: 5, speed: 4, intelligence: 5 },
-        skills: { woodcutting: 1, mining: 1, hauling: 1, foraging: 1 },
-      },
-      materialNodes: initialMaterialNodes(),
-      groundCargo: [],
-      work: null,
-    };
-    return readSave(migrated);
-  }
-  if (root['version'] === 4) {
-    validateState(value, 4);
-    if (root['containers'] !== undefined || root['production'] !== undefined)
-      corrupt('ambiguous containers');
-    const { inventory, ...legacy } = structuredClone(value as LegacyGameStateV4);
-    const migrated: LegacyGameStateV5 = {
-      ...legacy,
-      version: 5,
-      containers: initialContainers(
-        legacy.player.id,
-        legacy.activeCritterId,
-        inventory,
-        legacy.critters.map((critter) => critter.id),
-        LEGACY_ITEM_IDS,
-      ),
-      production: { progressMinutes: 0 },
-    };
-    return readSave(migrated);
-  }
-  if (root['version'] === 5) {
-    validateState(value, 5);
-    if (root['haulLesson'] !== undefined) corrupt('ambiguous haulLesson');
-    const legacy = structuredClone(value as LegacyGameStateV5);
-    if (legacy.critters.some((critter) => 'hauling' in critter)) corrupt('ambiguous hauling');
-    const migrated: LegacyGameStateV6 = {
-      ...legacy,
-      version: 6,
-      haulLesson: null,
-      critters: legacy.critters.map((critter) => ({
-        ...critter,
-        hauling: { enabled: false, phase: 'idle', cued: false },
-      })),
-    };
-    return readSave(migrated);
-  }
-  if (root['version'] === 6) {
-    validateState(value, 6);
-    if (root['plots'] !== undefined || root['companionIndoors'] !== undefined)
-      corrupt('ambiguous plots');
-    const { crop, ...legacy } = structuredClone(value as LegacyGameStateV6);
-    // The former feed garden becomes prepared bed 1; its promised growth is kept.
-    const plots = initialPlots();
-    plots[0].tilled = true;
-    if (crop.plantedAt !== null) {
-      const growth = CROPS.feed.growthMinutes;
-      plots[0].crop = {
-        speciesId: 'feed',
-        plantedAt: crop.plantedAt,
-        growthMinutes:
-          crop.watered && crop.readyAt !== null
-            ? Math.max(0, Math.min(growth, growth - (crop.readyAt - legacy.totalMinutes)))
-            : 0,
-        withered: false,
-      };
-      if (crop.watered)
-        plots[0].moistUntil = Math.max(nextDawn(legacy.totalMinutes), crop.readyAt ?? 0);
-    }
-    const migrated: LegacyGameStateV7 = {
-      ...legacy,
-      version: 7,
-      player: { ...legacy.player, skills: { farming: 1, ...legacy.player.skills } },
-      plots,
-      companionIndoors: false,
-      containers: legacy.containers.map((container) =>
-        container.allowed.length === LEGACY_ITEM_IDS.length &&
-        LEGACY_ITEM_IDS.every((item) => container.allowed.includes(item))
-          ? { ...container, allowed: [...ITEM_IDS] }
-          : container,
-      ),
-    };
-    return readSave(migrated);
-  }
-  if (root['version'] === 7) {
-    validateState(value, 7);
-    const legacy = structuredClone(value as LegacyGameStateV7);
-    if (legacy.critters.some((critter) => 'drills' in critter)) corrupt('ambiguous drills');
-    // No sessions are known before v8, so today's first session of each drill gives full gains.
-    const migrated: LegacyGameStateV8 = {
-      ...legacy,
-      version: 8,
-      critters: legacy.critters.map((critter) => ({
-        ...critter,
-        drills: { day: legacy.day, sessions: {} },
-      })),
-    };
-    return readSave(migrated);
-  }
-  if (root['version'] === 8) {
-    validateState(value, 8);
-    const legacy = structuredClone(value as LegacyGameStateV8);
-    // Every earlier companion was the provisional Brindlekin starter; it is now Canine (D40),
-    // keeping Brindlekin for Pip. Identity, name, stats and history are untouched.
-    const migrated: LegacyGameStateV9 = {
-      ...legacy,
-      version: 9,
-      critters: legacy.critters.map((critter) => ({
-        ...critter,
-        speciesId: critter.speciesId === 'brindlekin' ? 'canine' : critter.speciesId,
-        visualTraits: { ...critter.visualTraits, size: 1 },
-      })),
-    };
-    return readSave(migrated);
-  }
-  if (root['version'] === 9) {
-    validateState(value, 9);
-    const legacy = structuredClone(value as LegacyGameStateV9);
-    if (legacy.critters.some((critter) => critter.id === PIP_ID)) corrupt('ambiguous Pip');
-    // v10 adds Oakhaven as a place to be, and Grandpa's Pip (with an empty satchel) to every
-    // household. A legacy companion named Pip keeps its own identity and owner.
-    const [satchel] = initialContainers(legacy.player.id, PIP_ID, [], [PIP_ID]).filter(
-      (container) => container.kind === 'satchel',
+  const version = record(value, 'save')['version'];
+  if (typeof version === 'number' && Number.isInteger(version) && version < SAVE_VERSION)
+    throw new Error(
+      `This homestead comes from an earlier build of Critterstead (save v${version}), before the world was redrawn, and cannot be carried forward.`,
     );
-    // Pip as v10 knew him, before critters remembered their practice or climbed a ladder.
-    const pip: LegacyCritterV10 & Partial<Critter> = createPip(legacy.day);
-    delete pip.practised;
-    delete pip.ladder;
-    const migrated: LegacyGameStateV10 = {
-      ...legacy,
-      version: 10,
-      critters: [...legacy.critters, pip],
-      containers: [...legacy.containers, satchel],
-    };
-    return readSave(migrated);
-  }
-  if (root['version'] === 10) {
-    validateState(value, 10);
-    const legacy = structuredClone(value as LegacyGameStateV10);
-    if (legacy.critters.some((critter) => 'practised' in critter)) corrupt('ambiguous practice');
-    // v11 remembers which drills each critter has played together, to unlock its routines.
-    // Lifts, pacing and log tosses were counted as skills; hoops leave only the household's
-    // 'trained' flag, which belongs to the companion of the day.
-    const migrated: LegacyGameStateV11 = {
-      ...legacy,
-      version: 11,
-      critters: legacy.critters.map((critter) => {
-        const count = (skill: string) => critter.skills[skill] ?? 0;
-        const practised: Critter['practised'] = {};
-        if (legacy.flags.includes('trained') && critter.id === legacy.activeCritterId)
-          practised.hoops = 1;
-        if (count('lifting')) practised.lift = count('lifting');
-        if (count('pacing')) practised.pace = count('pacing');
-        if (count('tossing')) practised.toss = count('tossing');
-        return critter.ownerId === legacy.player.id
-          ? { ...critter, practised }
-          : { ...critter, practised: {} };
-      }),
-    };
-    return readSave(migrated);
-  }
-  if (root['version'] === 11) {
-    validateState(value, 11);
-    const legacy = structuredClone(value as LegacyGameStateV11);
-    // v12 plays the exhibition as legs of real drills on harder settings. A showing in
-    // progress carries on as the athletic event's sprint or, once scored, its stone pull.
-    let training = legacy.training as GameState['training'];
-    if (legacy.training?.kind === 'exhibition') {
-      const { stage, scores, ...rest } = legacy.training;
-      const pull = stage === 1;
-      training = {
-        ...rest,
-        kind: pull ? 'lift' : 'training',
-        event: 'exhibition',
-        leg: pull ? 1 : 0,
-        hard: true,
-        scores: pull ? (scores ?? []).slice(0, 1) : [],
-      };
-    }
-    const migrated: LegacyGameStateV12 = { ...legacy, version: 12, training };
-    return readSave(migrated);
-  }
-  if (root['version'] === 12) {
-    validateState(value, 12);
-    const legacy = structuredClone(value as LegacyGameStateV12);
-    if (legacy.critters.some((critter) => 'ladder' in critter)) corrupt('ambiguous ladder');
-    // v13 puts every critter on the Colosseum ladder at its first rank, with no points.
-    const migrated: GameState = {
-      ...legacy,
-      version: 13,
-      critters: legacy.critters.map((critter) => ({ ...critter, ladder: { rank: 0, points: 0 } })),
-    };
-    validateSave(migrated);
-    return migrated;
-  }
   validateSave(value);
   return structuredClone(value);
 }
 
-// Versioned differences; frozen legacy fixtures must not depend on new-game defaults.
-type LegacyCritter = Omit<LegacyCritterV8, 'learnedBehaviors' | 'hauling'> & {
-  berryKnowledge: number;
-};
-interface LegacyCrop {
-  id: string;
-  plantedAt: number | null;
-  watered: boolean;
-  readyAt: number | null;
-}
-// v11 ran the exhibition as one activity: stage 0 the sprint, stage 1 the stone pull.
-type LegacyTrainingV11 = Omit<Training, 'kind' | 'event' | 'leg' | 'hard'> & {
-  kind: Training['kind'] | 'exhibition';
-};
-// v12 had no Colosseum ladder.
-type LegacyCritterV12 = Omit<Critter, 'ladder'>;
-type LegacyGameStateV12 = Omit<GameState, 'version' | 'critters'> & {
-  version: 12;
-  critters: LegacyCritterV12[];
-};
-type LegacyGameStateV11 = Omit<LegacyGameStateV12, 'version' | 'training'> & {
-  version: 11;
-  training: LegacyTrainingV11 | null;
-};
-type LegacyCritterV10 = Omit<LegacyCritterV12, 'practised'>;
-type LegacyGameStateV10 = Omit<LegacyGameStateV11, 'version' | 'critters'> & {
-  version: 10;
-  critters: LegacyCritterV10[];
-};
-type LegacyGameStateV9 = Omit<LegacyGameStateV10, 'version'> & { version: 9 };
-type LegacyCritterV8 = Omit<Critter, 'visualTraits'> & {
-  visualTraits: { coat: string; accent: string };
-};
-type LegacyGameStateV8 = Omit<LegacyGameStateV9, 'version' | 'critters'> & {
-  version: 8;
-  critters: LegacyCritterV8[];
-};
-type LegacyGameStateV7 = Omit<LegacyGameStateV8, 'version' | 'critters'> & {
-  version: 7;
-  critters: Omit<LegacyCritterV8, 'drills'>[];
-};
-type LegacyGameStateV6 = Omit<LegacyGameStateV7, 'version' | 'plots' | 'companionIndoors'> & {
-  version: 6;
-  crop: LegacyCrop;
-};
-type LegacyGameStateV5 = Omit<LegacyGameStateV6, 'version' | 'critters' | 'haulLesson'> & {
-  version: 5;
-  critters: Omit<LegacyCritterV8, 'hauling'>[];
-};
-type LegacyGameStateV4 = Omit<LegacyGameStateV5, 'version' | 'containers' | 'production'> & {
-  version: 4;
-  inventory: GameState['containers'][number]['items'];
-};
-type LegacyGameStateV3 = Omit<
-  LegacyGameStateV4,
-  'version' | 'player' | 'materialNodes' | 'groundCargo' | 'work'
-> & {
-  version: 3;
-  player: Omit<GameState['player'], 'stats' | 'skills'>;
-};
-type LegacyGameStateV2 = Omit<LegacyGameStateV3, 'version' | 'critters'> & {
-  version: 2;
-  critters: LegacyCritter[];
-};
-type LegacyGameStateV1 = Omit<
-  LegacyGameStateV3,
-  'version' | 'critters' | 'activeCritterId' | 'training'
-> & {
-  version: 1;
-  critter: Omit<LegacyCritter, 'ownerId' | 'lastPettedDay'>;
-  training: Omit<Training, 'critterId'> | null;
-};
-
 /** Writes accept only the current schema. Older records must pass readSave first. */
 export function validateSave(value: unknown): asserts value is GameState {
-  validateState(value, 13);
-}
-
-type SaveVersion = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13;
-function validateState(value: unknown, version: SaveVersion): void {
   const root = record(value, 'save');
-  if (root['version'] !== version) {
+  if (root['version'] !== SAVE_VERSION) {
     throw new Error(
       `Unsupported save version ${String(root['version'])}. Your existing homestead has been kept.`,
     );
@@ -449,7 +142,7 @@ function validateState(value: unknown, version: SaveVersion): void {
   number(root['totalMinutes'], 'totalMinutes');
   if ((root['minute'] as number) >= 1440) corrupt('minute');
   if (root['day'] !== Math.floor((root['totalMinutes'] as number) / 1440) + 1) corrupt('calendar');
-  area(root['areaId'], version);
+  area(root['areaId']);
   string(root['areaInstanceId'], 'areaInstanceId');
 
   const player = record(root['player'], 'player');
@@ -457,69 +150,46 @@ function validateState(value: unknown, version: SaveVersion): void {
   point(player['position']);
   number(player['stamina'], 'player.stamina', 0, 100);
   number(player['coins'], 'player.coins');
-  if (version >= 4) {
-    const stats = record(player['stats'], 'player.stats');
-    for (const key of ['strength', 'endurance', 'speed', 'intelligence'])
-      number(stats[key], `player.stats.${key}`, 1, 999);
-    const skills = record(player['skills'], 'player.skills');
-    for (const key of ['woodcutting', 'mining', 'hauling', 'foraging'])
-      number(skills[key], `player.skills.${key}`, 0, 99);
-    for (const [key, value] of Object.entries(skills)) number(value, `player.skills.${key}`, 0, 99);
-  }
+  const stats = record(player['stats'], 'player.stats');
+  for (const key of ['strength', 'endurance', 'speed', 'intelligence'])
+    number(stats[key], `player.stats.${key}`, 1, 999);
+  const skills = record(player['skills'], 'player.skills');
+  for (const key of ['woodcutting', 'mining', 'hauling', 'foraging'])
+    number(skills[key], `player.skills.${key}`, 0, 99);
+  for (const [key, value] of Object.entries(skills)) number(value, `player.skills.${key}`, 0, 99);
 
   const ids = new Set<string>([player['id'] as string]);
-  const individuals = version === 1 ? [root['critter']] : array(root['critters'], 'critters');
+  const individuals = array(root['critters'], 'critters');
   for (const individual of individuals) {
     const critter = record(individual, 'critter');
-    validateCritter(critter, version);
+    validateCritter(critter);
     entityId(critter['id'], ids);
-    if (version >= 2) {
-      string(critter['ownerId'], 'critter.ownerId');
-      if (version >= 10 && ![player['id'], GRANDPA.id].includes(critter['ownerId'] as string))
-        corrupt('critter.ownerId');
-      if (critter['lastPettedDay'] !== null)
-        number(critter['lastPettedDay'], 'critter.lastPettedDay', 1, root['day'] as number, true);
-    }
+    string(critter['ownerId'], 'critter.ownerId');
+    if (![player['id'], GRANDPA.id].includes(critter['ownerId'] as string))
+      corrupt('critter.ownerId');
+    if (critter['lastPettedDay'] !== null)
+      number(critter['lastPettedDay'], 'critter.lastPettedDay', 1, root['day'] as number, true);
   }
-  if (version >= 2) {
-    string(root['activeCritterId'], 'activeCritterId');
-    const selected = individuals.find(
-      (item) => record(item, 'critter')['id'] === root['activeCritterId'],
-    ) as Record<string, unknown> | undefined;
-    if (!selected || selected['ownerId'] !== player['id']) corrupt('activeCritterId');
-    if (
-      version >= 10 &&
-      !individuals.some((item) => {
-        const critter = record(item, 'critter');
-        return critter['id'] === PIP_ID && critter['ownerId'] === GRANDPA.id;
-      })
-    )
-      corrupt('household');
-    if (root['critter'] !== undefined) corrupt('obsolete critter field');
-  }
-  if (version < 5)
-    for (const value of array(root['inventory'], 'inventory')) {
-      const item = record(value, 'inventory item');
-      entityId(item['id'], ids);
-      choice(
-        item['itemId'],
-        version >= 4
-          ? ['berry', 'feed', 'seed', 'timber', 'stone', 'lumber']
-          : ['berry', 'feed', 'seed'],
-        'inventory.itemId',
-      );
-      number(item['quantity'], 'inventory.quantity', 0, Number.MAX_SAFE_INTEGER, true);
-      number(item['quality'], 'inventory.quality', 1, 3);
-    }
-  if (version >= 5) {
-    if (root['inventory'] !== undefined) corrupt('obsolete inventory');
+  string(root['activeCritterId'], 'activeCritterId');
+  const selected = individuals.find(
+    (item) => record(item, 'critter')['id'] === root['activeCritterId'],
+  ) as Record<string, unknown> | undefined;
+  if (!selected || selected['ownerId'] !== player['id']) corrupt('activeCritterId');
+  if (
+    !individuals.some((item) => {
+      const critter = record(item, 'critter');
+      return critter['id'] === PIP_ID && critter['ownerId'] === GRANDPA.id;
+    })
+  )
+    corrupt('household');
+  {
     const containers = array(root['containers'], 'containers');
     const expected = initialContainers(
       player['id'] as string,
       root['activeCritterId'] as string,
       [],
       individuals.map((item) => record(item, 'critter')['id'] as string),
-      version >= 7 ? ITEM_IDS : LEGACY_ITEM_IDS,
+      ITEM_IDS,
     );
     if (containers.length !== expected.length) corrupt('container count');
     for (const value of containers) {
@@ -571,7 +241,7 @@ function validateState(value: unknown, version: SaveVersion): void {
     );
     if ((record(root['production'], 'production')['progressMinutes'] as number) >= MILL_MINUTES)
       corrupt('production.progress');
-    if (version >= 6 && root['haulLesson'] !== null) {
+    if (root['haulLesson'] !== null) {
       const lesson = record(root['haulLesson'], 'haulLesson');
       if (lesson['critterId'] !== root['activeCritterId']) corrupt('haulLesson.critterId');
       const bag = containers
@@ -583,34 +253,33 @@ function validateState(value: unknown, version: SaveVersion): void {
         .reduce((sum, item) => sum + (item['quantity'] as number), 0);
       number(lesson['lumber'], 'haulLesson.lumber', 1, lumber, true);
     }
-    if (version >= 6)
-      for (const individual of individuals) {
-        const critter = record(individual, 'critter');
-        const job = record(critter['hauling'], 'hauling');
-        if (job['phase'] === 'deliver') {
-          const bag = containers
-            .map((item) => record(item, 'container'))
-            .find(
-              (item) =>
-                item['kind'] === 'satchel' &&
-                record(item['location'], 'location')['actorId'] === critter['id'],
-            )!;
-          if (
-            !array(bag['items'], 'items').some((item) => {
-              const stack = record(item, 'item');
-              return stack['itemId'] === 'lumber' && (stack['quantity'] as number) > 0;
-            })
-          )
-            corrupt('hauling cargo');
-        }
+    for (const individual of individuals) {
+      const critter = record(individual, 'critter');
+      const job = record(critter['hauling'], 'hauling');
+      if (job['phase'] === 'deliver') {
+        const bag = containers
+          .map((item) => record(item, 'container'))
+          .find(
+            (item) =>
+              item['kind'] === 'satchel' &&
+              record(item['location'], 'location')['actorId'] === critter['id'],
+          )!;
+        if (
+          !array(bag['items'], 'items').some((item) => {
+            const stack = record(item, 'item');
+            return stack['itemId'] === 'lumber' && (stack['quantity'] as number) > 0;
+          })
+        )
+          corrupt('hauling cargo');
       }
+    }
   }
-  if (version >= 4) {
+  {
     const nodes = array(root['materialNodes'], 'materialNodes');
     for (const value of nodes) {
       const node = record(value, 'materialNode');
       entityId(node['id'], ids);
-      area(node['areaId'], version);
+      area(node['areaId']);
       point(node['position']);
       choice(node['kind'], ['timber', 'stone'], 'materialNode.kind');
       number(node['remaining'], 'materialNode.remaining', 0, 6, true);
@@ -619,7 +288,7 @@ function validateState(value: unknown, version: SaveVersion): void {
     for (const value of array(root['groundCargo'], 'groundCargo')) {
       const pile = record(value, 'groundCargo');
       entityId(pile['id'], ids);
-      area(pile['areaId'], version);
+      area(pile['areaId']);
       point(pile['position']);
       for (const entry of array(pile['items'], 'groundCargo.items')) {
         const item = record(entry, 'groundCargo.item');
@@ -658,53 +327,24 @@ function validateState(value: unknown, version: SaveVersion): void {
   for (const value of array(root['resources'], 'resources')) {
     const node = record(value, 'resource');
     entityId(node['id'], ids);
-    area(node['areaId'], version);
+    area(node['areaId']);
     point(node['position']);
     boolean(node['available'], 'resource.available');
     number(node['respawnAt'], 'resource.respawnAt');
   }
-  if (version < 7) {
-    const crop = record(root['crop'], 'crop');
-    entityId(crop['id'], ids);
-    for (const key of ['plantedAt', 'readyAt'])
-      if (crop[key] !== null) number(crop[key], `crop.${key}`);
-    boolean(crop['watered'], 'crop.watered');
-  } else {
-    if (root['crop'] !== undefined) corrupt('obsolete crop');
-    validatePlots(root, ids);
-  }
+  validatePlots(root, ids);
   number(root['shedLevel'], 'shedLevel', 0, Number.MAX_SAFE_INTEGER, true);
   strings(root['flags'], 'flags');
   strings(root['journal'], 'journal');
   if (root['training'] !== null) {
     const training = record(root['training'], 'training');
-    if (version >= 2 && training['critterId'] !== root['activeCritterId'])
-      corrupt('training.critterId');
+    if (training['critterId'] !== root['activeCritterId']) corrupt('training.critterId');
     number(training['phase'], 'training.phase', 0, 1);
     number(training['elapsed'], 'training.elapsed');
     if (training['lastHitAt'] !== undefined) number(training['lastHitAt'], 'training.lastHitAt');
     choice(
       training['kind'],
-      // v12 plays the exhibition as legs of real drills.
-      version >= 11
-        ? [
-            'training',
-            'race',
-            'lift',
-            'pace',
-            'toss',
-            'beam',
-            'run',
-            'rhythm',
-            'chess',
-            ...(version >= 12 ? [] : ['exhibition']),
-            'routine',
-          ]
-        : version >= 10
-          ? ['training', 'race', 'lift', 'pace', 'toss', 'exhibition']
-          : version >= 8
-            ? ['training', 'race', 'lift', 'pace', 'exhibition']
-            : ['training', 'race'],
+      ['training', 'race', 'lift', 'pace', 'toss', 'beam', 'run', 'rhythm', 'chess', 'routine'],
       'training.kind',
     );
     for (const key of ['meter', 'progress', 'reserve'])
@@ -734,7 +374,6 @@ function validateState(value: unknown, version: SaveVersion): void {
     if (training['chargeStart'] !== undefined)
       number(training['chargeStart'], 'training.chargeStart');
     if (
-      version >= 8 &&
       (training['kind'] === 'lift' || training['kind'] === 'pace') &&
       (training['meter'] === undefined || training['progress'] === undefined)
     )
@@ -742,13 +381,8 @@ function validateState(value: unknown, version: SaveVersion): void {
     if (training['kind'] === 'toss' && training['meter'] === undefined) corrupt('training toss');
     if (['event', 'leg', 'hard'].some((key) => training[key] !== undefined)) {
       // A Colosseum event's current leg: its drill, on harder settings, after the legs scored.
-      if (version < 12) corrupt('training.event');
-      // v13 adds ranked cups, whose day chose their legs.
-      choice(
-        training['event'],
-        version >= 13 ? [...EXHIBITION_IDS, 'cup'] : EXHIBITION_IDS,
-        'training.event',
-      );
+      // Ranked cups' days chose their legs.
+      choice(training['event'], [...EXHIBITION_IDS, 'cup'], 'training.event');
       const cup = training['event'] === 'cup';
       if (cup) number(training['cupDay'], 'training.cupDay', 1, Number.MAX_SAFE_INTEGER, true);
       else if (training['cupDay'] !== undefined) corrupt('training.cupDay');
@@ -778,9 +412,8 @@ function validateState(value: unknown, version: SaveVersion): void {
     const sequence = sequences[training['kind'] as string];
     const hitLimit = sequence ? sequence(seed).length : 2;
     if (
-      version >= 2 &&
-      (hits.length > hitLimit ||
-        ((training['lastHitAt'] as number) ?? 0) > (training['elapsed'] as number))
+      hits.length > hitLimit ||
+      ((training['lastHitAt'] as number) ?? 0) > (training['elapsed'] as number)
     )
       corrupt('training progress');
   }
@@ -816,25 +449,18 @@ function validatePlots(root: Record<string, unknown>, ids: Set<string>): void {
   }
 }
 
-function validateCritter(critter: Record<string, unknown>, version: SaveVersion): void {
+function validateCritter(critter: Record<string, unknown>): void {
   for (const key of ['id', 'name', 'speciesId', 'personality'])
     string(critter[key], `critter.${key}`);
   choice(critter['sex'], ['female', 'male'], 'critter.sex');
   point(critter['position']);
   number(critter['ageDays'], 'critter.ageDays');
-  if (version < 3) {
-    number(critter['berryKnowledge'], 'critter.berryKnowledge');
-    if (critter['learnedBehaviors'] !== undefined) corrupt('ambiguous learnedBehaviors');
-  } else {
-    if (critter['berryKnowledge'] !== undefined) corrupt('obsolete berryKnowledge');
-    const learned = record(critter['learnedBehaviors'], 'critter.learnedBehaviors');
-    for (const [id, progress] of Object.entries(learned)) {
-      if (!Object.hasOwn(BEHAVIORS, id) || (version < 6 && id !== 'sunberry-foraging'))
-        corrupt('unknown learned behavior');
-      number(progress, `critter.learnedBehaviors.${id}`);
-    }
+  const learned = record(critter['learnedBehaviors'], 'critter.learnedBehaviors');
+  for (const [id, progress] of Object.entries(learned)) {
+    if (!Object.hasOwn(BEHAVIORS, id)) corrupt('unknown learned behavior');
+    number(progress, `critter.learnedBehaviors.${id}`);
   }
-  if (version >= 6) {
+  {
     const job = record(critter['hauling'], 'hauling');
     boolean(job['enabled'], 'hauling.enabled');
     boolean(job['cued'], 'hauling.cued');
@@ -856,10 +482,8 @@ function validateCritter(critter: Record<string, unknown>, version: SaveVersion)
   const traits = record(critter['visualTraits'], 'critter.visualTraits');
   string(traits['coat'], 'critter.visualTraits.coat');
   string(traits['accent'], 'critter.visualTraits.accent');
-  if (version >= 9) {
-    number(traits['size'], 'critter.visualTraits.size', 0.5, 2);
-    if (!CRITTER_KINDS.includes(critter['speciesId'] as string)) corrupt('critter.speciesId');
-  } else if (traits['size'] !== undefined) corrupt('ambiguous visualTraits.size');
+  number(traits['size'], 'critter.visualTraits.size', 0.5, 2);
+  if (!CRITTER_KINDS.includes(critter['speciesId'] as string)) corrupt('critter.speciesId');
   strings(
     record(critter['pedigree'], 'critter.pedigree')['parentIds'],
     'critter.pedigree.parentIds',
@@ -872,20 +496,9 @@ function validateCritter(critter: Record<string, unknown>, version: SaveVersion)
     number(result['day'], 'competition.day', 1, Number.MAX_SAFE_INTEGER, true);
     number(result['time'], 'competition.time');
     string(result['medal'], 'competition.medal');
-    // v8 added the athletic exhibition; v12 the scheduled Colosseum events; v13 ranked cups,
-    // which also keep their placing, the size of the field and the rank they were run at.
+    // Ranked cups also keep their placing, the size of the field and the rank run at.
     if (result['event'] !== undefined)
-      choice(
-        result['event'],
-        version >= 13
-          ? [...EXHIBITION_IDS, 'cup']
-          : version >= 12
-            ? EXHIBITION_IDS
-            : version >= 8
-              ? ['exhibition']
-              : [],
-        'competition.event',
-      );
+      choice(result['event'], [...EXHIBITION_IDS, 'cup'], 'competition.event');
     if (result['event'] === 'cup') {
       number(result['field'], 'competition.field', 1, 100, true);
       number(result['placing'], 'competition.placing', 1, result['field'] as number, true);
@@ -893,28 +506,21 @@ function validateCritter(critter: Record<string, unknown>, version: SaveVersion)
     } else if (['placing', 'field', 'rank'].some((key) => result[key] !== undefined))
       corrupt('competition.placing');
   }
-  if (version >= 13) {
-    const ladder = record(critter['ladder'], 'critter.ladder');
-    number(ladder['rank'], 'ladder.rank', 0, RANKS.length - 1, true);
-    number(ladder['points'], 'ladder.points', 0, 10000, true);
-  } else if (critter['ladder'] !== undefined) corrupt('critter.ladder');
-  if (version >= 8) {
+  const ladder = record(critter['ladder'], 'critter.ladder');
+  number(ladder['rank'], 'ladder.rank', 0, RANKS.length - 1, true);
+  number(ladder['points'], 'ladder.points', 0, 10000, true);
+  {
     const drills = record(critter['drills'], 'critter.drills');
     number(drills['day'], 'drills.day', 1, Number.MAX_SAFE_INTEGER, true);
     for (const [drill, count] of Object.entries(record(drills['sessions'], 'drills.sessions'))) {
-      // v10 saves widen with the drill table (plan 004); earlier saves knew three drills.
-      choice(drill, version >= 10 ? DRILL_IDS : ['hoops', 'lift', 'pace'], 'drills.drill');
+      choice(drill, DRILL_IDS, 'drills.drill');
       number(count, 'drills.count', 0, 10000, true);
     }
   }
-  if (version >= 11)
-    for (const [drill, count] of Object.entries(
-      record(critter['practised'], 'critter.practised'),
-    )) {
-      choice(drill, DRILL_IDS, 'practised.drill');
-      number(count, 'practised.count', 1, Number.MAX_SAFE_INTEGER, true);
-    }
-  else if ('practised' in critter) corrupt('critter.practised');
+  for (const [drill, count] of Object.entries(record(critter['practised'], 'critter.practised'))) {
+    choice(drill, DRILL_IDS, 'practised.drill');
+    number(count, 'practised.count', 1, Number.MAX_SAFE_INTEGER, true);
+  }
 }
 
 function corrupt(path: string): never {
@@ -958,18 +564,8 @@ function strings(value: unknown, path: string): void {
 function choice(value: unknown, choices: string[], path: string): void {
   if (typeof value !== 'string' || !choices.includes(value)) corrupt(path);
 }
-function area(value: unknown, version: SaveVersion): void {
-  choice(
-    value,
-    version >= 10
-      ? ['homestead', 'glade', 'cottage', 'colosseum', 'town']
-      : version >= 8
-        ? ['homestead', 'glade', 'cottage', 'colosseum']
-        : version >= 7
-          ? ['homestead', 'glade', 'cottage']
-          : ['homestead', 'glade'],
-    'areaId',
-  );
+function area(value: unknown): void {
+  choice(value, Object.keys(AREAS), 'areaId');
 }
 function point(value: unknown): void {
   const position = record(value, 'position');

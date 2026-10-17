@@ -10,7 +10,6 @@ import {
   TOSS_PEAK,
   tossBand,
 } from './drills';
-import { legacyV11 } from './fixtures/legacy-v11';
 import { createInitialState, LocalGameHost } from './host';
 import { activeCritter, ExhibitionId, GameState, Training } from './model';
 import { readSave, validateSave } from './storage';
@@ -192,70 +191,5 @@ describe('Colosseum events', () => {
       harm(save);
       expect(() => readSave(save)).toThrow(/kept/);
     }
-  });
-});
-
-describe('save v12 Colosseum events', () => {
-  it('migrates frozen v11, carrying a showing in progress on as the athletic event', () => {
-    const before = structuredClone(legacyV11);
-    const migrated = readSave(before);
-    expect(before).toEqual(legacyV11);
-    expect(migrated.version).toBe(13);
-    expect(migrated.training).toEqual({
-      critterId: legacyV11.activeCritterId,
-      phase: 0,
-      hits: [],
-      elapsed: 1.4,
-      lastHitAt: 1.2,
-      kind: 'lift',
-      event: 'exhibition',
-      leg: 1,
-      hard: true,
-      meter: 0.6,
-      progress: 0.35,
-      scores: [0.9],
-    });
-    // Everything else carries over; v13 then puts each critter on the ladder's first rank.
-    expect({ ...migrated, training: null }).toEqual({
-      ...legacyV11,
-      version: 13,
-      training: null,
-      critters: legacyV11.critters.map((critter) => ({
-        ...critter,
-        ladder: { rank: 0, points: 0 },
-      })),
-    });
-    expect(readSave(migrated)).toEqual(migrated);
-    // The pull finishes and pays as the showing always did.
-    const host = new LocalGameHost(migrated);
-    perform(host);
-    // After the earlier Clover Cup and silver, the finished pull's showing.
-    expect(activeCritter(host.state).competitions.map((result) => result.event)).toEqual([
-      undefined,
-      'exhibition',
-      'exhibition',
-    ]);
-    // A sprint still in progress carries on as the first leg.
-    const sprint = structuredClone(legacyV11) as unknown as { training: Record<string, unknown> };
-    sprint.training = { ...sprint.training, stage: 0, hits: [0.8], scores: undefined };
-    delete sprint.training['meter'];
-    delete sprint.training['progress'];
-    delete sprint.training['scores'];
-    expect(readSave(sprint).training).toMatchObject({
-      kind: 'training',
-      event: 'exhibition',
-      leg: 0,
-      hits: [0.8],
-      scores: [],
-    });
-  });
-
-  it('protects v11 saves that already claim v12 events', () => {
-    const early = structuredClone(legacyV11) as unknown as { training: Record<string, unknown> };
-    early.training['event'] = 'exhibition';
-    expect(() => readSave(early)).toThrow(/kept/);
-    const medal = structuredClone(legacyV11);
-    medal.critters[0].competitions = [{ day: 1, time: 50, medal: 'gold', event: 'hedgerow' }];
-    expect(() => readSave(medal)).toThrow(/kept/);
   });
 });
