@@ -1074,6 +1074,19 @@
           </ol>
         </div>
         <div role="tabpanel" aria-label="Critters" [hidden]="journalTab() !== 'critters'">
+          <h3>Gemothy</h3>
+          <p class="panel-note">
+            @if (state().gemothy.trust >= 10) {
+              Your friend. He belongs to nobody, but he has decided you are his, and every week or
+              so something turns up on your doorstep.
+            } @else if (state().gemothy.trust > 0) {
+              Trust {{ state().gemothy.trust }} of 10. Calm visits and scraps by the tavern bin are
+              working; reaching for him too soon is not.
+            } @else {
+              The ringed tail by the tavern bin. He turns up on bin day mornings, and some evenings.
+              Patience might do it.
+            }
+          </p>
           <h3>Families you have met</h3>
           <p class="panel-note">
             Wild critters wander the hedgerow lane and the Colosseum road by day. Crouch and say

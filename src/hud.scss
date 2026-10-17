@@ -1727,7 +1727,7 @@
   .result-card {
     left: var(--edge);
     right: calc(var(--edge-right) + 58px);
-    max-height: 60vh;
+    max-height: 56vh;
   }
   // Actions and storage sit side by side so a short screen's dock stays low.
   .dock-body {

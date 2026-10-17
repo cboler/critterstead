@@ -1,3 +1,4 @@
+import { GEMOTHY, gemothyFind, gemothyMood, isFriend, SCRAPS } from './gemothy';
 import {
   castFor,
   familiesMet,
@@ -294,6 +295,7 @@ export function createInitialState(starter: StarterCandidate = MALLOW, seed = 24
     })),
     plots: initialPlots(),
     companionIndoors: false,
+    gemothy: { trust: 0, visitedDay: 0, findDay: 0 },
     shedLevel: 0,
     flags: [],
     journal: [
@@ -745,6 +747,37 @@ export class LocalGameHost {
           ),
         ],
       };
+    if (member?.id === GEMOTHY.id) {
+      const today = state.gemothy.visitedDay === state.day;
+      const scrap = SCRAPS.find((item) => this.quantity(item) > 0);
+      const friend = isFriend(state);
+      return {
+        id,
+        title: friend ? 'Gemothy, your friend' : 'Gemothy',
+        description: `${gemothyMood(state)} ${
+          friend
+            ? 'He belongs to nobody, but he has decided you are his.'
+            : `Trust ${state.gemothy.trust} of ${GEMOTHY.friend}. Calm visits and a scrap now and then will do it; reaching for him too soon will not.`
+        }`,
+        actions: [
+          action(
+            'gemothy-sit',
+            'Sit quietly nearby · 10 min',
+            today ? 'You have kept him company today.' : undefined,
+          ),
+          action(
+            'gemothy-scrap',
+            scrap ? `Leave him a scrap · 1 ${scrap}` : 'Leave him a scrap',
+            today
+              ? 'You have kept him company today.'
+              : !scrap
+                ? 'Bring a berry, a turnip, some wheat or feed.'
+                : undefined,
+          ),
+          action('gemothy-pet', friend ? 'Scratch his ears' : 'Reach out to pet him'),
+        ],
+      };
+    }
     if (member?.id.startsWith('wild-') && member.figure.kind === 'critter') {
       const family = member.figure.speciesId;
       const met = state.flags.includes(`met:${family}`);
@@ -1513,6 +1546,44 @@ export class LocalGameHost {
         this.note(
           `${waiting.name} ${waiting.personality.startsWith('Gentle') || waiting.personality.startsWith('Watchful') ? 'hangs back, then edges close enough to sniff your hand' : 'bounds over to the fence and leans into your hand'}. Wren smiles: “They remember who comes back.”`,
         );
+        return true;
+      }
+      case 'gemothy-sit':
+      case 'gemothy-scrap':
+      case 'gemothy-pet': {
+        const friend = isFriend(state);
+        if (action === 'gemothy-pet') {
+          this.advanceMinutes(2);
+          if (friend) {
+            this.note('Gemothy leans into your hand and makes a sound like a happy kettle.');
+            return true;
+          }
+          state.gemothy.trust = Math.max(0, state.gemothy.trust + GEMOTHY.pushy);
+          this.note('Too soon. Gemothy bolts behind the bin and glares at you from the shadows.');
+          return true;
+        }
+        state.gemothy.visitedDay = state.day;
+        if (action === 'gemothy-scrap') {
+          const scrap = SCRAPS.find((item) => this.quantity(item) > 0)!;
+          this.take(scrap, 1);
+          state.gemothy.trust += GEMOTHY.scrap;
+          this.advanceMinutes(5);
+        } else {
+          state.gemothy.trust += GEMOTHY.sit;
+          this.advanceMinutes(10);
+        }
+        if (!friend && isFriend(state)) {
+          state.gemothy.findDay = state.day;
+          this.flag('gemothy-friend');
+          this.note(
+            'Gemothy climbs into your lap as if he has always done it. He belongs to nobody, but he seems to have decided he is yours. Keep an eye on your doorstep.',
+          );
+        } else
+          this.note(
+            action === 'gemothy-scrap'
+              ? `Gemothy snatches the scrap and retreats to eat it, watching you the whole time. ${gemothyMood(state)}`
+              : `You sit by the tavern wall and say nothing at all. ${gemothyMood(state)}`,
+          );
         return true;
       }
       case 'greet-wild': {
@@ -2309,6 +2380,7 @@ export class LocalGameHost {
     }
     if (state.day > previousDay) {
       this.collectPickup();
+      this.gemothyFinds();
       for (const individual of state.critters) individual.ageDays += state.day - previousDay;
       state.flags = state.flags.filter(
         (flag) =>
@@ -2697,6 +2769,26 @@ export class LocalGameHost {
     const pickup = this.state.containers.find((container) => container.kind === 'pickup')!;
     const total = pickup.items.reduce((sum, item) => sum + this.storePrice(item), 0);
     return Math.floor(total * PICKUP_SHARE);
+  }
+
+  /** A friend's weekly find, left on the doorstep and put away in the yard chest. */
+  private gemothyFinds(): void {
+    const state = this.state;
+    if (!isFriend(state) || state.day < state.gemothy.findDay + GEMOTHY.findEvery) return;
+    state.gemothy.findDay = state.day;
+    const find = gemothyFind(state);
+    if ('coins' in find) {
+      state.player.coins += find.coins;
+      this.note(
+        `Gemothy has been by in the night: a little purse of ${find.coins} coins on the doorstep. Best not to ask where from.`,
+      );
+      return;
+    }
+    const chest = state.containers.find((container) => container.kind === 'chest')!;
+    addItem(chest, find.itemId, find.quantity, find.quality);
+    this.note(
+      `Gemothy has been by in the night: ${find.what} on the doorstep, now in the yard chest.`,
+    );
   }
 
   /** The cart comes by overnight: whatever is in the pickup is sold, and paid at dawn. */

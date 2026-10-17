@@ -1,4 +1,6 @@
 import { weatherFor } from './calendar';
+import { noise } from './noise';
+import { GEMOTHY, gemothyAbout, gemothyMood, gemothyPosition } from './gemothy';
 import {
   Appearance,
   FAMILIES,
@@ -39,18 +41,6 @@ export interface CastMember {
   // One line on what they are doing right now.
   activity: string;
   figure: CastFigure;
-}
-
-/** Deterministic noise in [0, 1) from whole numbers, so the same day always looks the same. */
-export function noise(...values: number[]): number {
-  let h = 2166136261;
-  for (const value of values) {
-    h ^= Math.floor(value) >>> 0;
-    h = Math.imul(h, 16777619) >>> 0;
-    h ^= h >>> 13;
-    h = Math.imul(h, 2246822507) >>> 0;
-  }
-  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
 }
 
 const ROAD_SEEDS: Partial<Record<AreaId, number>> = { lane: 11, road: 23 };
@@ -362,7 +352,30 @@ function townsfolk(state: GameState): CastMember[] {
   }));
 }
 
+function gemothy(state: GameState): CastMember[] {
+  if (!gemothyAbout(state)) return [];
+  return [
+    {
+      id: GEMOTHY.id,
+      areaId: 'town',
+      position: gemothyPosition(state),
+      name: 'Gemothy',
+      activity: gemothyMood(state),
+      figure: {
+        kind: 'critter',
+        speciesId: 'gemothy',
+        visualTraits: { coat: 'smoke', accent: 'beetle', size: 0.9 },
+      },
+    },
+  ];
+}
+
 /** Everyone besides the household in the current area. */
 export function castFor(state: GameState): CastMember[] {
-  return [...wildCritters(state), ...townsfolk(state), ...shelterCritters(state)];
+  return [
+    ...wildCritters(state),
+    ...townsfolk(state),
+    ...shelterCritters(state),
+    ...gemothy(state),
+  ];
 }

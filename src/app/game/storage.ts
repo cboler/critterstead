@@ -425,6 +425,10 @@ export function validateSave(value: unknown): asserts value is GameState {
 
 function validatePlots(root: Record<string, unknown>, ids: Set<string>): void {
   boolean(root['companionIndoors'], 'companionIndoors');
+  const gemothy = record(root['gemothy'], 'gemothy');
+  number(gemothy['trust'], 'gemothy.trust', 0, 1000, true);
+  number(gemothy['visitedDay'], 'gemothy.visitedDay', 0, root['day'] as number, true);
+  number(gemothy['findDay'], 'gemothy.findDay', 0, root['day'] as number, true);
   if (root['companionIndoors'] && root['areaId'] !== 'cottage') corrupt('companionIndoors');
   const plots = array(root['plots'], 'plots');
   const authored = initialPlots();

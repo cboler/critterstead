@@ -2,7 +2,7 @@
 
 **Status:** authorized 2026-10-16 ([D54](../../DECISIONS.md#d54--a-wider-map-a-town-with-residents-and-selling-through-the-pickup-or-the-shop-accepted-2026-10-16),
 [D55](../../DECISIONS.md#d55--saves-from-earlier-builds-may-be-retired-before-release-accepted-2026-10-16)).
-M1 in progress.
+M1–M5 complete; M6 next.
 
 ## Purpose
 
@@ -99,10 +99,14 @@ retired, not migrated (D55): the game says so, keeps the record, and offers a ne
 
 ### M5 — Gemothy, a friend at the tavern bin
 
-- [ ] Gemothy turns up near the tavern bin on some days, more often on bin day.
-- [ ] Calm visits and scraps build his trust over days; startling him sets it back.
-- [ ] A friend, never a party member: once he trusts you he leaves you something he has
-      found each week (and may later show you a training).
+- [x] Gemothy turns up by the tavern bin on bin day mornings (every seventh day, 6:00–12:00,
+      the bin tipped over) and on some evenings (17:00–21:00).
+- [x] Sitting quietly (+1) or leaving a scrap (+2, a berry, turnip, wheat or feed) builds his
+      trust once a day; reaching to pet him too soon sets it back (−2). His manner shows how
+      far along you are; the journal's Critters tab tracks it.
+- [x] At 10 trust he becomes a friend, never a party member: he comes to your side when you
+      are near the bin, and every seven days leaves a find on the doorstep (seasonal seed,
+      fine berries, a plank, a stone, or a few coins), put away in the yard chest.
 
 ### M6 — The map and the minimap
 
@@ -202,6 +206,20 @@ which the quality tiers already control, not from the library.
 - Routine decisions (provisional, for plan 005's simulator): fees 10/16/24, purses
   60/30/15, 100/50/25, 160/80/40, 50 energy and 90 minutes; four rivals in the field.
 
+## M5 evidence — 2026-10-16
+
+- Host: `gemothy.ts` (`gemothyAbout`, `gemothyPosition`, `gemothyMood`, `gemothyFind`,
+  `isBinDay`, `GEMOTHY`); `GameState.gemothy` (v14, unreleased); his dock, the three
+  actions and `gemothyFinds` at dawn in `host.ts`; `noise` moved to `noise.ts`. Unit tests:
+  184 passed, including his hours, trust from scraps and sitting, the setback for petting
+  too soon, becoming a friend, and a find a week later.
+- Inspected in the dev server: Gemothy by the tipped bin on a rainy bin day.
+- Browser: the earlier full suite (on M2) passed 69 of 70; the one failure, a landscape
+  phone dock at exactly 60% height after the starting turnip seed added a row, is fixed by
+  capping short screens' docks at 56%.
+
 ## Current handoff
 
-M1–M4 complete. Next: M5 — Gemothy at the tavern bin.
+M1–M5 complete and published. Next: M6 — the map and minimap (Grandpa gives the map on the
+opening walk), then M7 inventory screens, M8 adoption and the roster, M9 figures from model
+files.

@@ -1,4 +1,8 @@
-import { residentsAbout, shelterWaiting } from './cast';
+import { addItem } from './logistics';
+import { backpack } from './model';
+import { validateSave } from './storage';
+import { gemothyAbout, isBinDay, isFriend } from './gemothy';
+import { castFor, residentsAbout, shelterWaiting } from './cast';
 import { createInitialState, LocalGameHost } from './host';
 import { GameState } from './model';
 
@@ -132,5 +136,59 @@ describe('Oakhaven residents and the shelter', () => {
     expect(host.dispatch({ type: 'interact', targetId: waiting.id, action: 'visit' })).toBe(false);
     const night = inTown(1200, -9.2, -0.1);
     expect(night.interaction()!.description).toContain('shut for the night');
+  });
+});
+
+describe('Gemothy at the tavern bin', () => {
+  const atBin = (day: number, minute: number, trust = 0) => {
+    const host = at('town', 4.1, -2.4);
+    host.state.day = day;
+    host.state.minute = minute;
+    host.state.totalMinutes = (day - 1) * 1440 + minute;
+    host.state.gemothy.trust = trust;
+    return host;
+  };
+
+  it('turns up on bin day mornings, and not at night', () => {
+    expect(isBinDay(3)).toBe(true);
+    expect(gemothyAbout(atBin(3, 600).state)).toBe(true);
+    expect(gemothyAbout(atBin(3, 800).state)).toBe(false);
+    expect(gemothyAbout(atBin(4, 200).state)).toBe(false);
+    expect(castFor(atBin(3, 600).state).some((member) => member.id === 'gemothy')).toBe(true);
+  });
+
+  it('warms to calm visits and scraps, cools when rushed, and becomes a friend', () => {
+    const host = atBin(3, 600, 0);
+    addItem(backpack(host.state), 'berry', 5);
+    expect(host.interaction()!.title).toBe('Gemothy');
+    expect(host.dispatch({ type: 'interact', targetId: 'gemothy', action: 'gemothy-pet' })).toBe(
+      true,
+    );
+    expect(host.state.gemothy.trust).toBe(0);
+    expect(host.dispatch({ type: 'interact', targetId: 'gemothy', action: 'gemothy-scrap' })).toBe(
+      true,
+    );
+    expect(host.state.gemothy.trust).toBe(2);
+    expect(host.dispatch({ type: 'interact', targetId: 'gemothy', action: 'gemothy-sit' })).toBe(
+      false,
+    );
+    const close = atBin(10, 600, 9);
+    expect(close.dispatch({ type: 'interact', targetId: 'gemothy', action: 'gemothy-sit' })).toBe(
+      true,
+    );
+    expect(isFriend(close.state)).toBe(true);
+    expect(close.state.journal[0]).toContain('decided he is yours');
+    expect(() => validateSave(close.state)).not.toThrow();
+  });
+
+  it('leaves a friend something every week', () => {
+    const host = atBin(10, 600, 10);
+    host.state.gemothy.findDay = 10;
+    const chest = host.state.containers.find((item) => item.kind === 'chest')!;
+    const before = JSON.stringify(chest.items) + host.state.player.coins;
+    for (let night = 0; night < 7; night++) host.dispatch({ type: 'debug', action: 'next-day' });
+    expect(host.state.gemothy.findDay).toBe(17);
+    expect(JSON.stringify(chest.items) + host.state.player.coins).not.toBe(before);
+    expect(host.state.journal.join(' ')).toContain('Gemothy has been by in the night');
   });
 });

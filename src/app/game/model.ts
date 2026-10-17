@@ -240,6 +240,8 @@ export interface GameState {
   plots: SoilPlot[];
   // In the cottage, a following companion comes inside; a working one stays in the yard.
   companionIndoors: boolean;
+  // Gemothy's trust in you, and when he last saw you and last left you something.
+  gemothy: { trust: number; visitedDay: number; findDay: number };
   shedLevel: number;
   flags: string[];
   journal: string[];

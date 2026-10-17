@@ -69,6 +69,7 @@ import {
   type FigureParts,
 } from './render/figures';
 import { castFor, type CastMember } from './cast';
+import { gemothyAbout, isBinDay } from './gemothy';
 import {
   detectQuality,
   pixelRatioFor,
@@ -737,9 +738,13 @@ export class GameWorld {
     this.townHedge[0]?.traverse((part) => (part.visible = !this.staging?.berriesPicked));
     if (this.townBin) {
       const [can, spill] = this.townBin.children;
-      can.rotation.z = this.staging?.binTipped ? -Math.PI / 2 : 0;
-      can.position.set(this.staging?.binTipped ? 0.45 : 0, this.staging?.binTipped ? 0.38 : 0, 0);
-      spill.visible = !!this.staging?.binTipped;
+      // Tipped in the opening, and on bin day whenever Gemothy is at it.
+      const tipped = this.staging
+        ? this.staging.binTipped
+        : isBinDay(state.day) && gemothyAbout(state);
+      can.rotation.z = tipped ? -Math.PI / 2 : 0;
+      can.position.set(tipped ? 0.45 : 0, tipped ? 0.38 : 0, 0);
+      spill.visible = tipped;
     }
     this.critterLabel.style.display = this.critter.visible ? '' : 'none';
     this.critterLabel.textContent = companion.name;
@@ -3420,7 +3425,10 @@ export class GameWorld {
    * stepping, blinking, wagging, and turning to look at a rancher who stands still nearby.
    */
   private animateCast(state: GameState, dt: number): void {
-    const members = this.guests.length && !this.staging ? [] : castFor(state);
+    // The opening walk stages its own Gemothy.
+    const members = (this.guests.length && !this.staging ? [] : castFor(state)).filter(
+      (member) => !this.staging || member.id !== 'gemothy',
+    );
     const present = new Set(members.map((member) => member.id));
     for (const id of [...this.castViews.keys()]) if (!present.has(id)) this.dropCast(id);
     const player = state.player.position;
