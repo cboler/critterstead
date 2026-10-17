@@ -602,7 +602,8 @@ roof leaks, and the cottage interior is sparse.
 
 ## Town, economy, and commerce
 
-The starting honesty stall is temporary prototype scaffolding. The nearby town of
+The starting honesty stall is temporary prototype scaffolding, retired by plan 006 in
+favour of the sales pickup and the town store (D54). The nearby town of
 **Oakhaven** is a vibrant, inhabited rural center:
 
 - **Scheduled town residents**: shopkeepers, artisans, elders, rivals, and wandering merchants
@@ -847,5 +848,7 @@ Pip and Gemothy are the only named story critters so far.
 - **Gemothy** is a raccoon-like scavenger who belongs to no one. His name nods to
   Jimothy the raccoon and to Gemini, one of the tools that shaped this design. In the
   world's rules he is a chimera, somewhere between a bear crossed with a cat and a dog.
-  The player may later find him again and perhaps convince him to join them. The
+  The player finds him again some days near the tavern bin and can earn his trust
+  ([D54](DECISIONS.md#d54--a-wider-map-a-town-with-residents-and-selling-through-the-pickup-or-the-shop-accepted-2026-10-16));
+  whether he then joins them is open. The
   reference is if-you-know-you-know; it need not land for everyone.

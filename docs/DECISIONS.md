@@ -51,6 +51,7 @@ For sequencing, see [ROADMAP.md](ROADMAP.md) and [exec-plans/README.md](exec-pla
 | **D31** | Monster Rancher training minigames family                 | Accepted       | [Training](GAME-DESIGN.md#training-system)                                                                                     |
 | **D32** | Viewport decoupling from interaction dock UI              | Accepted       | [Architecture](ARCHITECTURE.md#1-viewport--canvas-decoupling)                                                                  |
 | **D33** | Restructured Campaign 001 vertical slice runway           | Accepted       | [Roadmap](ROADMAP.md)                                                                                                          |
+| **D54** | A wider map; town residents; sell by pickup or shop       | Accepted       | [Plan 006](exec-plans/active/006-oakhaven-and-the-wider-map.md)                                                                |
 | **D53** | A Colosseum ladder of athletic cups; bouts on top         | Accepted       | [Plan 005](exec-plans/active/005-colosseum-ladder.md)                                                                          |
 | **D52** | Colosseum events on the calendar (save v12)               | Implemented    | [Plan 004](exec-plans/completed/004-training-and-exhibitions.md)                                                               |
 | **D51** | Routines unlock by practice together (save v11)           | Implemented    | [Plan 004](exec-plans/completed/004-training-and-exhibitions.md)                                                               |
@@ -363,6 +364,17 @@ Maximum age differs between families and is a primary trait offspring inherit. A
 stays a handful of modeling choices (youth, peak, elder) rather than a deep system.
 [Aging](GAME-DESIGN.md#aging-and-respectful-mortality).
 
+### D54 — A wider map, a town with residents, and selling through the pickup or the shop (accepted 2026-10-16)
+
+The product owner asked for room between places: roads where critters can be met, an
+Oakhaven with a few residents at real posts (a shopkeeper, the shelter's keeper,
+Colosseum booth staff), a farm beside the cottage with a storage box, a map Grandpa gives
+you on the walk and an optional minimap, inventory screens, and Gemothy back near the
+tavern bin to befriend. The honesty stall retires: goods sell overnight through the sales
+pickup at baseline prices, or at the town store for more. Areas stay authored dioramas
+(D29, D36). How befriending Gemothy ends, and shelter adoption, remain open.
+[Plan 006](exec-plans/active/006-oakhaven-and-the-wider-map.md).
+
 ### D53 — A Colosseum ladder of athletic cups (accepted 2026-10-05)
 
 The Colosseum ladder comes next, ahead of the years with Grandpa. Its lower ranks are
@@ -419,4 +431,4 @@ Agents must not invent hardcoded canon or premature balance constants for these 
 | **Story beats across the Grandpa years**               | What happens in each of the 2–3 years, and the first winter's exact narrative role, are open.                                                                                      |
 | **Grandma and wider family**                           | The player lives with grandparents; only Grandpa has canon. Do not invent the rest.                                                                                                |
 | **Final place names**                                  | Oakhaven, Bramblewick and the other areas are working names.                                                                                                                       |
-| **Gemothy's return**                                   | Finding him again and possibly recruiting him is desired; when, where and how is open.                                                                                             |
+| **Gemothy's return**                                   | He returns near the tavern bin to be befriended (D54); whether his trust ends in him joining you is open.                                                                          |
