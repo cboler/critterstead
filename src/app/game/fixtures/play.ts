@@ -15,6 +15,25 @@ export function booth(day: number, modify?: (state: GameState) => void): LocalGa
   modify?.(state);
   return new LocalGameHost(state);
 }
+// Where to stand at each of the Colosseum's booths.
+const DESKS = {
+  exhibition: { x: -3, z: 1.8 },
+  ladder: { x: -4.6, z: 6 },
+  promotion: { x: -1.6, z: 5 },
+} as const;
+
+/** At one of the Colosseum's booths on a day of spring, ready to enter. */
+export function desk(
+  day: number,
+  which: keyof typeof DESKS,
+  modify?: (state: GameState) => void,
+): LocalGameHost {
+  return booth(day, (state) => {
+    state.player.position = { ...DESKS[which] };
+    activeCritter(state).position = { x: DESKS[which].x + 0.5, z: DESKS[which].z };
+    modify?.(state);
+  });
+}
 export const hit = (host: LocalGameHost, lane?: number) =>
   host.dispatch({ type: 'training-hit', lane });
 

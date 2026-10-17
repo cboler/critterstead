@@ -230,6 +230,77 @@ export const RESIDENTS: readonly Resident[] = [
       '“Wild critters on the roads are mostly harmless, but give the big ones room.”',
     ],
   },
+  {
+    id: 'resident-exhibition',
+    name: 'Ottilie Marsh',
+    role: 'Exhibition steward',
+    areaId: 'colosseum',
+    post: { x: -1.8, z: -0.3 },
+    hours: { start: 480, end: 1200 },
+    look: {
+      coat: '#c8866a',
+      trim: '#e9cc83',
+      legs: '#5d6670',
+      skin: '#e3b48d',
+      hair: '#5b4536',
+      hat: '#5e9186',
+    },
+    doing: 'Ottilie stands at the exhibition booth with a clipboard and a whistle.',
+    intro:
+      '“A new face! The everyday showing runs all day: a sprint, then the stone pull. The bigger events are on the calendar. The ladder’s cups are at the booths by the gate.”',
+    lines: [
+      '“Timing wins showings. Stats win everything else, eventually.”',
+      '“A tired critter will still try for you. That is exactly why you must not let it.”',
+      '“Gold at the Grand Exhibition gets your name in the Oakhaven paper. Small paper. Very proud.”',
+    ],
+  },
+  {
+    id: 'resident-ladder',
+    name: 'Gus Penrose',
+    role: 'Ladder registrar',
+    areaId: 'colosseum',
+    post: { x: -4.6, z: 4.45 },
+    hours: { start: 480, end: 1200 },
+    look: {
+      coat: '#5f8a6a',
+      trim: '#f3ead2',
+      legs: '#4f4438',
+      skin: '#c99272',
+      hair: '#2f2a26',
+    },
+    doing: 'Gus is copying cup results into an enormous ledger.',
+    intro:
+      '“Ranked cups, six a season. Place in the top three and you earn ladder points. Six points and you can try for promotion at the desk next door.”',
+    lines: [
+      '“Every champion in that ledger started as a Fledgling. Every single one.”',
+      '“The rivals do not take days off. Some of them do not take mornings off.”',
+      '“A third place is still a point. Points add up.”',
+    ],
+  },
+  {
+    id: 'resident-promotion',
+    name: 'Celia Vane',
+    role: 'Keeps the promotion desk',
+    areaId: 'colosseum',
+    post: { x: -1.6, z: 3.45 },
+    hours: { start: 480, end: 1200 },
+    look: {
+      coat: '#6f5d8a',
+      trim: '#e9cc83',
+      legs: '#5d6670',
+      skin: '#e0ae88',
+      hair: '#d8d2c4',
+      hat: '#6f5d8a',
+    },
+    doing: 'Celia is polishing a tray of rank ribbons, one colour at a time.',
+    intro:
+      '“Promotion cups are on the fifteenth and the twenty-ninth. Three legs against the best of your rank. Win, and you move up. I have pinned ribbons on a great many critters, including, once, your grandfather’s.”',
+    lines: [
+      '“Second place in a promotion cup is no shame. You keep your place in line for the next.”',
+      '“Contender ribbons are green. Veteran ribbons are gold. Champion ribbons, well. You will see.”',
+      '“The stands are half built, but the ribbons are all finished. Priorities.”',
+    ],
+  },
 ];
 
 /** Residents at their posts right now. */

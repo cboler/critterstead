@@ -428,6 +428,9 @@ export function arenaSeats(): {
 // Logs are thrown west from the stump, away from the glade's paths.
 export const TOSS_STATION: Point = { x: -5, z: -3.4 };
 export const EXHIBITION_BOOTH: Point = { x: -1.8, z: 0.4 };
+// The ladder's booths in the forecourt, south of the path from the gate.
+export const LADDER_BOOTH: Point = { x: -4.6, z: 5 };
+export const PROMOTION_BOOTH: Point = { x: -1.6, z: 4 };
 // The balance beam runs east–west on two trestles in the middle of the glade; the hurdle
 // run's lane lies south-west, where no tree stands between it and the camera.
 export const BEAM_STATION: Point = { x: 2.7, z: 2.3 };
@@ -517,6 +520,8 @@ const COLOSSEUM_BLOCKERS: Blocker[] = [
   ...arenaPosts().map(({ x, z }) => ({ x, z, r: 0.45 })),
   ...arenaSeats().map(({ x, z }) => ({ x, z, r: 0.65 })),
   { ...EXHIBITION_BOOTH, hx: 0.65, hz: 0.4 },
+  { ...LADDER_BOOTH, hx: 0.65, hz: 0.4 },
+  { ...PROMOTION_BOOTH, hx: 0.65, hz: 0.4 },
   { x: 2.9, z: -1, r: 0.65 },
 ];
 const TOWN_BLOCKERS: Blocker[] = [
@@ -707,6 +712,20 @@ export const AREAS: Record<AreaId, AreaDefinition> = {
         kind: 'exhibition',
         name: 'Exhibition steward',
         position: EXHIBITION_BOOTH,
+        radius: 1,
+      },
+      {
+        id: 'ladder',
+        kind: 'ladder',
+        name: 'Ladder registrar',
+        position: { x: LADDER_BOOTH.x, z: LADDER_BOOTH.z + 0.7 },
+        radius: 1,
+      },
+      {
+        id: 'promotion',
+        kind: 'promotion',
+        name: 'Promotion desk',
+        position: { x: PROMOTION_BOOTH.x, z: PROMOTION_BOOTH.z + 0.7 },
         radius: 1,
       },
     ],

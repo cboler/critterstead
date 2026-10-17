@@ -65,11 +65,18 @@ import { nextObjective } from './objectives';
 import {
   ATHLETIC_RANKS,
   CUP,
+  CUP_DAYS,
   cupLegs,
   eventInfo,
   isCupDay,
+  isPromotionDay,
   ordinal,
   placingOf,
+  PROMOTION,
+  PROMOTION_DAYS,
+  promotionField,
+  promotionLegs,
+  qualifiedForPromotion,
   RANKS,
   RIVALS,
   rivalPoints,
@@ -1093,11 +1100,15 @@ export class LocalGameHost {
           ],
         };
       }
-      case 'exhibition': {
+      case 'exhibition':
+      case 'ladder':
+      case 'promotion': {
         const dayOfSeason = calendarDate(state.day).dayOfSeason;
         const today = scheduledExhibition(dayOfSeason);
         const rank = critter.ladder.rank;
         const cup = isCupDay(dayOfSeason) && rank < ATHLETIC_RANKS;
+        const promotionDay = isPromotionDay(dayOfSeason) && rank < ATHLETIC_RANKS;
+        const qualified = qualifiedForPromotion(critter.ladder);
         const info = (event: EventId) => eventInfo(event, state.day, rank);
         const entered = (event: EventId) =>
           critter.competitions.some((result) => result.day === state.day && result.event === event);
@@ -1117,41 +1128,79 @@ export class LocalGameHost {
             `Enter the ${info(event).name} · ${info(event).fee} coins · ${info(event).energy} ${critter.name} energy · ${info(event).minutes} min`,
             reason(event),
           );
+        const legs = (event: EventId) =>
+          info(event)
+            .legs.map((leg) => DRILLS[leg.drill].name.toLowerCase())
+            .join(', ')
+            .replace(/, ([^,]*)$/, ' and $1');
+        const staff = residentAbout(state, `resident-${object.kind}`);
+        if (!staff)
+          return {
+            id,
+            title: object.name,
+            description: 'The booth is shut and its bunting rolled up. It opens again at 8:00.',
+            actions: [],
+          };
+        const chat = this.chatAction(staff, action);
+        if (object.kind === 'ladder') {
+          const field = RIVALS[Math.min(rank, RIVALS.length - 1)];
+          return {
+            id,
+            title: cup ? `Ladder registrar · today: the ${info('cup').name}` : 'Ladder registrar',
+            description: `${
+              rank >= ATHLETIC_RANKS
+                ? `${critter.name} is a ${RANKS[rank]}; that rank’s contests are bouts, still to come.`
+                : cup
+                  ? `A ranked cup: ${legs('cup')} against ${field.length} ${RANKS[rank]} rivals, ${field
+                      .slice(0, 3)
+                      .map((rival) => rival.name)
+                      .join(', ')} among them. The top three earn ladder points.`
+                  : `Ranked cups are held on days ${CUP_DAYS.join(', ')} of every season.`
+            } ${critter.name} is a ${RANKS[rank]} with ${critter.ladder.points} ladder points; ${PROMOTION.qualify} qualify for a promotion cup.`,
+            actions: [...(cup ? [enter('cup')] : []), chat],
+          };
+        }
+        if (object.kind === 'promotion') {
+          const field = promotionField(rank);
+          return {
+            id,
+            title: promotionDay
+              ? `Promotion desk · today: the ${info('promotion').name}`
+              : 'Promotion desk',
+            description:
+              rank >= ATHLETIC_RANKS
+                ? `${critter.name} is a ${RANKS[rank]}. Champions settle things in bouts, and the arena floor is not ready for them yet.`
+                : `${
+                    promotionDay
+                      ? `Three legs (${legs('promotion')}) against the ${RANKS[rank]} rank’s best: ${field.map((rival) => rival.name).join(', ')}. First place makes a ${RANKS[rank + 1]}.`
+                      : `Promotion cups are held on days ${PROMOTION_DAYS.join(' and ')} of every season.`
+                  } ${
+                    qualified
+                      ? `${critter.name} has qualified with ${critter.ladder.points} ladder points.`
+                      : `${critter.name} needs ${PROMOTION.qualify} ladder points to enter and has ${critter.ladder.points}.`
+                  }`,
+            actions: [...(promotionDay && qualified ? [enter('promotion')] : []), chat],
+          };
+        }
         const next = nextExhibition(state.day);
-        const field = RIVALS[Math.min(rank, RIVALS.length - 1)];
         return {
           id,
-          title: cup
-            ? `Today: the ${info('cup').name}`
-            : today
-              ? `Today: the ${EXHIBITIONS[today].name}`
-              : 'Athletic exhibition',
+          title: today ? `Today: the ${EXHIBITIONS[today].name}` : 'Athletic exhibition',
           description: `${
-            cup
-              ? `A ranked cup: ${info('cup')
-                  .legs.map((leg) => DRILLS[leg.drill].name.toLowerCase())
-                  .join(' and ')} against ${field.length} ${RANKS[rank]} rivals, ${field
-                  .slice(0, 3)
-                  .map((rival) => rival.name)
-                  .join(
-                    ', ',
-                  )} among them. The top three earn ladder points; ${critter.name} has ${critter.ladder.points}.`
-              : today
-                ? `${EXHIBITIONS[today].blurb} Gold needs ${EXHIBITIONS[today].gold} points.`
-                : `${EXHIBITION.blurb} Gold needs ${EXHIBITION.gold} points, silver ${EXHIBITION.silver}.`
-          }${cup || today ? ' Or the everyday showing: a sprint, then a heavy stone pull.' : ''}${
-            isCupDay(dayOfSeason) && !cup
-              ? ` ${critter.name} is a ${RANKS[rank]}; that rank’s contests are bouts, still to come.`
-              : ''
+            today
+              ? `${EXHIBITIONS[today].blurb} Gold needs ${EXHIBITIONS[today].gold} points.`
+              : `${EXHIBITION.blurb} Gold needs ${EXHIBITION.gold} points, silver ${EXHIBITION.silver}.`
+          }${today ? ' Or the everyday showing: a sprint, then a heavy stone pull.' : ''}${
+            cup || promotionDay ? ' The ladder’s cups are entered at the booths by the gate.' : ''
           }${next ? ` Next on the calendar: the ${EXHIBITIONS[next.id].name}, ${next.when}.` : ''}`,
           actions: [
-            ...(cup ? [enter('cup')] : []),
             ...(today ? [enter(today)] : []),
             action(
               'exhibit',
               `Enter the exhibition · ${EXHIBITION.energy} ${critter.name} energy · 5 yours · ${EXHIBITION.minutes} min`,
               reason('exhibition'),
             ),
+            chat,
           ],
         };
       }
@@ -1230,6 +1279,7 @@ export class LocalGameHost {
     }
     if (
       action === 'cup' ||
+      action === 'promotion' ||
       (action !== 'exhibition' && EXHIBITION_IDS.includes(action as ExhibitionId))
     )
       return this.enterExhibition(action as EventId);
@@ -1800,7 +1850,7 @@ export class LocalGameHost {
   private enterExhibition(id: EventId): boolean {
     const state = this.state;
     const critter = this.critter;
-    const cupDay = id === 'cup' ? state.day : undefined;
+    const cupDay = id === 'cup' || id === 'promotion' ? state.day : undefined;
     const event = eventInfo(id, cupDay, critter.ladder.rank);
     state.player.stamina -= 5;
     state.player.coins -= event.fee;
@@ -1871,6 +1921,10 @@ export class LocalGameHost {
       this.finishCup(points, legs, training.cupDay!);
       return;
     }
+    if (id === 'promotion') {
+      this.finishPromotion(points, legs, training.cupDay!);
+      return;
+    }
     const exhibition = EXHIBITIONS[id];
     const medal =
       points >= exhibition.gold ? 'gold' : points >= exhibition.silver ? 'silver' : 'bronze';
@@ -1922,6 +1976,58 @@ export class LocalGameHost {
           ? `${best.rival.name} was closest with ${best.points}.`
           : `${best.rival.name} (${best.rival.rancher}) won with ${best.points}.`
       }${purse ? ` ${purse} coins` : ''}${earned ? `${purse ? ' and' : ''} ${earned} ladder point${earned > 1 ? 's' : ''} (${critter.ladder.points} in all).` : purse ? '.' : ''}`,
+    );
+  }
+
+  /**
+   * A promotion cup against the rank's best. First place promotes, clears the points and
+   * pays the purse; any other placing keeps the qualification for the next one.
+   */
+  private finishPromotion(points: number, legs: string, cupDay: number): void {
+    const state = this.state;
+    const critter = this.critter;
+    const rank = critter.ladder.rank;
+    const field = promotionField(rank).map((rival) => ({
+      rival,
+      points: rivalPoints(rival, promotionLegs(cupDay), () => this.random()),
+    }));
+    const placing = placingOf(
+      points,
+      field.map((entry) => entry.points),
+    );
+    const purse = PROMOTION.purse[rank][placing - 1] ?? 0;
+    const medal = ['gold', 'silver', 'bronze'][placing - 1] ?? 'none';
+    const name = `${RANKS[rank]} Promotion Cup`;
+    critter.competitions.push({
+      day: state.day,
+      time: points,
+      medal,
+      event: 'promotion',
+      placing,
+      field: field.length + 1,
+      rank,
+    });
+    state.player.coins += purse;
+    const best = field.reduce((top, entry) => (entry.points > top.points ? entry : top));
+    if (placing === 1) {
+      critter.ladder = { rank: rank + 1, points: 0 };
+      const title = RANKS[rank + 1];
+      critter.history.push(`Day ${state.day}: won the ${name} and became a ${title}.`);
+      this.flag(`promoted:${title.toLowerCase().replace(' ', '-')}`);
+      this.note(
+        `The whole crowd is on its feet! ${critter.name} wins the ${name} with ${points} points (${legs}), ahead of ${best.rival.name}. A steward pins a ${title} ribbon to ${critter.name}’s collar${purse ? ` and hands you ${purse} coins` : ''}.${
+          rank + 1 >= ATHLETIC_RANKS
+            ? ` ${title}s settle things in bouts, and the arena floor is not ready for those yet.`
+            : ` The ladder starts again: ${title} cups, ${title} rivals.`
+        }`,
+      );
+      return;
+    }
+    critter.history.push(
+      `Day ${state.day}: ${ordinal(placing)} of ${field.length + 1} in the ${name} (${points} points).`,
+    );
+    this.note(
+      `${critter.name} places ${ordinal(placing)} of ${field.length + 1} in the ${name} with ${points} points (${legs}). ${best.rival.name} (${best.rival.rancher}) won with ${best.points}.${purse ? ` ${purse} coins.` : ''} The qualification stands for the next promotion cup.`,
     );
   }
 

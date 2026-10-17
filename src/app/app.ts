@@ -395,8 +395,8 @@ export class App implements AfterViewInit, OnDestroy {
   /** How the journal remembers a competition. */
   protected competitionLabel(entry: Competition): string {
     if (!entry.event) return 'Clover Cup · ' + entry.time + 's · ' + entry.medal;
-    if (entry.event === 'cup')
-      return `${RANKS[entry.rank ?? 0]} Cup · ${ordinal(entry.placing ?? 1)} of ${entry.field} · ${entry.time} points`;
+    if (entry.event === 'cup' || entry.event === 'promotion')
+      return `${RANKS[entry.rank ?? 0]} ${entry.event === 'promotion' ? 'Promotion ' : ''}Cup · ${ordinal(entry.placing ?? 1)} of ${entry.field} · ${entry.time} points`;
     const name =
       entry.event === 'exhibition' ? 'Colosseum exhibition' : EXHIBITIONS[entry.event].name;
     return name + ' · ' + entry.time + ' points · ' + entry.medal;

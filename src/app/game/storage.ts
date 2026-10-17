@@ -12,7 +12,7 @@ import {
 } from './content';
 import { AREAS } from './content';
 import { chessMoments, rhythmSong, runCourse } from './drills';
-import { ATHLETIC_RANKS, cupLegs, RANKS } from './ladder';
+import { ATHLETIC_RANKS, cupLegs, promotionLegs, RANKS } from './ladder';
 import { initialContainers, ITEM_IDS, MILL_MINUTES } from './logistics';
 
 export interface SaveStorage {
@@ -383,13 +383,16 @@ export function validateSave(value: unknown): asserts value is GameState {
     if (['event', 'leg', 'hard'].some((key) => training[key] !== undefined)) {
       // A Colosseum event's current leg: its drill, on harder settings, after the legs scored.
       // Ranked cups' days chose their legs.
-      choice(training['event'], [...EXHIBITION_IDS, 'cup'], 'training.event');
-      const cup = training['event'] === 'cup';
+      choice(training['event'], [...EXHIBITION_IDS, 'cup', 'promotion'], 'training.event');
+      const cup = training['event'] === 'cup' || training['event'] === 'promotion';
       if (cup) number(training['cupDay'], 'training.cupDay', 1, Number.MAX_SAFE_INTEGER, true);
       else if (training['cupDay'] !== undefined) corrupt('training.cupDay');
-      const legs = cup
-        ? cupLegs(training['cupDay'] as number)
-        : EXHIBITIONS[training['event'] as ExhibitionId].legs;
+      const legs =
+        training['event'] === 'promotion'
+          ? promotionLegs(training['cupDay'] as number)
+          : cup
+            ? cupLegs(training['cupDay'] as number)
+            : EXHIBITIONS[training['event'] as ExhibitionId].legs;
       number(training['leg'], 'training.leg', 0, legs.length - 1, true);
       const leg = training['leg'] as number;
       if (training['hard'] !== true) corrupt('training.hard');
@@ -499,8 +502,8 @@ function validateCritter(critter: Record<string, unknown>): void {
     string(result['medal'], 'competition.medal');
     // Ranked cups also keep their placing, the size of the field and the rank run at.
     if (result['event'] !== undefined)
-      choice(result['event'], [...EXHIBITION_IDS, 'cup'], 'competition.event');
-    if (result['event'] === 'cup') {
+      choice(result['event'], [...EXHIBITION_IDS, 'cup', 'promotion'], 'competition.event');
+    if (result['event'] === 'cup' || result['event'] === 'promotion') {
       number(result['field'], 'competition.field', 1, 100, true);
       number(result['placing'], 'competition.placing', 1, result['field'] as number, true);
       number(result['rank'], 'competition.rank', 0, ATHLETIC_RANKS - 1, true);

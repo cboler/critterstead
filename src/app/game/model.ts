@@ -2,7 +2,7 @@ export type AreaId = 'homestead' | 'glade' | 'cottage' | 'colosseum' | 'town' | 
 // Colosseum events; 'exhibition' is the athletic showing held every day.
 export type ExhibitionId = 'exhibition' | 'hedgerow' | 'strongpaw' | 'clever' | 'meadow' | 'grand';
 // A ranked cup on the Colosseum ladder, or one of the events above.
-export type EventId = ExhibitionId | 'cup';
+export type EventId = ExhibitionId | 'cup' | 'promotion';
 // Clover Cup entries have no event; Colosseum entries store their points in `time`, and a
 // ranked cup also its placing in a field of entrants at the critter's rank.
 export interface Competition {
@@ -290,6 +290,8 @@ export interface WorldObject {
     | 'rhythm'
     | 'chess'
     | 'exhibition'
+    | 'ladder'
+    | 'promotion'
     | 'notices'
     | 'sign'
     | 'shop'

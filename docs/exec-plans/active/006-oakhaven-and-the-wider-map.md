@@ -87,9 +87,15 @@ retired, not migrated (D55): the game says so, keeps the record, and offers a ne
 
 ### M4 — The Colosseum forecourt, booths and promotion cups
 
-- [ ] Booths with staff: the exhibition steward, the ladder registrar (ranked cups) and
-      the promotion desk; the calendar, quests and journal name the booth.
-- [ ] Plan 005 M2 lands here: promotion cups at the promotion desk.
+- [x] Three booths with staff in their hours (8:00–20:00): Ottilie Marsh's exhibition booth
+      (the everyday showing and scheduled events), Gus Penrose's ladder booth (ranked cups)
+      and Celia Vane's promotion desk; each offers only its own entries and a chat.
+- [x] Plan 005 M2 lands here: promotion cups on days 15 and 29 for critters with six ladder
+      points, three legs against the rank's four strongest rivals. First place promotes,
+      clears the points and pays a purse; any other placing keeps the qualification. A
+      Veteran who wins becomes a Champion awaiting bouts.
+- [x] The calendar shows promotion cups (and whether the companion qualifies); the day's
+      quests point at the right booth.
 
 ### M5 — Gemothy, a friend at the tavern bin
 
@@ -183,6 +189,19 @@ which the quality tiers already control, not from the library.
   cottage with its beds and box, and the pickup's flag by the lane gate.
 - Browser tests sell through the pickup and stand in for the cart's payment.
 
+## M4 evidence — 2026-10-16
+
+- Host: `PROMOTION`, `PROMOTION_DAYS`, `promotionLegs`, `promotionField` and
+  `qualifiedForPromotion` in `ladder.ts`; `eventInfo('promotion')`; `finishPromotion`; the
+  `ladder` and `promotion` booths and their staff; saves accept `promotion` events and
+  results (v14, unreleased). Unit tests: 181 passed, including entry by qualification, a win
+  that promotes and survives a save, a loss that keeps the qualification, and a Veteran
+  becoming a Champion.
+- Inspected in the dev server: the forecourt's two new booths with Gus and Celia, the
+  promotion desk's offer on Spring 15.
+- Routine decisions (provisional, for plan 005's simulator): fees 10/16/24, purses
+  60/30/15, 100/50/25, 160/80/40, 50 energy and 90 minutes; four rivals in the field.
+
 ## Current handoff
 
-M1–M3 complete. Next: M4 — the Colosseum forecourt, its booths and promotion cups.
+M1–M4 complete. Next: M5 — Gemothy at the tavern bin.

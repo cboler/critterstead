@@ -1,6 +1,14 @@
 import { CROPS, EXHIBITIONS, scheduledExhibition } from './content';
 import { activeCritter, ExhibitionId, GameState, Season, Weather } from './model';
-import { ATHLETIC_RANKS, CUP, isCupDay, RANKS } from './ladder';
+import {
+  ATHLETIC_RANKS,
+  CUP,
+  isCupDay,
+  isPromotionDay,
+  PROMOTION,
+  qualifiedForPromotion,
+  RANKS,
+} from './ladder';
 
 export const SEASONS: readonly Season[] = ['spring', 'summer', 'autumn', 'winter'];
 export const DAYS_PER_SEASON = 30;
@@ -84,6 +92,16 @@ export function upcomingEvents(state: GameState, days = DAYS_PER_SEASON): Calend
       events.push({
         day,
         label: `${RANKS[critter.ladder.rank]} Cup · ranked · ${CUP.fee[critter.ladder.rank]} coins to enter`,
+        kind: 'cup',
+      });
+    if (isPromotionDay(date.dayOfSeason) && critter.ladder.rank < ATHLETIC_RANKS)
+      events.push({
+        day,
+        label: `${RANKS[critter.ladder.rank]} Promotion Cup · ${
+          qualifiedForPromotion(critter.ladder)
+            ? `qualified · ${PROMOTION.fee[critter.ladder.rank]} coins to enter`
+            : `needs ${PROMOTION.qualify} ladder points`
+        }`,
         kind: 'cup',
       });
     if (day < state.day + FORECAST_DAYS && weatherFor(day) === 'rain')

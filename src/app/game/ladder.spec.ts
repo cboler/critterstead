@@ -1,34 +1,52 @@
 import { describe, expect, it } from 'vitest';
 import { upcomingEvents } from './calendar';
-import { booth, perform } from './fixtures/play';
+import { desk, perform } from './fixtures/play';
 import { createInitialState, LocalGameHost } from './host';
-import { CUP, CUP_DAYS, cupLegs, ordinal, placingOf, RANKS, RIVALS, rivalPoints } from './ladder';
-import { activeCritter, Training } from './model';
+import {
+  CUP,
+  CUP_DAYS,
+  cupLegs,
+  ordinal,
+  placingOf,
+  PROMOTION_DAYS,
+  promotionField,
+  promotionLegs,
+  RANKS,
+  RIVALS,
+  rivalPoints,
+} from './ladder';
+import { activeCritter, GameState, Training } from './model';
 import { readSave, validateSave } from './storage';
 
 const enterCup = (host: LocalGameHost) =>
-  host.dispatch({ type: 'interact', targetId: 'exhibition', action: 'cup' });
+  host.dispatch({ type: 'interact', targetId: 'ladder', action: 'cup' });
+// Ranked cups are entered at the ladder registrar's booth.
+const booth = (day: number, modify?: (state: GameState) => void) => desk(day, 'ladder', modify);
 
 describe('the ladder’s ranked cups', () => {
   it('holds a cup for the companion’s rank on its days, beside the everyday showing', () => {
     const today = booth(3).interaction()!;
-    expect(today.title).toBe('Today: the Fledgling Cup');
+    expect(today.title).toBe('Ladder registrar · today: the Fledgling Cup');
     expect(today.description).toContain('hurdle run and boulder lift against 6 Fledgling rivals');
     expect(today.actions.map((action) => action.label)).toEqual([
       'Enter the Fledgling Cup · 5 coins · 40 Mallow energy · 70 min',
-      'Enter the exhibition · 40 Mallow energy · 5 yours · 60 min',
+      'Chat with Gus · 5 min',
     ]);
     expect(
       booth(2)
         .interaction()!
         .actions.map((action) => action.id),
-    ).toEqual(['exhibit']);
-    const calendar = upcomingEvents(createInitialState()).filter((event) => event.kind === 'cup');
+    ).toEqual(['chat:resident-ladder']);
+    const calendar = upcomingEvents(createInitialState()).filter(
+      (event) => event.kind === 'cup' && event.label.includes('ranked'),
+    );
     expect(calendar.map((event) => event.day)).toEqual(CUP_DAYS);
     expect(calendar[0].label).toBe('Fledgling Cup · ranked · 5 coins to enter');
     // A Champion's contests are bouts, still to come: no cup, and the booth says why.
     const champion = booth(3, (state) => (activeCritter(state).ladder = { rank: 3, points: 0 }));
-    expect(champion.interaction()!.actions.map((action) => action.id)).toEqual(['exhibit']);
+    expect(champion.interaction()!.actions.map((action) => action.id)).toEqual([
+      'chat:resident-ladder',
+    ]);
     expect(champion.interaction()!.description).toContain(
       'a Champion; that rank’s contests are bouts',
     );
@@ -145,5 +163,69 @@ describe('the ladder’s ranked cups', () => {
     perform(resumed, kinds);
     expect(kinds).toEqual(['run', 'lift']);
     expect(resumed.critter.competitions.at(-1)).toMatchObject({ event: 'cup', day: 4 });
+  });
+});
+
+describe('promotion cups', () => {
+  const atDesk = (points: number, stats = 5, rank = 0) =>
+    desk(15, 'promotion', (state) => {
+      const critter = activeCritter(state);
+      critter.ladder = { rank, points };
+      critter.stats = { strength: stats, endurance: stats, speed: stats, intelligence: stats };
+      state.player.coins = 100;
+    });
+  const enter = (host: LocalGameHost) =>
+    host.dispatch({ type: 'interact', targetId: 'promotion', action: 'promotion' });
+
+  it('are open on their days to critters with six ladder points', () => {
+    expect(PROMOTION_DAYS).toEqual([15, 29]);
+    const short = atDesk(5);
+    expect(short.interaction()!.description).toContain('needs 6 ladder points to enter and has 5');
+    expect(enter(short)).toBe(false);
+    const ready = atDesk(6);
+    expect(ready.interaction()!.title).toBe('Promotion desk · today: the Fledgling Promotion Cup');
+    expect(ready.interaction()!.actions[0].label).toBe(
+      'Enter the Fledgling Promotion Cup · 10 coins · 50 Mallow energy · 90 min',
+    );
+    expect(promotionLegs(15)).toHaveLength(3);
+    expect(promotionField(0).map((rival) => rival.id)).toHaveLength(4);
+    const calendar = upcomingEvents(createInitialState()).filter((event) =>
+      event.label.includes('Promotion'),
+    );
+    expect(calendar.map((event) => event.day)).toEqual([15, 29]);
+    expect(calendar[0].label).toContain('needs 6 ladder points');
+  });
+
+  it('promotes the winner, clears the points and keeps the result through a save', () => {
+    const host = atDesk(7, 18);
+    expect(enter(host)).toBe(true);
+    expect(host.state.training).toMatchObject({ event: 'promotion', cupDay: 15, hard: true });
+    expect(() => validateSave(host.state)).not.toThrow();
+    perform(host);
+    expect(host.critter.competitions.at(-1)).toMatchObject({
+      event: 'promotion',
+      placing: 1,
+      field: 5,
+      rank: 0,
+    });
+    expect(host.critter.ladder).toEqual({ rank: 1, points: 0 });
+    expect(host.state.journal[0]).toContain('pins a Contender ribbon');
+    expect(host.critter.history.at(-1)).toBe(
+      'Day 15: won the Fledgling Promotion Cup and became a Contender.',
+    );
+    expect(() => readSave(structuredClone(host.state))).not.toThrow();
+  });
+
+  it('keeps the qualification after a loss, and makes a Veteran winner a Champion', () => {
+    const loser = atDesk(6, 1);
+    expect(enter(loser)).toBe(true);
+    for (let second = 0; second < 200 && loser.state.training; second++) loser.update(1);
+    expect(loser.critter.ladder).toEqual({ rank: 0, points: 6 });
+    expect(loser.state.journal[0]).toContain('The qualification stands');
+    const veteran = atDesk(6, 40, 2);
+    expect(enter(veteran)).toBe(true);
+    perform(veteran);
+    expect(veteran.critter.ladder.rank).toBe(3);
+    expect(veteran.state.journal[0]).toContain('settle things in bouts');
   });
 });

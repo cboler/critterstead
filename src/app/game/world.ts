@@ -10,6 +10,8 @@ import {
   CHESS_TABLE,
   CROPS,
   EXHIBITION_BOOTH,
+  LADDER_BOOTH,
+  PROMOTION_BOOTH,
   ROUTINE,
   RHYTHM_FLOOR,
   RHYTHM_STATION,
@@ -2292,18 +2294,32 @@ export class GameWorld {
     this.pullStone.add(this.mesh(this.pebble, '#7f8c88', [2.9, 0.5, -1], [0.75, 0.5, 0.6]));
     this.scenery.add(this.pullStone);
     this.pennants(-4, -4.8, 6, -4.8, 3.2);
-    const booth = new THREE.Group();
-    booth.position.set(EXHIBITION_BOOTH.x, 0, EXHIBITION_BOOTH.z);
-    booth.add(this.mesh(this.box, '#9b714b', [0, 0.45, 0], [1.2, 0.9, 0.7]));
-    booth.add(this.mesh(this.box, '#e7d8ac', [0, 0.93, 0], [1.3, 0.06, 0.8]));
-    booth.add(this.mesh(this.cylinder, '#b59569', [-0.55, 1.2, -0.25], [0.05, 1.3, 0.05]));
-    booth.add(this.mesh(this.cylinder, '#b59569', [0.55, 1.2, -0.25], [0.05, 1.3, 0.05]));
-    booth.add(this.mesh(this.box, '#c8866a', [0, 1.85, -0.25], [1.4, 0.12, 0.8]));
-    this.scenery.add(booth);
+    this.booth(EXHIBITION_BOOTH, '#c8866a');
+    this.booth(LADDER_BOOTH, '#5f8a6a');
+    this.booth(PROMOTION_BOOTH, '#6f5d8a');
+    this.path(
+      [
+        [-5.4, 3],
+        [-4.6, 4.2],
+      ],
+      0.8,
+    );
+    this.path(
+      [
+        [-2.6, 1.5],
+        [-1.6, 3.2],
+      ],
+      0.8,
+    );
     this.gate(-8, 4, true);
     this.lantern(-4.4, 1.6);
     this.lantern(-6.6, 5.1);
-    const heights: Partial<Record<string, number>> = { gate: 2.4, exhibition: 2.3 };
+    const heights: Partial<Record<string, number>> = {
+      gate: 2.4,
+      exhibition: 2.3,
+      ladder: 2.3,
+      promotion: 2.3,
+    };
     for (const object of AREAS.colosseum.objects)
       this.label(
         object.kind === 'gate' ? '↙ Colosseum road' : object.name,
@@ -2312,6 +2328,19 @@ export class GameWorld {
         object.position.z,
         object.kind === 'gate',
       );
+  }
+
+  /** A registration booth: a counter, two poles and a coloured canopy. */
+  private booth(at: Point, canopy: string): void {
+    const booth = new THREE.Group();
+    booth.position.set(at.x, 0, at.z);
+    booth.add(this.mesh(this.box, '#9b714b', [0, 0.45, 0], [1.2, 0.9, 0.7]));
+    booth.add(this.mesh(this.box, '#e7d8ac', [0, 0.93, 0], [1.3, 0.06, 0.8]));
+    booth.add(this.mesh(this.cylinder, '#b59569', [-0.55, 1.2, -0.25], [0.05, 1.3, 0.05]));
+    booth.add(this.mesh(this.cylinder, '#b59569', [0.55, 1.2, -0.25], [0.05, 1.3, 0.05]));
+    booth.add(this.mesh(this.box, canopy, [0, 1.85, -0.25], [1.4, 0.12, 0.8]));
+    booth.add(this.mesh(this.box, '#efe0b7', [0, 0.6, 0.36], [0.9, 0.3, 0.03]));
+    this.scenery.add(booth);
   }
 
   /** Oakhaven: a square with a well, shopfronts along the north, and roads east and west. */

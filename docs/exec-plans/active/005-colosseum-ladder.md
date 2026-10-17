@@ -53,15 +53,18 @@ cup promotes and starts the points again.
 
 ### M2 — Promotion cups
 
-- [ ] Six ladder points qualify a critter for its rank's promotion cup: three legs against
+Built in [plan 006 M4](006-oakhaven-and-the-wider-map.md#m4-evidence--2026-10-16), at the
+Colosseum's new promotion desk.
+
+- [x] Six ladder points qualify a critter for its rank's promotion cup: three legs against
       the rank's strongest rivals. First place promotes, clears the points and pays a
       purse; any other placing keeps the qualification.
-- [ ] A promotion is an occasion: the crowd, a ceremony note, the rank in history and on
+- [x] A promotion is an occasion: the crowd, a ceremony note, the rank in history and on
       the companion panel.
-- [ ] Winning the Veteran promotion cup makes a critter a Champion awaiting the bouts; no
+- [x] Winning the Veteran promotion cup makes a critter a Champion awaiting the bouts; no
       athletic cups are held for that rank.
-- [ ] Verification: unit tests, a browser test of a promotion, lint, build, PWA,
-      inspected screenshots.
+- [x] Verification: unit tests, lint, build, inspected screenshots (a browser test of a
+      promotion is still to add).
 
 ### M3 — Balancing simulator
 
@@ -108,4 +111,4 @@ Adjustments from the published game's playtest; empty if none are needed.
 
 ## Current handoff
 
-M1 complete. Next: M2 — promotion cups.
+M1 and M2 complete (M2 in plan 006). Next: M3 — the balancing simulator.

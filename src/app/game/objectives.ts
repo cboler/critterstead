@@ -1,6 +1,6 @@
 import { BEHAVIORS, EXHIBITIONS, GAME_CONFIG, scheduledExhibition } from './content';
 import { calendarDate } from './calendar';
-import { ATHLETIC_RANKS, isCupDay, RANKS } from './ladder';
+import { ATHLETIC_RANKS, isCupDay, isPromotionDay, qualifiedForPromotion, RANKS } from './ladder';
 import { plotReady } from './garden';
 import { learnedStage } from './host';
 import { quantity } from './logistics';
@@ -64,7 +64,7 @@ export function objectives(state: GameState): Objective[] {
     offer(
       'exhibition',
       'Today’s Colosseum exhibition',
-      'The crowd is back; through Oakhaven, west of the yard.',
+      'The crowd is back; through Oakhaven and up the Colosseum road.',
     );
   // A ranked cup on its day, for a critter still on the athletic ranks.
   if (
@@ -76,7 +76,18 @@ export function objectives(state: GameState): Objective[] {
     offer(
       'cup-ranked',
       `Today: the ${RANKS[critter.ladder.rank]} Cup`,
-      `A ranked cup at the Colosseum; the top three earn ladder points (${name} has ${critter.ladder.points}).`,
+      `Enter at the ladder registrar's booth; the top three earn ladder points (${name} has ${critter.ladder.points}).`,
+    );
+  // A promotion cup on its day, for a critter that has qualified.
+  if (
+    isPromotionDay(calendarDate(state.day).dayOfSeason) &&
+    qualifiedForPromotion(critter.ladder) &&
+    !critter.competitions.some((result) => result.day === state.day && result.event === 'promotion')
+  )
+    offer(
+      'cup-promotion',
+      `Today: the ${RANKS[critter.ladder.rank]} Promotion Cup`,
+      `${name} has qualified. Enter at the promotion desk; first place makes a ${RANKS[critter.ladder.rank + 1]}.`,
     );
   // A scheduled event on its day, once the first showing has been seen.
   const event = scheduledExhibition(calendarDate(state.day).dayOfSeason);

@@ -52,13 +52,17 @@ describe('the Colosseum calendar', () => {
 
   it('offers the day’s event beside the everyday showing, for its fee', () => {
     const quiet = booth(2);
-    expect(quiet.interaction()!.actions.map((action) => action.id)).toEqual(['exhibit']);
+    expect(quiet.interaction()!.actions.map((action) => action.id)).toEqual([
+      'exhibit',
+      'chat:resident-exhibition',
+    ]);
     expect(quiet.interaction()!.description).toContain('Next on the calendar: the Hedgerow Dash');
     const host = booth(4);
     expect(host.interaction()!.title).toBe('Today: the Hedgerow Dash');
     expect(host.interaction()!.actions.map((action) => action.label)).toEqual([
       'Enter the Hedgerow Dash · 6 coins · 50 Mallow energy · 70 min',
       'Enter the exhibition · 40 Mallow energy · 5 yours · 60 min',
+      'Chat with Ottilie · 5 min',
     ]);
     const poor = booth(4, (state) => (state.player.coins = 5));
     expect(poor.interaction()!.actions[0]).toMatchObject({

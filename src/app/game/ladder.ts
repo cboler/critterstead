@@ -91,6 +91,57 @@ export const RIVALS: readonly (readonly Rival[])[] = [
   ],
 ];
 
+/** Promotion cups fall on these days, for critters with enough ladder points. */
+export const PROMOTION_DAYS: readonly number[] = [15, 29];
+export const PROMOTION = {
+  energy: 50,
+  minutes: 90,
+  fee: [10, 16, 24],
+  purse: [
+    [60, 30, 15],
+    [100, 50, 25],
+    [160, 80, 40],
+  ],
+  // Ladder points that qualify a critter for its rank's promotion cup.
+  qualify: 6,
+  // How many of the rank's strongest rivals stand in a promotion cup.
+  field: 4,
+} as const;
+
+/** Each promotion cup's three legs, in turn through the season's promotion cups. */
+const PROMOTION_TRIOS: readonly (readonly [Drill, Drill, Drill])[] = [
+  ['run', 'lift', 'chess'],
+  ['pace', 'toss', 'rhythm'],
+  ['beam', 'hoops', 'lift'],
+  ['toss', 'run', 'chess'],
+];
+
+export const isPromotionDay = (dayOfSeason: number) => PROMOTION_DAYS.includes(dayOfSeason);
+
+/** A critter with enough ladder points to enter its rank's promotion cup. */
+export const qualifiedForPromotion = (ladder: { rank: number; points: number }) =>
+  ladder.rank < ATHLETIC_RANKS && ladder.points >= PROMOTION.qualify;
+
+export function promotionLegs(day: number): ExhibitionLeg[] {
+  const season = Math.floor((day - 1) / 30);
+  const dayOfSeason = ((day - 1) % 30) + 1;
+  const held =
+    season * PROMOTION_DAYS.length + PROMOTION_DAYS.filter((cup) => cup <= dayOfSeason).length;
+  return PROMOTION_TRIOS[(held - 1 + PROMOTION_TRIOS.length) % PROMOTION_TRIOS.length].map(
+    (drill) => ({ drill }),
+  );
+}
+
+/** The rank's strongest rivals: the best stats played with the best form. */
+export function promotionField(rank: number): Rival[] {
+  const strength = (rival: Rival) =>
+    (rival.stats.strength + rival.stats.endurance + rival.stats.speed + rival.stats.intelligence) *
+    rival.form;
+  return [...RIVALS[Math.min(rank, RIVALS.length - 1)]]
+    .sort((a, b) => strength(b) - strength(a))
+    .slice(0, PROMOTION.field);
+}
+
 /** True on the days a ranked cup is held. */
 export const isCupDay = (dayOfSeason: number) => CUP_DAYS.includes(dayOfSeason);
 
@@ -152,6 +203,17 @@ export interface EventInfo {
 
 /** What an event or a ranked cup asks of a critter at a rank, from its id and cup day. */
 export function eventInfo(event: EventId, cupDay: number | undefined, rank: number): EventInfo {
+  if (event === 'promotion') {
+    const legs = promotionLegs(cupDay ?? 1);
+    return {
+      name: `${RANKS[rank]} Promotion Cup`,
+      legs,
+      stats: legWeights(legs),
+      energy: PROMOTION.energy,
+      minutes: PROMOTION.minutes,
+      fee: PROMOTION.fee[Math.min(rank, PROMOTION.fee.length - 1)],
+    };
+  }
   if (event === 'cup') {
     const legs = cupLegs(cupDay ?? 1);
     return {
