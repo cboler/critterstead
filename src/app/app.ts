@@ -55,6 +55,7 @@ import {
 } from './game/drills';
 import { eventInfo, ordinal, RANKS } from './game/ladder';
 import { GameWorld } from './game/world';
+import { loadFigureModels } from './game/render/models';
 import { familiesMet } from './game/cast';
 import { barnStalls, ownedCritters } from './game/barn';
 import { MAP_SIZE, minimap, worldMap } from './game/map';
@@ -808,6 +809,9 @@ export class App implements AfterViewInit, OnDestroy {
     }
     if (this.destroyed) return;
     this.refresh();
+    // Figures come from their model files when those load; otherwise from code.
+    await loadFigureModels(document.baseURI);
+    if (this.destroyed) return;
     try {
       this.zone.runOutsideAngular(() => {
         this.world = new GameWorld(

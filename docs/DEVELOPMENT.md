@@ -139,6 +139,29 @@ evidence; turn concrete problems into fixes or backlog items.
 - Localization and color-blind accessibility are future design concerns; do not
   describe them as shipped systems. Avoid making future adoption harder.
 
+## Editing critter figures
+
+Every critter's figure is a model file in `public/models/<kind>.glb` (the nine families,
+`brindlekin` and `gemothy`). The game loads them at startup and recolours each one for the
+individual; a kind whose file is missing or broken falls back to the figure built in
+`src/app/game/render/figures.ts`, so a bad edit never stops the game.
+
+To edit one in Blender:
+
+1. File › Import › glTF 2.0, and pick the `.glb`.
+2. Change shapes, positions and proportions freely. Keep the names the game animates:
+   `frame` (the whole figure), `body` and `tail` (groups), and the meshes named `ear…`,
+   `eye…` and `leg…`. Keep each coloured part's custom property `role` (`coat.base`,
+   `coat.light`, `accent.base`…): the game paints that part in the individual's shade.
+   Parts without a role keep their own colour. Eyes keep their `open` property, ears their
+   `side` and `baseZ`, and kerchief parts their `kerchief` flag.
+3. File › Export › glTF 2.0, format glTF Binary (`.glb`), with Include › Custom Properties
+   ticked, over the same file.
+4. Run `npm start` and reload: the dev server serves the new file.
+
+`npm run export:models` rebuilds every file from the code-built figures, overwriting your
+edits, so run it only to start again from code.
+
 ## PWA and Pages
 
 The existing public destination is <https://cboler.github.io/critterstead/>.

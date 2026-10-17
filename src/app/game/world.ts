@@ -257,6 +257,7 @@ export class GameWorld {
   private readonly torus = this.keep(new THREE.TorusGeometry(0.26, 0.057, 6, 18));
   private readonly figureKit: FigureKit = {
     mesh: (geometry, color, position, scale) => this.mesh(geometry, color, position, scale),
+    material: (color) => this.material(color),
     sphere: this.sphere,
     cylinder: this.cylinder,
     cone: this.cone,

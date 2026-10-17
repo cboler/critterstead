@@ -143,10 +143,11 @@ retired, not migrated (D55): the game says so, keeps the record, and offers a ne
 
 ### M9 — Figures from model files
 
-- [ ] The code-built figures are exported once to glTF files in the repository, then
-      loaded at runtime, with named parts for animation and named materials for each
-      individual's colours; editing a file in Blender changes the game.
-- [ ] A short how-to for editing them in `DEVELOPMENT.md`.
+- [x] The code-built figures are exported once (`npm run export:models`) to
+      `public/models/<kind>.glb`, with named parts for animation and a colour role on each
+      coloured part; the game loads them at startup and recolours them per individual.
+      A missing or broken file falls back to the code-built figure.
+- [x] A short how-to for editing them in Blender in `DEVELOPMENT.md`.
 
 ## Open questions for the product owner
 
@@ -156,7 +157,7 @@ retired, not migrated (D55): the game says so, keeps the record, and offers a ne
   (monsters are hurt and age out; they do not die in tournaments). It does not affect
   this campaign; bouts are later.
 
-## Model tweaking
+## Model tweaking (superseded by M9)
 
 Today figures are built in code from shared parts (`render/figures.ts`); M9 moves them to
 model files. Three.js stays the engine: memory use comes from scenery detail and textures,
@@ -274,6 +275,17 @@ under load and passed on repeat. Gates: unit tests (184), lint, and the full bro
 - Routine decisions (provisional): stall costs, the adoption donation, chores' hours, and
   barn critters' energy restored at dawn.
 
+## M9 evidence — 2026-10-17
+
+- `figures.ts` names the animated parts and tags each coloured mesh with its `role`;
+  `FIGURE_MODELS` holds loaded files and `modelFigure` clones, recolours and collects the
+  parts. `render/models.ts` loads all eleven files (a lazy 103 kB loader chunk) before the
+  world is built, with a timeout. `scripts/export-models.ts` writes the files (about 250 kB
+  in all); the service worker caches `.glb` with the other assets.
+- Verified: all eleven files load in the dev server, Mallow draws from the canine file in
+  her own peach and moss with her kerchief; unit tests 193, lint, production build, and
+  the PWA check (offline reload renders the world).
+
 ## Current handoff
 
-M1–M8 complete. Next: M9 — figures from model files.
+M1–M9 complete. Next: the full browser suite, then publish; after that, close the campaign.

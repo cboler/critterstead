@@ -6,6 +6,8 @@ type Vec3 = [number, number, number];
 /** Shared geometry and the world's cached-material mesh factory. */
 export interface FigureKit {
   mesh(geometry: THREE.BufferGeometry, color: string, position?: Vec3, scale?: Vec3): THREE.Mesh;
+  // The shared material for a colour, used to recolour figures loaded from model files.
+  material?(color: string): THREE.Material;
   sphere: THREE.BufferGeometry;
   cylinder: THREE.BufferGeometry;
   cone: THREE.BufferGeometry;
@@ -106,6 +108,9 @@ class FigureBuilder {
     this.accent = shades(appearance.accent);
     const body = new THREE.Group();
     const tail = new THREE.Group();
+    // Named so a figure exported to a model file can be animated again once loaded.
+    body.name = 'body';
+    tail.name = 'tail';
     body.add(tail);
     frame.add(body);
     this.parts = { body, tail, ears: [], eyes: [], legs: [], back: 0.9, height: 1.9 };
@@ -119,8 +124,20 @@ class FigureBuilder {
     parent?: THREE.Object3D,
   ): THREE.Mesh {
     const mesh = this.kit.mesh(geometry, color, position, scale);
+    const role = this.roleOf(color);
+    if (role) mesh.userData['role'] = role;
     (parent ?? this.parts.body).add(mesh);
     return mesh;
+  }
+  /** Which of the individual's shades a colour is, so a model file can be recoloured. */
+  private roleOf(color: string): string | undefined {
+    for (const [palette, shading] of [
+      ['coat', this.coat],
+      ['accent', this.accent],
+    ] as const)
+      for (const [shade, value] of Object.entries(shading))
+        if (value === color) return `${palette}.${shade}`;
+    return undefined;
   }
   ball(color: string, position: Vec3, scale: Vec3, parent?: THREE.Object3D): THREE.Mesh {
     return this.add(this.kit.sphere, color, position, scale, parent);
@@ -142,16 +159,19 @@ class FigureBuilder {
         ),
       ]) {
         eye.userData['open'] = eye.scale.y;
+        eye.name = 'eye';
         this.parts.eyes.push(eye);
       }
   }
   ear(mesh: THREE.Mesh, side: number): void {
     mesh.userData['side'] = side;
     mesh.userData['baseZ'] = mesh.rotation.z;
+    mesh.name = 'ear';
     this.parts.ears.push(mesh);
   }
   leg(color: string, position: Vec3, scale: Vec3, geometry = this.kit.sphere): THREE.Mesh {
     const leg = this.add(geometry, color, position, scale, this.frame);
+    leg.name = 'leg';
     this.parts.legs.push(leg);
     return leg;
   }
@@ -161,7 +181,10 @@ class FigureBuilder {
   kerchief(y: number, z: number, radius: number): void {
     const band = this.add(this.kit.torus, '#527f77', [0, y, z], [radius / 0.26, radius / 0.26, 1]);
     band.rotation.x = Math.PI / 2;
-    this.ball('#d7b366', [0, y - 0.055, z + radius + 0.02], [0.058, 0.065, 0.029]);
+    band.userData['kerchief'] = true;
+    this.ball('#d7b366', [0, y - 0.055, z + radius + 0.02], [0.058, 0.065, 0.029]).userData[
+      'kerchief'
+    ] = true;
   }
 }
 
@@ -563,18 +586,80 @@ export function buildFigure(
   kerchief: boolean,
 ): FigureParts {
   const family = (speciesId in BUILDS ? speciesId : 'canine') as FamilyId;
+  const model = FIGURE_MODELS.get(speciesId);
+  if (model) return modelFigure(kit, root, model, family, speciesId, appearance, kerchief);
   // Authored individuals and lineages outside the nine families have their own plans.
   const special: Build | undefined = ({ brindlekin, gemothy } as Partial<Record<string, Build>>)[
     speciesId
   ];
   const frame = new THREE.Group();
+  frame.name = 'frame';
   frame.scale.setScalar((special ? 0.95 : FAMILY_SCALE[family]) * appearance.size);
   root.add(frame);
   const figure = new FigureBuilder(kit, frame, appearance);
   (special ?? BUILDS[family])(figure, kerchief);
+  // Kept for export: where loads sit and labels float, before the frame's scale.
+  root.userData['figure'] = { back: figure.parts.back, height: figure.parts.height };
   const scale = frame.scale.x;
   figure.parts.height *= scale;
   return figure.parts;
+}
+
+/** Every kind with a figure: the nine families, Brindlekin and Gemothy. */
+export const FIGURE_KINDS: readonly string[] = [...Object.keys(BUILDS), 'brindlekin', 'gemothy'];
+
+/**
+ * Figures loaded from model files (public/models/<kind>.glb), by kind. When a kind has one,
+ * it is drawn from the file instead of from code: the file's parts keep their names (frame,
+ * body, tail, ear, eye, leg) and each coloured part its role (coat.base, accent.light…), so
+ * every individual is recoloured and animated as before.
+ */
+export const FIGURE_MODELS = new Map<string, THREE.Object3D>();
+
+function modelFigure(
+  kit: FigureKit,
+  root: THREE.Group,
+  model: THREE.Object3D,
+  family: FamilyId,
+  speciesId: string,
+  appearance: Appearance,
+  kerchief: boolean,
+): FigureParts {
+  const copy = model.clone(true);
+  const frame = (copy.getObjectByName('frame') as THREE.Group | undefined) ?? new THREE.Group();
+  const special = speciesId === 'brindlekin' || speciesId === 'gemothy';
+  frame.scale.setScalar((special ? 0.95 : FAMILY_SCALE[family]) * appearance.size);
+  const palettes = { coat: shades(appearance.coat), accent: shades(appearance.accent) };
+  const parts: FigureParts = {
+    body: (frame.getObjectByName('body') as THREE.Group | undefined) ?? new THREE.Group(),
+    tail: (frame.getObjectByName('tail') as THREE.Group | undefined) ?? new THREE.Group(),
+    ears: [],
+    eyes: [],
+    legs: [],
+    back: 0.9,
+    height: 1.9,
+  };
+  const unwanted: THREE.Object3D[] = [];
+  frame.traverse((object) => {
+    if (!(object instanceof THREE.Mesh)) return;
+    if (object.userData['kerchief'] && !kerchief) unwanted.push(object);
+    const role = object.userData['role'] as string | undefined;
+    if (role && kit.material) {
+      const [palette, shade] = role.split('.') as ['coat' | 'accent', keyof Shades];
+      const color = palettes[palette]?.[shade];
+      if (color) object.material = kit.material(color);
+    }
+    if (object.name.startsWith('ear')) parts.ears.push(object);
+    else if (object.name.startsWith('eye')) parts.eyes.push(object);
+    else if (object.name.startsWith('leg')) parts.legs.push(object);
+  });
+  unwanted.forEach((object) => object.removeFromParent());
+  const stored = (copy.userData['figure'] ?? model.userData['figure']) as
+    { back: number; height: number } | undefined;
+  parts.back = stored?.back ?? parts.back;
+  parts.height = (stored?.height ?? parts.height) * frame.scale.x;
+  root.add(frame);
+  return parts;
 }
 
 export function appearanceKey(speciesId: string, appearance: Appearance): string {
