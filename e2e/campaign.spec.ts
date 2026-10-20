@@ -118,7 +118,25 @@ test('plays three days in a row with results where you act and drills that reset
   // Day 3. Holding the pointer on the world walks toward it; letting go stops.
   const from = (await developmentState(page)).player.position;
   const rancher = await rancherOnScreen(page);
-  await page.mouse.move(rancher.x, rancher.y - 160);
+  // Hold on open ground: the first spot near the rancher where the world itself is under
+  // the pointer, not a label or a panel.
+  const spot = await page.evaluate((origin) => {
+    const canvas = document.querySelector('.world-canvas canvas');
+    for (const [dx, dy] of [
+      [0, -160],
+      [-160, -60],
+      [160, -60],
+      [0, 160],
+      [-200, 80],
+      [200, 80],
+    ]) {
+      const point = { x: origin.x + dx, y: origin.y + dy };
+      if (document.elementFromPoint(point.x, point.y) === canvas) return point;
+    }
+    return null;
+  }, rancher);
+  expect(spot, 'open ground near the rancher').not.toBeNull();
+  await page.mouse.move(spot!.x, spot!.y);
   await page.mouse.down();
   await expect
     .poll(async () => {
