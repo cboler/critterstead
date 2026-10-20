@@ -110,7 +110,7 @@ describe('the first living stead across three days', () => {
     expect(host.learning().label).toBe('Harvests on cue');
     travel(host, 'gate', -7.4, 0);
     // Berries go in the pickup by the field, sold overnight.
-    go(host, -11.2, 2);
+    go(host, -9.6, 2.4);
     ship(host, 'berry');
     const beforeDawn = host.state.player.coins;
     go(host, -10.8, -3.6);
@@ -201,7 +201,7 @@ describe('the first living stead across three days', () => {
     go(host, -10.8, -3.6);
     must(host, 'plot-2', 'harvest');
     expect(items(host, 'turnip')).toBeGreaterThan(0);
-    go(host, -11.2, 2);
+    go(host, -9.6, 2.4);
     ship(host, 'turnip');
     expect(
       quantity(

@@ -76,7 +76,7 @@ export function initialContainers(
     {
       id: 'pickup',
       kind: 'pickup',
-      location: { areaId: 'homestead', position: { x: -11.2, z: 2.8 } },
+      location: { areaId: 'homestead', position: { x: -9.6, z: 3.2 } },
       capacity: 60,
       allowed: (['berry', 'turnip', 'wheat'] as InventoryItem['itemId'][]).filter((item) =>
         itemIds.includes(item),

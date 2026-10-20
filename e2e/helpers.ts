@@ -110,7 +110,7 @@ export const SPOTS = {
   secondBed: [-9.9, -3.3],
   // The farm field's open south side, clear of its east fence.
   fieldGate: [-10.6, -2.3],
-  pickup: [-11.2, 2],
+  pickup: [-9.6, 2.4],
   lift: [5.2, 7.4],
   toss: [-5.4, -2.6],
   beam: [2.7, 2.9],
@@ -241,6 +241,32 @@ export async function walk(page: Page, x: number, z: number, within = 0.8): Prom
     const current = await position(page);
     const distance = Math.hypot(x - current.x, z - current.z);
     if (distance <= within) return;
+    // The last steps go through the same move command the keys send, in small pieces: on a
+    // slow machine one key press can carry the rancher past a close target and back again.
+    if (distance < 1.5) {
+      const arrived = await page.evaluate(
+        ({ x, z, within }) => {
+          const game = (window as unknown as DebugHostWindow).ng!.getComponent(
+            document.querySelector('app-root')!,
+          ) as unknown as {
+            host: {
+              state: GameState;
+              dispatch(command: { type: 'move'; x: number; z: number; seconds: number }): boolean;
+            };
+          };
+          for (let step = 0; step < 200; step++) {
+            const at = game.host.state.player.position;
+            const dx = x - at.x;
+            const dz = z - at.z;
+            if (Math.hypot(dx, dz) <= within) return true;
+            if (!game.host.dispatch({ type: 'move', x: dx, z: dz, seconds: 0.02 })) return false;
+          }
+          return false;
+        },
+        { x, z, within },
+      );
+      if (arrived) return;
+    }
     const along = ((current.x - start.x) * lineX + (current.z - start.z) * lineZ) / lineLength;
     const ahead = Math.min(lineLength, Math.max(0, along) + 2.5) / lineLength;
     const aim =
@@ -294,6 +320,13 @@ export async function takeStarterHome(page: Page): Promise<void> {
   await page.getByRole('radio', { name: /^Mallow,/ }).click();
   await page.getByRole('button', { name: 'Take Mallow home' }).click();
   await expect(page.locator('.starter-offer')).toHaveCount(0);
+  // The world is built once the figures' model files have loaded.
+  await page.waitForFunction(() => {
+    const game = (
+      window as unknown as { ng?: { getComponent(element: Element): { ready(): boolean } } }
+    ).ng?.getComponent(document.querySelector('app-root')!);
+    return !!game && game.ready();
+  });
 }
 
 /** Into the farm field by its open side, then close enough to a bed to tend it. */

@@ -297,7 +297,7 @@ describe('cottage interior and household calendar', () => {
 describe('the sales pickup', () => {
   it('takes only goods for sale and pays less than the store, at dawn', () => {
     const host = atBed((state) => {
-      state.player.position = { x: -11.2, z: 2 };
+      state.player.position = { x: -9.6, z: 2.4 };
       addItem(backpack(state), 'turnip', 3);
       addItem(backpack(state), 'berry', 4, 2);
     });
@@ -322,7 +322,7 @@ describe('the sales pickup', () => {
 describe('moving everything of a kind at once', () => {
   it('stores all of a stack in one action, as far as there is room', () => {
     const host = atBed((state) => {
-      state.player.position = { x: -11.2, z: 2 };
+      state.player.position = { x: -9.6, z: 2.4 };
       addItem(backpack(state), 'turnip', 5);
     });
     const pickup = host.state.containers.find((item) => item.kind === 'pickup')!;
