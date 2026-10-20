@@ -1,5 +1,13 @@
 import { expect, test } from '@playwright/test';
-import { developmentState, PACE, savedState, SPOTS, walk, takeStarterHome } from './helpers';
+import {
+  developmentState,
+  PACE,
+  savedState,
+  SPOTS,
+  walk,
+  takeStarterHome,
+  walkToBed,
+} from './helpers';
 
 test('tills and sows a seasonal bed, reads the cottage calendar, and keeps it all after reload', async ({
   page,
@@ -13,7 +21,7 @@ test('tills and sows a seasonal bed, reads the cottage calendar, and keeps it al
   await expect(page.locator('.world-canvas canvas')).toBeVisible();
   await expect(page.locator('.season')).toContainText('Spring 1 · Year 1');
 
-  await walk(page, ...SPOTS.secondBed);
+  await walkToBed(page, 'secondBed');
   await expect(page.locator('.interaction-copy')).toContainText('Garden bed 2 · overgrown');
   await page.getByRole('button', { name: /^Till the soil/ }).click();
   await expect(page.getByRole('button', { name: /^Plant garden sunberries/ })).toBeDisabled();

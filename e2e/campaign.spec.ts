@@ -1,6 +1,15 @@
 import { expect, test, type Page } from '@playwright/test';
 import { activeCritter, type Point } from '../src/app/game/model';
-import { cues, developmentState, PACE, savedState, SPOTS, walk, takeStarterHome } from './helpers';
+import {
+  cues,
+  developmentState,
+  PACE,
+  savedState,
+  SPOTS,
+  walk,
+  takeStarterHome,
+  walkToBed,
+} from './helpers';
 
 interface WorldWindow {
   ng: {
@@ -83,7 +92,7 @@ test('plays three days in a row with results where you act and drills that reset
     'raise the yield',
   );
   await page.getByRole('tab', { name: 'Mallow', exact: true }).click();
-  await walk(page, ...SPOTS.firstBed);
+  await walkToBed(page, 'firstBed');
   await page.getByRole('button', { name: /Plant feed seeds/ }).click();
   await page.getByRole('button', { name: /Water the garden bed/ }).click();
 
@@ -110,7 +119,7 @@ test('plays three days in a row with results where you act and drills that reset
   await expect(page.getByRole('button', { name: /^Practice hoops/ })).not.toContainText(
     'gains today',
   );
-  await walk(page, ...SPOTS.firstBed);
+  await walkToBed(page, 'firstBed');
   await page.getByRole('button', { name: /^Harvest · 3 feed/ }).click();
   await expect(page.locator('.world-float').filter({ hasText: 'feed' }).first()).toBeVisible();
   await sleep(page, 3);

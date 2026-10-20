@@ -49,6 +49,8 @@ test('standard controller moves, chooses actions, and navigates menus', async ({
   await button(page, 9); // Start: skip the walk to the choice
   await button(page, 0); // A: take the focused starter, Mallow, home
   await expect(page.locator('.starter-offer')).toHaveCount(0);
+  // The household replaces the opening's staging; wait for it before moving anyone.
+  await expect(page.locator('.save-state')).toContainText('Your homestead is saved');
   await expect(page.locator('.movement-hint')).toContainText('Controller connected');
   await button(page, 0); // A: first nearby action
   await expect(page.getByRole('button', { name: /Give a little scritch/ })).toBeDisabled();
@@ -102,6 +104,8 @@ test('controller leans on the balance beam and double jumps on the hurdle run', 
   await button(page, 9);
   await button(page, 0);
   await expect(page.locator('.starter-offer')).toHaveCount(0);
+  // The household replaces the opening's staging; wait for it before moving anyone.
+  await expect(page.locator('.save-state')).toContainText('Your homestead is saved');
   // Straight to a station in the glade; walking there is covered elsewhere.
   const goTo = (x: number, z: number) =>
     page.evaluate(
@@ -197,6 +201,8 @@ test('controller steps rhythm lanes and cheers and shoos at the chessboard', asy
   await button(page, 9);
   await button(page, 0);
   await expect(page.locator('.starter-offer')).toHaveCount(0);
+  // The household replaces the opening's staging; wait for it before moving anyone.
+  await expect(page.locator('.save-state')).toContainText('Your homestead is saved');
   // Straight into the cottage with Mallow; walking there is covered elsewhere.
   const goTo = (x: number, z: number) =>
     page.evaluate(

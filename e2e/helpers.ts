@@ -106,8 +106,10 @@ export const SPOTS = {
   nook: [2.5, -2.9],
   millInput: [4.9, 0.9],
   millOutput: [6.6, 1.2],
-  firstBed: [-12.2, -2.5],
-  secondBed: [-9.9, -2.5],
+  firstBed: [-11.9, -3.2],
+  secondBed: [-9.9, -3.3],
+  // The farm field's open south side, clear of its east fence.
+  fieldGate: [-10.6, -2.3],
   pickup: [-11.2, 2],
   lift: [5.2, 7.4],
   toss: [-5.4, -2.6],
@@ -217,7 +219,7 @@ export async function runHurdles(page: Page, course: Hurdle[]): Promise<void> {
   if (!finished) throw new Error('The hurdle run did not finish.');
 }
 
-export async function walk(page: Page, x: number, z: number): Promise<void> {
+export async function walk(page: Page, x: number, z: number, within = 0.8): Promise<void> {
   const directions = [
     { keys: ['w'], x: -0.6, z: -0.8 },
     { keys: ['s'], x: 0.6, z: 0.8 },
@@ -229,18 +231,28 @@ export async function walk(page: Page, x: number, z: number): Promise<void> {
     { keys: ['s', 'd'], x: 1.4 / Math.SQRT2, z: 0.2 / Math.SQRT2 },
   ];
   const deadline = Date.now() + 120_000;
+  // Long walks follow the straight line from the start through nearby waypoints: the eight
+  // key directions alone drift sideways over a long road, into whatever stands beside it.
+  const start = await position(page);
+  const lineX = x - start.x;
+  const lineZ = z - start.z;
+  const lineLength = Math.hypot(lineX, lineZ) || 1;
   while (Date.now() < deadline) {
     const current = await position(page);
-    const dx = x - current.x;
-    const dz = z - current.z;
-    const distance = Math.hypot(dx, dz);
-    if (distance <= 0.8) return;
+    const distance = Math.hypot(x - current.x, z - current.z);
+    if (distance <= within) return;
+    const along = ((current.x - start.x) * lineX + (current.z - start.z) * lineZ) / lineLength;
+    const ahead = Math.min(lineLength, Math.max(0, along) + 2.5) / lineLength;
+    const aim =
+      distance > 3 ? { x: start.x + lineX * ahead, z: start.z + lineZ * ahead } : { x, z };
+    const dx = aim.x - current.x;
+    const dz = aim.z - current.z;
     const direction = [...directions].sort(
       (a, b) => b.x * dx + b.z * dz - (a.x * dx + a.z * dz),
     )[0];
     // Hold each stride until the rancher has actually covered it, so slow frames still make
     // progress; strides shrink near the destination so a late release cannot overshoot.
-    const stride = distance < 3 ? distance / 2 : Math.min(2.5, distance - 1.5);
+    const stride = distance < 3 ? Math.max(0.1, distance / 2) : Math.min(1.5, Math.hypot(dx, dz));
     for (const key of direction.keys) await page.keyboard.down(key);
     const started = Date.now();
     let moved = 0;
@@ -282,6 +294,12 @@ export async function takeStarterHome(page: Page): Promise<void> {
   await page.getByRole('radio', { name: /^Mallow,/ }).click();
   await page.getByRole('button', { name: 'Take Mallow home' }).click();
   await expect(page.locator('.starter-offer')).toHaveCount(0);
+}
+
+/** Into the farm field by its open side, then close enough to a bed to tend it. */
+export async function walkToBed(page: Page, bed: 'firstBed' | 'secondBed'): Promise<void> {
+  await walk(page, ...SPOTS.fieldGate);
+  await walk(page, ...SPOTS[bed], 0.35);
 }
 
 /**

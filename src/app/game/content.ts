@@ -501,7 +501,7 @@ export const LANE_HEDGE: Point[] = [
 ];
 export const LANE_SIGN: Point = { x: 2.2, z: -2.2 };
 export const ROAD_SIGN: Point = { x: 1.6, z: 2.3 };
-export const ROAD_CARTS: Point[] = [{ x: -7.5, z: -3.4 }];
+export const ROAD_CARTS: Point[] = [{ x: -7.5, z: 4.4 }];
 
 const COLOSSEUM_BLOCKERS: Blocker[] = [
   ...arenaPosts().map(({ x, z }) => ({ x, z, r: 0.45 })),
