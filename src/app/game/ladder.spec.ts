@@ -99,7 +99,7 @@ describe('the ladder’s ranked cups', () => {
       const entry = host.critter.competitions.at(-1)!;
       return { host, entry, coins: host.state.player.coins - coins + CUP.fee[0] };
     };
-    const strong = play(15, true);
+    const strong = play(80, true);
     expect(strong.entry).toMatchObject({ day: 3, event: 'cup', placing: 1, field: 7, rank: 0 });
     expect(strong.entry.medal).toBe('gold');
     expect(strong.coins).toBe(CUP.purse[0][0]);
@@ -123,8 +123,8 @@ describe('the ladder’s ranked cups', () => {
   it('scores rivals by the same measure, from their form and stats', () => {
     const steady = () => 0.5;
     const [pepper] = RIVALS[0];
-    // Form 0.6 is 30 timing points; speed 7 and strength 3 at 2.5 each; care; half the luck.
-    expect(rivalPoints(pepper, cupLegs(3), steady)).toBe(30 + 25 + 5.6 + 2);
+    // Form 0.6 is 30 timing points; speed 63 and strength 27 at 2.5 each; care; half the luck.
+    expect(rivalPoints(pepper, cupLegs(3), steady)).toBe(30 + 225 + 5.6 + 2);
     expect(placingOf(70, [71, 69, 80])).toBe(3);
     expect(placingOf(90, [71, 69, 80])).toBe(1);
     expect([1, 2, 3, 4, 11, 12, 13, 21, 22].map(ordinal)).toEqual([
@@ -197,7 +197,7 @@ describe('promotion cups', () => {
   });
 
   it('promotes the winner, clears the points and keeps the result through a save', () => {
-    const host = atDesk(7, 18);
+    const host = atDesk(7, 80);
     expect(enter(host)).toBe(true);
     expect(host.state.training).toMatchObject({ event: 'promotion', cupDay: 15, hard: true });
     expect(() => validateSave(host.state)).not.toThrow();
@@ -222,7 +222,7 @@ describe('promotion cups', () => {
     for (let second = 0; second < 200 && loser.state.training; second++) loser.update(1);
     expect(loser.critter.ladder).toEqual({ rank: 0, points: 6 });
     expect(loser.state.journal[0]).toContain('The qualification stands');
-    const veteran = atDesk(6, 40, 2);
+    const veteran = atDesk(6, 400, 2);
     expect(enter(veteran)).toBe(true);
     perform(veteran);
     expect(veteran.critter.ladder.rank).toBe(3);

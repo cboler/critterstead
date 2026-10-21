@@ -91,13 +91,15 @@ import {
   RANKS,
   RIVALS,
   rivalPoints,
-  statPoints,
+  showingPoints,
 } from './ladder';
 import {
   answerMoment,
   beamScore,
   chessMoments,
   chessScore,
+  applyGain,
+  drillGain,
   drillMultiplier,
   jump,
   liftScore,
@@ -2049,10 +2051,7 @@ export class LocalGameHost {
     const event = eventInfo(id, training.cupDay, critter.ladder.rank);
     const scores = training.scores ?? [];
     const timing = scores.reduce((sum, score) => sum + score, 0) / event.legs.length;
-    const points =
-      Math.round(
-        (timing * 50 + statPoints(critter.stats, event.stats) + care * 8 + this.random() * 4) * 10,
-      ) / 10;
+    const points = showingPoints(timing, critter.stats, event.stats, care, this.random());
     const legs = event.legs
       .map((leg, index) => `${LEGS[leg.drill].short} ${Math.round((scores[index] ?? 0) * 100)}%`)
       .join(', ');
@@ -2187,20 +2186,9 @@ export class LocalGameHost {
     // A routine's score was drawn as it started.
     const score = routine ? training.scores![0] : this.drillScore(drill, training);
     const multiplier = drillMultiplier(critter, drill, state.day);
-    const { base, score: weight, care: careWeight, bonus } = definition.gain;
-    const gain =
-      Math.round(
-        (base +
-          score * weight +
-          care * careWeight +
-          (bonus ? critter.stats[bonus.stat] * bonus.weight : 0)) *
-          multiplier *
-          100,
-      ) / 100;
-    const { stat, side } = definition;
-    critter.stats[stat] = Math.round((critter.stats[stat] + gain) * 100) / 100;
-    critter.stats[side] =
-      Math.round((critter.stats[side] + gain * definition.sideShare) * 100) / 100;
+    const gain = drillGain(critter.stats, drill, score, care, multiplier);
+    const { stat } = definition;
+    applyGain(critter.stats, drill, gain);
     critter.skills[definition.skill] = (critter.skills[definition.skill] ?? 0) + 1;
     recordDrill(critter, drill, state.day);
     if (!routine) critter.practised[drill] = (critter.practised[drill] ?? 0) + 1;

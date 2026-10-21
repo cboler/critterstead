@@ -344,3 +344,58 @@ test('runs a ranked Fledgling Cup against the rivals for a placing', async ({ pa
   await expect(page.getByRole('dialog')).toContainText(/Fledgling Cup · \d+(st|nd|rd|th) of 7/);
   expect(errors).toEqual([]);
 });
+
+test('wins a Fledgling Promotion Cup and becomes a Contender', async ({ page }, info) => {
+  test.skip(!['desktop', 'phone-portrait'].includes(info.project.name));
+  test.setTimeout(240_000 * PACE);
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto('/');
+  await takeStarterHome(page);
+  // Spring 15, a promotion day, at the promotion desk with six ladder points and a well-trained
+  // companion.
+  await page.evaluate(() => {
+    const game = (
+      window as unknown as {
+        ng: { getComponent(element: Element): { host: { state: GameState } } };
+      }
+    ).ng.getComponent(document.querySelector('app-root')!);
+    const state = game.host.state;
+    state.day = 15;
+    state.totalMinutes = 14 * 1440 + state.minute;
+    state.areaId = 'colosseum';
+    state.areaInstanceId = 'local-colosseum';
+    state.player.coins = 30;
+    state.player.position = { x: -1.6, z: 5 };
+    const critter = state.critters.find((each) => each.id === state.activeCritterId)!;
+    critter.ladder = { rank: 0, points: 6 };
+    critter.stats = { strength: 150, endurance: 150, speed: 150, intelligence: 150 };
+  });
+  await expect(page.locator('.interaction-dock')).toContainText(
+    'today: the Fledgling Promotion Cup',
+  );
+  await page.getByRole('button', { name: /^Enter the Fledgling Promotion Cup · 10 coins/ }).click();
+  await expect(page.locator('.training-card')).toContainText(
+    'FLEDGLING PROMOTION CUP · 1 OF 3 · HURDLE RUN',
+  );
+  await runHurdles(page, runCourse((await developmentState(page)).training!.seed!));
+  await expect(page.locator('.training-card')).toContainText('2 OF 3 · BOULDER LIFT');
+  await holdGauge(page, 0.62);
+  await expect(page.locator('.training-card')).toContainText('3 OF 3 · CHESS PUZZLES');
+  await sitChess(page);
+  await expect(page.locator('.result-card')).toContainText('FLEDGLING PROMOTION CUP');
+  await expect(page.locator('.result-card')).toContainText('pins a Contender ribbon');
+  await page.screenshot({ path: info.outputPath('promotion-cup.png'), fullPage: true });
+  const after = activeCritter(await savedState(page));
+  expect(after.ladder).toEqual({ rank: 1, points: 0 });
+  expect(after.competitions.at(-1)).toMatchObject({
+    day: 15,
+    event: 'promotion',
+    placing: 1,
+    rank: 0,
+  });
+  await expect(page.locator('.ladder-row')).toContainText('Colosseum rank Contender');
+  await page.getByRole('button', { name: /Field journal/ }).click();
+  await expect(page.getByRole('dialog')).toContainText(/Fledgling Promotion Cup · 1st of 5/);
+  expect(errors).toEqual([]);
+});

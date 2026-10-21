@@ -1,7 +1,7 @@
 # 005 — The Colosseum ladder
 
 **Status:** authorized 2026-10-05 ([D53](../../DECISIONS.md#d53--a-colosseum-ladder-of-athletic-cups-accepted-2026-10-05)).
-M1 complete ([evidence](#m1-evidence--2026-10-05)); M2 next.
+M1–M3 complete ([M1](#m1-evidence--2026-10-05), [M3](#m3-evidence--2026-10-21)); M4 next.
 
 ## Purpose
 
@@ -63,18 +63,18 @@ Colosseum's new promotion desk.
       the companion panel.
 - [x] Winning the Veteran promotion cup makes a critter a Champion awaiting the bouts; no
       athletic cups are held for that rank.
-- [x] Verification: unit tests, lint, build, inspected screenshots (a browser test of a
-      promotion is still to add).
+- [x] Verification: unit tests, lint, build, inspected screenshots, and a browser test of a
+      promotion (added in M3).
 
 ### M3 — Balancing simulator
 
-- [ ] A pure simulation of days of play: care, training within energy and same-day
+- [x] A pure simulation of days of play: care, training within energy and same-day
       repeats, entering cups by the calendar, with the player's timing as a parameter.
-- [ ] A command prints, for a few kinds of player, the days to each promotion; tests
+- [x] A command prints, for a few kinds of player, the days to each promotion; tests
       guard the pacing targets (a diligent player reaches Contender within the first
       season and Veteran within about the second; a casual one takes about twice as long;
       nobody promotes without training).
-- [ ] Rival stats and form, cup weights and prizes tuned with it, the numbers recorded.
+- [x] Rival stats and form, cup weights and prizes tuned with it, the numbers recorded.
 
 ### M4 — Playtest balancing pass
 
@@ -109,6 +109,49 @@ Adjustments from the published game's playtest; empty if none are needed.
   purses 24/14/8, 40/24/14 and 64/38/22, 40 energy and 70 minutes. With perfect timing a
   new companion already wins a Fledgling Cup; M3 balances.
 
+## M3 evidence — 2026-10-21
+
+- Host: `balance.ts` (`PLAYERS`, `simulate`, `pace`), `scripts/balance.ts` and
+  `npm run balance`; the drill gain (`drillGain`, `applyGain`) and an event's points
+  (`showingPoints`) now shared by the host, the rivals and the simulator. Players:
+  _diligent_ (timing 0.85, care 0.85, drills together, rests at the barn), _casual_ (0.65,
+  0.7, trains until the critter is tired, no rests), _routines_ (menu routines only) and
+  _idle_ (never trains, plays every cup perfectly). A drill costs its minutes plus 30 for
+  walking and play; a cup day 60 more for the walk to the Colosseum.
+- Before tuning, every training player promoted on the first possible days (15, 29, 45)
+  and an idle critter with perfect timing reached Contender: training adds about 10 stat
+  points a day for a diligent player and 4.7 for a casual one, and the old rivals' stats
+  (3–18) were passed within days.
+- Tuned: each rank's authored rival stats ×9, ×13 and ×17 (Fledgling rivals total about
+  170, Contender 440, Veteran 1,150); form, cup weights (5 per cup, split by leg), fees and
+  purses unchanged. `npm run balance` (two years, nine families, eight seeds each):
+
+  | Player   | Contender | Veteran | Champion | Stats total | Ladder coins |
+  | :------- | :-------- | :------ | :------- | :---------- | :----------- |
+  | diligent | day 29    | day 59  | day 105  | 3,377       | 358          |
+  | casual   | day 59    | day 119 | day 209  | 1,197       | 246          |
+  | routines | day 89    | day 209 | —        | 585         | −54          |
+  | idle     | —         | —       | —        | 18          | −240         |
+
+  Every family and seed reaches each rank on the same promotion day: by the time a cup is
+  close, the stat gap decides it, and promotion days fall twice a season.
+
+- Fixed: a promotion cup's result card was headed "WELL DONE"; it now names the cup.
+- Browser: `e2e/training.spec.ts` wins a Fledgling Promotion Cup on Spring 15 (hurdles, lift,
+  chess), reads Contender on the companion panel and the 1st of 5 in the journal (desktop
+  and phone); `holdGauge` now stops when an event moves on from a gauge leg. Inspected:
+  [the promotion won](../evidence/005-m3/promotion-cup.png),
+  [on a phone](../evidence/005-m3/promotion-cup-phone.png).
+- Gates: lint, unit tests (197 passed, including `balance.spec.ts`), production build, PWA
+  check, browser suite (117 passed and 48 skipped by project; three phone timeouts in a slow 1.6 h run, unrelated to the ladder, passed on rerun). Formatting differences remain only in files this
+  milestone did not touch; the bundle budget warning is not from this change (the
+  simulator is not in the app bundle).
+- Open for the product owner: stats grow without limit, so rivals reach the hundreds by
+  Contender and a diligent critter totals about 1,300 after a year. Slowing training or
+  a soft stat ceiling would keep numbers small; the simulator retunes rivals for either.
+
 ## Current handoff
 
-M1 and M2 complete (M2 in plan 006). Next: M3 — the balancing simulator.
+M1–M3 complete (M2 in plan 006). Next: M4 — adjust from the published game's playtest
+(empty if none needed); rerun `npm run balance` after any change to drills, cups or
+rivals.

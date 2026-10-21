@@ -260,6 +260,13 @@ passes; `finishCup` places the companion in the field and pays purse and ladder 
 Save v13 gives every critter `ladder` (rank and points); cup results add `placing`,
 `field` and `rank` to the competition entry.
 
+Plan 005 M3 adds `balance.ts`, a pure simulation of days of play (care, drills within
+energy and same-day repeats, barn rests, cups by the calendar) for a few kinds of player,
+and `npm run balance`, which prints the median day each rank is reached. It shares the
+game's drill gain (`drillGain`, `applyGain` in `drills.ts`) and points (`showingPoints` in
+`ladder.ts`) with the host, so tuning the tables moves both; `balance.spec.ts` guards the
+pacing targets.
+
 ## Current implementation additions — plan 006 M1 (2026-10-16)
 
 Areas are rectangles: `AreaDefinition.half` gives the walkable half extents, and walking,

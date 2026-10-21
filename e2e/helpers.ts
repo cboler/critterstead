@@ -54,7 +54,9 @@ export async function holdGauge(page: Page, target: number): Promise<void> {
         const deadline = performance.now() + 60_000;
         const frame = (): void => {
           const training = game.state().training;
-          if (!training) return resolve(true);
+          // Done when the activity ends, or an event moves on to a leg that is not a gauge.
+          if (!training || (training.kind !== 'lift' && training.kind !== 'pace'))
+            return resolve(true);
           if (performance.now() > deadline) return resolve(false);
           if ((training.meter ?? 0) < goal)
             for (const type of ['keydown', 'keyup'])

@@ -1153,8 +1153,8 @@ export class App implements AfterViewInit, OnDestroy {
       eyebrow:
         ACTIVITY_NAMES[this.activityKind] ??
         EXHIBITIONS[this.activityKind as ExhibitionId]?.name.toUpperCase() ??
-        (this.activityKind === 'cup'
-          ? `${RANKS[this.companion().competitions.at(-1)?.rank ?? 0]} CUP`.toUpperCase()
+        (this.activityKind === 'cup' || this.activityKind === 'promotion'
+          ? `${RANKS[this.companion().competitions.at(-1)?.rank ?? 0]} ${this.activityKind === 'promotion' ? 'PROMOTION ' : ''}CUP`.toUpperCase()
           : undefined) ??
         'WELL DONE',
       heading,

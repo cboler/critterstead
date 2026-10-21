@@ -2,7 +2,7 @@ import { DRILLS, EXHIBITIONS, ExhibitionLeg } from './content';
 import { FamilyId } from './families';
 import { Drill, EventId, Stats } from './model';
 
-// Plan 005 provisional ladder tuning; the balancing simulator (M3) sets the final numbers.
+// Plan 005 ladder tuning, set with the balancing simulator (`balance.ts`, `npm run balance`).
 
 /** The ladder's ranks. The first three are athletic; the last two wait for bouts. */
 export const RANKS = ['Fledgling', 'Contender', 'Veteran', 'Champion', 'Grand Champion'] as const;
@@ -63,31 +63,31 @@ const rival = (
   form,
 });
 
-/** Six rivals for each athletic rank. */
+/** Six rivals for each athletic rank, each rank's stats about a season of training above the last. */
 export const RIVALS: readonly (readonly Rival[])[] = [
   [
-    rival('pepper', 'Pepper', 'Hollis Tamm', 'avian', [3, 4, 7, 5], 0.6),
-    rival('biscuit', 'Biscuit', 'Nell Dory', 'canine', [5, 6, 5, 4], 0.55),
-    rival('moss', 'Moss', 'Rowan Pike', 'reptile', [6, 6, 3, 5], 0.5),
-    rival('tumble', 'Tumble', 'Ada Fenn', 'slime', [4, 7, 3, 5], 0.45),
-    rival('clove', 'Clove', 'Jory Vale', 'feline', [4, 4, 6, 6], 0.65),
-    rival('barley', 'Barley', 'Mae Kettle', 'bovine', [7, 6, 3, 3], 0.5),
+    rival('pepper', 'Pepper', 'Hollis Tamm', 'avian', [27, 36, 63, 45], 0.6),
+    rival('biscuit', 'Biscuit', 'Nell Dory', 'canine', [45, 54, 45, 36], 0.55),
+    rival('moss', 'Moss', 'Rowan Pike', 'reptile', [54, 54, 27, 45], 0.5),
+    rival('tumble', 'Tumble', 'Ada Fenn', 'slime', [36, 63, 27, 45], 0.45),
+    rival('clove', 'Clove', 'Jory Vale', 'feline', [36, 36, 54, 54], 0.65),
+    rival('barley', 'Barley', 'Mae Kettle', 'bovine', [63, 54, 27, 27], 0.5),
   ],
   [
-    rival('flint', 'Flint', 'Oren Thatch', 'equine', [8, 9, 11, 6], 0.65),
-    rival('juniper', 'Juniper', 'Lise Mardle', 'feline', [7, 7, 10, 10], 0.7),
-    rival('thistle', 'Thistle', 'Tobin Reed', 'ursine', [12, 10, 6, 6], 0.6),
-    rival('wisp', 'Wisp', 'Ilsa Brook', 'insect', [6, 8, 10, 11], 0.65),
-    rival('saffron', 'Saffron', 'Pell Quarry', 'avian', [6, 7, 12, 9], 0.6),
-    rival('rook', 'Rook', 'Dara Lune', 'canine', [9, 10, 9, 8], 0.7),
+    rival('flint', 'Flint', 'Oren Thatch', 'equine', [104, 117, 143, 78], 0.65),
+    rival('juniper', 'Juniper', 'Lise Mardle', 'feline', [91, 91, 130, 130], 0.7),
+    rival('thistle', 'Thistle', 'Tobin Reed', 'ursine', [156, 130, 78, 78], 0.6),
+    rival('wisp', 'Wisp', 'Ilsa Brook', 'insect', [78, 104, 130, 143], 0.65),
+    rival('saffron', 'Saffron', 'Pell Quarry', 'avian', [78, 91, 156, 117], 0.6),
+    rival('rook', 'Rook', 'Dara Lune', 'canine', [117, 130, 117, 104], 0.7),
   ],
   [
-    rival('ironbark', 'Ironbark', 'Gideon Hale', 'ursine', [18, 15, 9, 10], 0.75),
-    rival('comet', 'Comet', 'Sable Ward', 'equine', [12, 14, 18, 10], 0.75),
-    rival('quill', 'Quill', 'Marta Oakes', 'reptile', [14, 14, 10, 15], 0.7),
-    rival('gale', 'Gale', 'Fen Ashby', 'avian', [9, 11, 18, 14], 0.8),
-    rival('marrow', 'Marrow', 'Bram Holt', 'bovine', [17, 16, 9, 9], 0.7),
-    rival('vesper', 'Vesper', 'Corin Hask', 'feline', [11, 12, 15, 15], 0.85),
+    rival('ironbark', 'Ironbark', 'Gideon Hale', 'ursine', [306, 255, 153, 170], 0.75),
+    rival('comet', 'Comet', 'Sable Ward', 'equine', [204, 238, 306, 170], 0.75),
+    rival('quill', 'Quill', 'Marta Oakes', 'reptile', [238, 238, 170, 255], 0.7),
+    rival('gale', 'Gale', 'Fen Ashby', 'avian', [153, 187, 306, 238], 0.8),
+    rival('marrow', 'Marrow', 'Bram Holt', 'bovine', [289, 272, 153, 153], 0.7),
+    rival('vesper', 'Vesper', 'Corin Hask', 'feline', [187, 204, 255, 255], 0.85),
   ],
 ];
 
@@ -173,6 +173,17 @@ export function statPoints(stats: Stats, weights: Partial<Record<keyof Stats, nu
   );
 }
 
+/** An event's or cup's points: timing (50), the favoured stats, care (8) and luck (4). */
+export function showingPoints(
+  timing: number,
+  stats: Stats,
+  weights: Partial<Record<keyof Stats, number>>,
+  care: number,
+  luck: number,
+): number {
+  return Math.round((timing * 50 + statPoints(stats, weights) + care * 8 + luck * 4) * 10) / 10;
+}
+
 /** A rival's showing: its form give or take, its stats, steady care and a little luck. */
 export function rivalPoints(
   rival: Rival,
@@ -180,8 +191,7 @@ export function rivalPoints(
   random: () => number,
 ): number {
   const timing = Math.max(0, Math.min(1, rival.form + (random() - 0.5) * 0.3));
-  const points = timing * 50 + statPoints(rival.stats, legWeights(legs)) + 0.7 * 8 + random() * 4;
-  return Math.round(points * 10) / 10;
+  return showingPoints(timing, rival.stats, legWeights(legs), 0.7, random());
 }
 
 /** First, second, third… among the field: one more than the rivals who scored higher. */

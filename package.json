@@ -13,7 +13,8 @@
     "format:check": "prettier --check .",
     "e2e": "playwright test",
     "check:pwa": "node scripts/check-pwa.mjs",
-    "export:models": "esbuild scripts/export-models.ts --bundle --platform=node --format=esm --outfile=dist/tools/export-models.mjs --log-level=warning && node dist/tools/export-models.mjs"
+    "export:models": "esbuild scripts/export-models.ts --bundle --platform=node --format=esm --outfile=dist/tools/export-models.mjs --log-level=warning && node dist/tools/export-models.mjs",
+    "balance": "esbuild scripts/balance.ts --bundle --platform=node --format=esm --outfile=dist/tools/balance.mjs --log-level=warning && node dist/tools/balance.mjs"
   },
   "private": true,
   "packageManager": "npm@11.19.0",

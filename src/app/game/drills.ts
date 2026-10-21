@@ -1,5 +1,5 @@
-import { DRILL_GAIN_STEPS } from './content';
-import { Critter, Drill, Training } from './model';
+import { DRILL_GAIN_STEPS, DRILLS } from './content';
+import { Critter, Drill, Stats, Training } from './model';
 
 // M8 provisional gauge tuning. Physics are pure so tests can step them with fixed time.
 export const LIFT_BAND = [0.55, 0.8] as const;
@@ -35,6 +35,31 @@ export const sweepBand = (training: Training): [number, number] =>
 export function drillMultiplier(critter: Critter, drill: Drill, day: number): number {
   const done = critter.drills.day === day ? (critter.drills.sessions[drill] ?? 0) : 0;
   return DRILL_GAIN_STEPS[Math.min(done, DRILL_GAIN_STEPS.length - 1)];
+}
+
+/** A drill's gain to its stat: base, how well it was played, care, any bonus, less repeats. */
+export function drillGain(
+  stats: Stats,
+  drill: Drill,
+  score: number,
+  care: number,
+  multiplier: number,
+): number {
+  const { base, score: weight, care: careWeight, bonus } = DRILLS[drill].gain;
+  return (
+    Math.round(
+      (base + score * weight + care * careWeight + (bonus ? stats[bonus.stat] * bonus.weight : 0)) *
+        multiplier *
+        100,
+    ) / 100
+  );
+}
+
+/** Adds a gain to the drill's stat and its share to the side stat. */
+export function applyGain(stats: Stats, drill: Drill, gain: number): void {
+  const { stat, side, sideShare } = DRILLS[drill];
+  stats[stat] = Math.round((stats[stat] + gain) * 100) / 100;
+  stats[side] = Math.round((stats[side] + gain * sideShare) * 100) / 100;
 }
 
 export function recordDrill(critter: Critter, drill: Drill, day: number): void {
