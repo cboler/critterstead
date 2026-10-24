@@ -108,7 +108,10 @@ test('controller leans on the balance beam and double jumps on the hurdle run', 
     (window as unknown as { testPad: typeof pad }).testPad = pad;
   });
   await page.goto('/');
+  // The pad is read by the game loop, which starts once the world is built.
+  await expect(page.locator('.world-canvas canvas')).toBeVisible();
   await button(page, 9);
+  await expect(page.locator('.starter-offer')).toBeVisible();
   await button(page, 0);
   await expect(page.locator('.starter-offer')).toHaveCount(0);
   // The household replaces the opening's staging; wait for it before moving anyone.
@@ -212,7 +215,10 @@ test('controller steps rhythm lanes and cheers and shoos at the chessboard', asy
     (window as unknown as { testPad: typeof pad }).testPad = pad;
   });
   await page.goto('/');
+  // The pad is read by the game loop, which starts once the world is built.
+  await expect(page.locator('.world-canvas canvas')).toBeVisible();
   await button(page, 9);
+  await expect(page.locator('.starter-offer')).toBeVisible();
   await button(page, 0);
   await expect(page.locator('.starter-offer')).toHaveCount(0);
   // The household replaces the opening's staging; wait for it before moving anyone.

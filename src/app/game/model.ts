@@ -61,6 +61,10 @@ export interface ResourceWork {
   result: CheckResult;
 }
 export type BehaviorId = 'sunberry-foraging' | 'lumber-hauling';
+// Chores a critter can be set to on the chore board, each resting on a learned behavior.
+export type DutyId = 'forage' | 'haul' | 'deliver' | 'stock' | 'ship';
+// Upgrades built from delivered materials (projects.ts).
+export type ProjectId = 'stall' | 'chest' | 'trough' | 'mill' | 'stove';
 export interface HaulingJob {
   enabled: boolean;
   phase: 'idle' | 'collect' | 'deliver' | 'eat' | 'rest';
@@ -100,6 +104,8 @@ export interface Critter extends ActorCapabilities {
   hunger: number;
   learnedBehaviors: Partial<Record<BehaviorId, number>>;
   hauling: HaulingJob;
+  // The chore board: which learned jobs this critter does at their hours.
+  duties: Record<DutyId, boolean>;
   skills: Record<string, number> & { harvesting: number; racing: number };
   visualTraits: { coat: string; accent: string; size: number };
   pedigree: { parentIds: string[] };
@@ -218,7 +224,7 @@ export interface Training {
   scores?: number[];
 }
 export interface GameState {
-  version: 14;
+  version: 15;
   seed: number;
   // The seed the household began with; it never changes, so what it draws is lasting.
   origin: number;
@@ -243,6 +249,10 @@ export interface GameState {
   // Gemothy's trust in you, and when he last saw you and last left you something.
   gemothy: { trust: number; visitedDay: number; findDay: number };
   shedLevel: number;
+  // The building project under way and what has been delivered to its site, and the
+  // one-time upgrades finished (barn stalls are counted by shedLevel).
+  project: { id: ProjectId; delivered: { lumber: number; stone: number } } | null;
+  built: ProjectId[];
   flags: string[];
   journal: string[];
   training: Training | null;
@@ -264,6 +274,8 @@ export interface InteractionAction {
   label: string;
   disabled?: boolean;
   reason?: string;
+  // Never the default for E or the controller's A: it undoes something.
+  secondary?: boolean;
 }
 export interface Interaction {
   id: string;

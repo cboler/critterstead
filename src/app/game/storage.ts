@@ -1,4 +1,4 @@
-import { ExhibitionId, GameState } from './model';
+import { ExhibitionId, GameState, ProjectId } from './model';
 import { CRITTER_KINDS } from './families';
 import { GRANDPA, PIP_ID } from './household';
 import {
@@ -14,6 +14,7 @@ import { AREAS } from './content';
 import { chessMoments, rhythmSong, runCourse } from './drills';
 import { ATHLETIC_RANKS, cupLegs, promotionLegs, RANKS } from './ladder';
 import { initialContainers, ITEM_IDS, MILL_MINUTES } from './logistics';
+import { allDuties, DUTIES, PROJECT_IDS, PROJECTS, upgradedCapacity } from './projects';
 
 export interface SaveStorage {
   load(): Promise<GameState | null>;
@@ -128,17 +129,32 @@ export class IndexedDbStorage implements SaveStorage {
 }
 
 /** Saves from builds before this version are retired, not migrated (D55). */
-export const SAVE_VERSION = 14;
+export const SAVE_VERSION = 15;
+// The oldest save still carried forward; earlier ones are retired.
+const OLDEST_CARRIED = 14;
 
 /** Decode without writing: a failed validation leaves the stored record intact. */
 export function readSave(value: unknown): GameState {
   const version = record(value, 'save')['version'];
-  if (typeof version === 'number' && Number.isInteger(version) && version < SAVE_VERSION)
+  if (typeof version === 'number' && Number.isInteger(version) && version < OLDEST_CARRIED)
     throw new Error(
       `This homestead comes from an earlier build of Critterstead (save v${version}), before the world was redrawn, and cannot be carried forward.`,
     );
-  validateSave(value);
-  return structuredClone(value);
+  // Migrate a copy, so a save that then fails its checks is left exactly as it was.
+  const save = version === 14 ? fromV14(structuredClone(value) as Record<string, unknown>) : value;
+  validateSave(save);
+  return structuredClone(save);
+}
+
+/** v14 → v15: the chore board and building projects. Every duty starts on, as before. */
+function fromV14(save: Record<string, unknown>): unknown {
+  for (const critter of Array.isArray(save['critters']) ? save['critters'] : [])
+    if (critter && typeof critter === 'object')
+      (critter as Record<string, unknown>)['duties'] = allDuties();
+  save['project'] = null;
+  save['built'] = [];
+  save['version'] = 15;
+  return save;
 }
 
 /** A backup file's text: the stored record as JSON, readable in any browser. */
@@ -175,6 +191,7 @@ export function validateSave(value: unknown): asserts value is GameState {
   if (root['day'] !== Math.floor((root['totalMinutes'] as number) / 1440) + 1) corrupt('calendar');
   area(root['areaId']);
   string(root['areaInstanceId'], 'areaInstanceId');
+  validateProjects(root);
 
   const player = record(root['player'], 'player');
   string(player['id'], 'player.id');
@@ -230,7 +247,8 @@ export function validateSave(value: unknown): asserts value is GameState {
       if (
         !authored ||
         container['kind'] !== authored.kind ||
-        container['capacity'] !== authored.capacity ||
+        container['capacity'] !==
+          upgradedCapacity(authored.id, authored.capacity, root['built'] as ProjectId[]) ||
         array(container['allowed'], 'container.allowed').length !== authored.allowed.length ||
         !authored.allowed.every((item) => (container['allowed'] as string[]).includes(item))
       )
@@ -262,7 +280,8 @@ export function validateSave(value: unknown): asserts value is GameState {
         number(item['quality'], 'inventory.quality', 1, 3);
         count += item['quantity'] as number;
       }
-      if (authored.capacity !== null && count > authored.capacity) corrupt('container capacity');
+      if (container['capacity'] !== null && count > (container['capacity'] as number))
+        corrupt('container capacity');
     }
     number(
       record(root['production'], 'production')['progressMinutes'],
@@ -509,6 +528,11 @@ function validateCritter(critter: Record<string, unknown>): void {
     if (job['cued'] && progress < 2) corrupt('hauling cue');
     if (job['phase'] !== 'idle' && !job['enabled'] && !job['cued']) corrupt('hauling phase');
   }
+  {
+    const duties = record(critter['duties'], 'critter.duties');
+    if (Object.keys(duties).length !== DUTIES.length) corrupt('critter.duties');
+    for (const duty of DUTIES) boolean(duties[duty.id], `critter.duties.${duty.id}`);
+  }
   for (const key of ['stamina', 'health', 'happiness', 'bond', 'hunger'])
     number(critter[key], `critter.${key}`, 0, 100);
   const stats = record(critter['stats'], 'critter.stats');
@@ -589,6 +613,21 @@ function number(
   )
     corrupt(path);
 }
+/** One-time upgrades built, and the project under way with what reached its site. */
+function validateProjects(root: Record<string, unknown>): void {
+  const built = array(root['built'], 'built');
+  for (const id of built) choice(id, PROJECT_IDS, 'built');
+  if (new Set(built).size !== built.length || built.includes('stall')) corrupt('built');
+  if (root['project'] === null) return;
+  const project = record(root['project'], 'project');
+  choice(project['id'], PROJECT_IDS, 'project.id');
+  if (built.includes(project['id'])) corrupt('project.id');
+  const plan = PROJECTS[project['id'] as ProjectId];
+  const delivered = record(project['delivered'], 'project.delivered');
+  number(delivered['lumber'], 'project.delivered.lumber', 0, plan.lumber, true);
+  number(delivered['stone'], 'project.delivered.stone', 0, plan.stone, true);
+}
+
 function boolean(value: unknown, path: string): void {
   if (typeof value !== 'boolean') corrupt(path);
 }

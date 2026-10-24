@@ -41,6 +41,7 @@ import {
   throwDistance,
 } from './drills';
 import { plotReady } from './garden';
+import { PROJECTS } from './projects';
 import { calendarDate, weatherFor } from './calendar';
 import { buildSurroundings, type Surroundings } from './render/terrain';
 import { PALETTES, type SeasonPalette } from './render/palette';
@@ -576,7 +577,8 @@ export class GameWorld {
     const dt = Math.min(Math.max(dtSeconds, 0), 0.1);
     this.clock += this.reducedMotion ? 0 : dt;
     this.cueTime += dt;
-    const sceneryKey = `${state.areaId}:${calendarDate(state.day).season}:${this.qualityTier}`;
+    // A planned, finished or set-aside project redraws the scenery in place.
+    const sceneryKey = `${state.areaId}:${calendarDate(state.day).season}:${this.qualityTier}:${state.project?.id ?? ''}:${state.built.join(',')}`;
     if (this.builtKey !== sceneryKey) {
       const moved = this.area !== state.areaId;
       this.builtKey = sceneryKey;
@@ -798,7 +800,7 @@ export class GameWorld {
       const model = this.materialsInWorld.get(node.id);
       if (model) model.scale.setScalar(node.remaining > 0 ? 0.65 + node.remaining / 18 : 0.25);
     }
-    const signature = JSON.stringify(state.groundCargo);
+    const signature = JSON.stringify([state.groundCargo, state.project]);
     if (signature !== this.cargoSignature) {
       this.cargoSignature = signature;
       this.groundLoads.clear();
@@ -815,6 +817,31 @@ export class GameWorld {
           group.add(mesh);
         });
         this.groundLoads.add(group);
+      }
+      // What has reached a building site, stacked inside its stakes.
+      const project = state.project && PROJECTS[state.project.id];
+      if (state.project && project && project.areaId === state.areaId) {
+        const pile = new THREE.Group();
+        pile.position.set(project.site.x, 0, project.site.z);
+        for (let i = 0; i < state.project.delivered.lumber; i++)
+          pile.add(
+            this.mesh(
+              this.box,
+              '#c89a63',
+              [-0.25, 0.06 + i * 0.1, 0],
+              [0.75, 0.08, 0.16 + (i % 2) * 0.02],
+            ),
+          );
+        for (let i = 0; i < state.project.delivered.stone; i++)
+          pile.add(
+            this.mesh(
+              this.pebble,
+              '#8d9b9a',
+              [0.4, 0.12 + Math.floor(i / 2) * 0.18, (i % 2) * 0.24 - 0.12],
+              [0.32, 0.22, 0.28],
+            ),
+          );
+        this.groundLoads.add(pile);
       }
     }
     for (const [id, cluster] of this.berries) {
@@ -1448,8 +1475,61 @@ export class GameWorld {
       frame.add(this.millBlade);
       this.scenery.add(frame);
     }
+    this.buildWorks(state);
     if (state.areaId !== 'cottage' && state.areaId !== 'colosseum')
       this.grass({ homestead: 97, town: 419, lane: 523, road: 617 }[state.areaId as string] ?? 301);
+  }
+
+  /** The chore board by the barn, a building site's frame, and the stove once it is built. */
+  private buildWorks(state: GameState): void {
+    if (state.areaId === 'homestead') {
+      const board = new THREE.Group();
+      board.position.set(2.1, 0, -2.75);
+      board.rotation.y = 0.2;
+      for (const side of [-1, 1])
+        board.add(this.mesh(this.box, '#7d6448', [side * 0.42, 0.65, 0], [0.08, 1.3, 0.08]));
+      board.add(this.mesh(this.box, '#8a6a47', [0, 1.02, 0], [0.98, 0.66, 0.08]));
+      board.add(this.mesh(this.box, '#3e5246', [0, 1.02, 0.045], [0.86, 0.54, 0.02]));
+      // Chalked rows.
+      for (let row = 0; row < 3; row++)
+        board.add(
+          this.mesh(
+            this.box,
+            '#e6eadf',
+            [-0.08 + (row % 2) * 0.06, 1.18 - row * 0.15, 0.06],
+            [0.5 - row * 0.08, 0.025, 0.01],
+          ),
+        );
+      this.scenery.add(board);
+      this.label('Chore board', 2.1, 1.75, -2.75);
+    }
+    const project = state.project && PROJECTS[state.project.id];
+    if (project && project.areaId === state.areaId) {
+      const frame = new THREE.Group();
+      frame.position.set(project.site.x, 0, project.site.z);
+      // Four stakes and a string line mark out the site.
+      for (const [x, z] of [
+        [-0.7, -0.5],
+        [0.7, -0.5],
+        [-0.7, 0.5],
+        [0.7, 0.5],
+      ])
+        frame.add(this.mesh(this.box, '#a1784f', [x, 0.3, z], [0.06, 0.6, 0.06]));
+      frame.add(this.mesh(this.box, '#e9dcb4', [0, 0.52, -0.5], [1.4, 0.015, 0.015]));
+      frame.add(this.mesh(this.box, '#e9dcb4', [0, 0.52, 0.5], [1.4, 0.015, 0.015]));
+      this.scenery.add(frame);
+      this.label(`Building site · ${project.name}`, project.site.x, 1.3, project.site.z);
+    }
+    if (state.areaId === 'cottage' && state.built.includes('stove')) {
+      const stove = new THREE.Group();
+      stove.position.set(1.5, 0, -3.9);
+      stove.add(this.mesh(this.box, '#3f4446', [0, 0.45, 0], [0.9, 0.8, 0.7]));
+      stove.add(this.mesh(this.box, '#55605f', [0, 0.88, 0], [0.96, 0.08, 0.76]));
+      stove.add(this.mesh(this.box, '#a39c8c', [0, 0.04, 0], [1.1, 0.08, 0.9]));
+      stove.add(this.mesh(this.cylinder, '#3f4446', [0.25, 1.6, -0.2], [0.09, 1.4, 0.09]));
+      stove.add(this.mesh(this.cylinder, '#8d6b4a', [-0.2, 1.0, 0.05], [0.18, 0.18, 0.18]));
+      this.scenery.add(stove);
+    }
   }
 
   private path(points: [number, number][], width = 1.2, color = '#e1ce9b'): void {
@@ -3771,6 +3851,7 @@ export class GameWorld {
     companionView: Point,
   ): { x: number; z: number; radius: number } | null {
     if (id === activeCritter(state).id) return { ...companionView, radius: 0.72 };
+    if (id === 'site' && state.project) return { ...PROJECTS[state.project.id].site, radius: 1.05 };
     const resident = this.residentViews.get(id)?.at;
     if (resident) return { ...resident, radius: 0.72 };
     const object = AREAS[state.areaId].objects.find((item) => item.id === id);

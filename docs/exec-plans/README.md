@@ -7,6 +7,7 @@ Read the relevant active plan, not every historical handoff.
 
 | Plan                                                                              | Status                             | Next action                                                                    |
 | :-------------------------------------------------------------------------------- | :--------------------------------- | :----------------------------------------------------------------------------- |
+| [007 — Chores, deliveries and building](active/007-chores-and-building.md)        | M1–M3 complete                     | Playtest on the published site; tune chore hours, loads and project costs.     |
 | [006 — Oakhaven and the wider map](completed/006-oakhaven-and-the-wider-map.md)   | Completed 2026-10-17               | Historical evidence; the open question on Colosseum deaths waits for bouts.    |
 | [005 — The Colosseum ladder](active/005-colosseum-ladder.md)                      | M1–M3 complete                     | M4: balancing from the published game's playtest.                              |
 | [003 — Household and Opening](active/003-household-and-opening.md)                | Stage 2; M1–M3 complete            | M4 needs the story beats for the years with Grandpa.                           |

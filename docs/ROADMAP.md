@@ -190,6 +190,15 @@ met, a store, shelter and booth staff in Oakhaven, a farm with a sales pickup in
 the honesty stall, Gemothy at the tavern bin, a map and minimap, and inventory screens
 ([plan 006](exec-plans/completed/006-oakhaven-and-the-wider-map.md)).
 
+## Active Campaign 007 — Chores, deliveries and building
+
+Asked for by the product owner ([D56](DECISIONS.md#d56--a-chore-board-deliveries-and-building-projects-accepted-2026-10-24)):
+a chore board by the barn sets each critter's learned duties, haulers move goods between
+the stead's containers at fixed hours, and lumber and stone delivered to a building site
+pay for barn stalls, bigger stores and a kitchen stove
+([plan 007](exec-plans/active/007-chores-and-building.md)), pulling part of Stage 3's
+stead expansion forward.
+
 ## Active Campaign 005 — The Colosseum ladder
 
 Authorized by [D53](DECISIONS.md#d53--a-colosseum-ladder-of-athletic-cups-accepted-2026-10-05):

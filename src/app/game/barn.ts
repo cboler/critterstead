@@ -1,6 +1,7 @@
 import { StarterCandidate } from './families';
 import { PIP_ID } from './household';
 import { Critter, GameState, Point } from './model';
+import { allDuties } from './projects';
 
 /**
  * The barn, where the critters you own sleep. One of them follows you; the others rest here
@@ -9,8 +10,6 @@ import { Critter, GameState, Point } from './model';
 export const BARN = {
   // Where a critter that is not following you settles, in front of the barn.
   spot: { x: 4, z: -1.6 },
-  // Building a stall beyond the mended barn's two.
-  stall: { lumber: 4, coins: 20, minutes: 90 },
   maxStalls: 4,
   // A shelter adoption: a donation to Wren's shelter.
   adoptionFee: 10,
@@ -68,6 +67,7 @@ export function critterFromCandidate(
     hunger: 35,
     learnedBehaviors: {},
     hauling: { enabled: false, phase: 'idle', cued: false },
+    duties: allDuties(),
     drills: { day, sessions: {} },
     practised: {},
     skills: { harvesting: 0, racing: 0 },

@@ -105,3 +105,53 @@ test('an independent worker visibly waits for feed, eats locally, and rests befo
     (await developmentState(page)).containers.find((item) => item.kind === 'trough')!.items,
   ).toEqual([]);
 });
+
+test('sets chores on the board, then plans, supplies and builds a barn stall', async ({
+  page,
+}, info) => {
+  test.skip(!['desktop', 'phone-portrait'].includes(info.project.name));
+  test.setTimeout(120_000 * PACE);
+  const state = createInitialState();
+  state.shedLevel = 1;
+  state.player.coins = 30;
+  activeCritter(state).learnedBehaviors['lumber-hauling'] = 6;
+  addItem(
+    state.containers.find((item) => item.kind === 'backpack')!,
+    'lumber',
+    4,
+  );
+  await seedSave(page, state);
+  await page.goto('/');
+  await expect(page.locator('.world-canvas canvas')).toBeVisible();
+
+  await walk(page, ...SPOTS.nook);
+  await page.getByRole('button', { name: /^Read the chore board/ }).click();
+  const stock = page.getByRole('button', { name: 'Mallow: Stock the feed trough' });
+  await expect(stock).toHaveAttribute('aria-pressed', 'true');
+  await stock.click();
+  await expect(stock).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.getByRole('button', { name: 'Mallow: Forage the glade' })).toBeDisabled();
+  await page
+    .getByRole('dialog')
+    .getByRole('button', { name: /^Plan another barn stall/ })
+    .click();
+  await expect(page.locator('.project-now')).toContainText('lumber 0/4');
+  await page.screenshot({ path: info.outputPath('chore-board.png') });
+  await page.getByRole('button', { name: 'Close panel', exact: true }).click();
+  expect(activeCritter(await developmentState(page)).duties.stock).toBe(false);
+
+  await walk(page, -1.1, -2.4, 0.6);
+  await expect(page.locator('.interaction-dock h2')).toHaveText(
+    'Building site · Another barn stall',
+  );
+  await page.getByRole('button', { name: /^Deliver lumber/ }).click();
+  await page.screenshot({ path: info.outputPath('site-supplied.png') });
+  await page.getByRole('button', { name: /^Build · 20 coins/ }).click();
+  await expect.poll(async () => (await savedState(page)).shedLevel).toBe(2);
+  const saved = await savedState(page);
+  expect(saved.project).toBeNull();
+  expect(saved.player.coins).toBe(10);
+  await page.reload();
+  await expect(page.locator('.world-canvas canvas')).toBeVisible();
+  expect((await developmentState(page)).shedLevel).toBe(2);
+});

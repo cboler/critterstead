@@ -51,6 +51,7 @@ For sequencing, see [ROADMAP.md](ROADMAP.md) and [exec-plans/README.md](exec-pla
 | **D31** | Monster Rancher training minigames family                 | Accepted       | [Training](GAME-DESIGN.md#training-system)                                                                                     |
 | **D32** | Viewport decoupling from interaction dock UI              | Accepted       | [Architecture](ARCHITECTURE.md#1-viewport--canvas-decoupling)                                                                  |
 | **D33** | Restructured Campaign 001 vertical slice runway           | Accepted       | [Roadmap](ROADMAP.md)                                                                                                          |
+| **D56** | A chore board, deliveries and building projects           | Accepted       | [Plan 007](exec-plans/active/007-chores-and-building.md)                                                                       |
 | **D55** | Saves from earlier builds may be retired before release   | Accepted       | [Plan 006](exec-plans/completed/006-oakhaven-and-the-wider-map.md)                                                             |
 | **D54** | A wider map; town residents; sell by pickup or shop       | Accepted       | [Plan 006](exec-plans/completed/006-oakhaven-and-the-wider-map.md)                                                             |
 | **D53** | A Colosseum ladder of athletic cups; bouts on top         | Accepted       | [Plan 005](exec-plans/active/005-colosseum-ladder.md)                                                                          |
@@ -365,6 +366,17 @@ Maximum age differs between families and is a primary trait offspring inherit. A
 stays a handful of modeling choices (youth, peak, elder) rather than a deep system.
 [Aging](GAME-DESIGN.md#aging-and-respectful-mortality).
 
+### D56 — A chore board, deliveries and building projects (accepted 2026-10-24)
+
+Asked for by the product owner: expose setting critters to work, distributing goods, and
+lumber as the price of upgrades to the house and barn. Duties are assigned on a chalkboard
+by the barn (the design's diegetic work management) and reuse what a critter has learned;
+haulers move goods between existing containers at fixed chore hours. Upgrades are projects
+whose lumber and stone are delivered to a building site before building, by hand or by
+haulers ([design](GAME-DESIGN.md#home-and-stead-progression)). Saves are carried forward
+from v14, which players hold on the published site, rather than retired (D55 allows, not
+requires, retirement).
+
 ### D55 — Saves from earlier builds may be retired before release (accepted 2026-10-16)
 
 There are no players to protect yet, so a new save version may retire older saves instead
@@ -430,7 +442,7 @@ Agents must not invent hardcoded canon or premature balance constants for these 
 | **Expedition defeat penalties & clinic revival fees**  | Clinic revival and late-game personal reconstitution pod are accepted design direction; exact fee structures, debt rules, and lore terms remain open.                              |
 | **Training diminishing-return curves & tonics**        | Diminishing returns are settled; exact fatigue numbers will be calibrated in M8.                                                                                                   |
 | **Breeding inheritance math & chimera genetics**       | 9 families and artificial growth tech are settled; genetics algorithm belongs to Stage 4.                                                                                          |
-| **Work priority & assignment UI presentation**         | RimWorld-like depth with friendly diegetic UI is settled; exact visual interface is open.                                                                                          |
+| **Work priority & assignment UI presentation**         | RimWorld-like depth with friendly diegetic UI is settled; a chalkboard by the barn sets duties (D56). Priorities and schedules remain open.                                        |
 | **Complete crop catalog & growth constants**           | Multi-crop seasonal farming is settled; specific species tables belong to M7.                                                                                                      |
 | **Appliance & workstation recipe catalog**             | Physical input/output logistics settled; specific crafting recipes expand with progression.                                                                                        |
 | **Town resident schedules & relationship arcs**        | Town of Oakhaven settled; individual NPC dialog and heart events belong to Stage 2.                                                                                                |

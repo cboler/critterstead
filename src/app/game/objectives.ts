@@ -4,6 +4,7 @@ import { ATHLETIC_RANKS, isCupDay, isPromotionDay, qualifiedForPromotion, RANKS 
 import { plotReady } from './garden';
 import { learnedStage } from './host';
 import { quantity } from './logistics';
+import { projectProgress, PROJECTS, stillNeeded } from './projects';
 import { activeCritter, GameState } from './model';
 
 /**
@@ -102,6 +103,24 @@ export function objectives(state: GameState): Objective[] {
       `At the Colosseum, ${EXHIBITIONS[event].fee} coins to enter. ${EXHIBITIONS[event].blurb}`,
     );
 
+  // A building project under way: deliver its materials, then build it.
+  if (state.project) {
+    const plan = PROJECTS[state.project.id];
+    const need = stillNeeded(state);
+    if (need.lumber || need.stone)
+      offer(
+        'project',
+        `Deliver materials for ${plan.name.toLowerCase()}`,
+        `At its building site: ${projectProgress(state)}. Haulers set to deliver bring them from the yard chest at 15:00.`,
+      );
+    else
+      offer(
+        'project',
+        `Build ${plan.name.toLowerCase()}`,
+        `Everything is at the site; ${plan.coins ? `${plan.coins} coins and ` : ''}${plan.minutes} minutes of work.`,
+      );
+  }
+
   const lesson = (id: 'sunberry-foraging' | 'lumber-hauling') => {
     const behavior = BEHAVIORS[id];
     const goal = behavior.stages[behavior.stages.length - 1].threshold;
@@ -145,6 +164,18 @@ export function objectives(state: GameState): Objective[] {
       has('refined-lumber'),
     ),
     step('hauling', `Teach ${name} to haul`, hauling.detail, hauling.done, hauling.progress),
+    step(
+      'chores',
+      'Set the chores',
+      'Read the chore board by the barn: choose who forages, hauls, delivers and ships.',
+      has('read-chores'),
+    ),
+    step(
+      'build',
+      'Build with your own lumber',
+      'Plan a project, deliver lumber and stone to its site, then build it.',
+      has('built'),
+    ),
     step('cup', 'A first ribbon', 'Run the Clover Cup time trial in the yard.', has('raced')),
     step(
       'exhibition',

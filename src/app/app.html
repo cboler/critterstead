@@ -910,7 +910,9 @@
                       ? 'Grandpa’s map'
                       : currentPanel === 'inventory'
                         ? 'What you carry, and where things are'
-                        : 'Developer field kit'
+                        : currentPanel === 'chores'
+                          ? 'The chore board'
+                          : 'Developer field kit'
             }}
           </h2>
         </div>
@@ -960,6 +962,8 @@
               cart to collect overnight at a lower price. Mend the barn, or try the Clover Cup. Six
               beds in the farm field west of the cottage grow feed, turnips and wheat in their
               seasons, but only while watered; water lasts until dawn and rain waters them for you.
+              The chore board by the barn sets critters who have learned a job to forage, haul,
+              deliver and ship; lumber and stone build stalls, a bigger chest and a kitchen stove.
               Step inside the cottage to read the wall calendar. Sleep at the cottage to begin
               another day, or rest together at the barn: two game hours restores up to 30 of your
               energy and 35 for
@@ -1136,6 +1140,12 @@
             </ul>
           </section>
         </div>
+        @if (project(); as plan) {
+          <p class="panel-note">
+            Building site for {{ plan.name.toLowerCase() }} {{ plan.where }}: {{ plan.progress }}
+            delivered.
+          </p>
+        }
         <h3>Where things are</h3>
         <ul class="family-list stores-list">
           @for (store of stores(); track store.id) {
@@ -1150,6 +1160,76 @@
             </li>
           }
         </ul>
+      } @else if (currentPanel === 'chores') {
+        <p class="panel-note">
+          Chalked up by the barn door. Critters at home in the barn do their chores at these hours,
+          and a companion at home in the yard joins in. A chore costs {{ chore.energy }} energy and
+          is skipped when a critter is down to its last {{ chore.reserve }}.
+        </p>
+        <div class="chore-critters">
+          @for (row of choreRows(); track row.id) {
+            <section class="chore-card" [attr.aria-label]="row.name + '’s chores'">
+              <h3>
+                {{ row.name }}
+                <small>{{ row.kind }} · {{ row.where }} · energy {{ row.energy }}</small>
+              </h3>
+              <ul class="duty-list">
+                @for (duty of row.duties; track duty.id) {
+                  <li [class.locked]="!duty.learned">
+                    <span class="duty-time">{{ duty.at }}</span>
+                    <span class="duty-text"
+                      ><strong>{{ duty.name }}</strong
+                      ><small>{{
+                        duty.learned ? row.name + ' ' + duty.doing + '.' : duty.lesson
+                      }}</small></span
+                    >
+                    <button
+                      class="duty-switch"
+                      [class.primary]="duty.on && duty.learned"
+                      [attr.aria-pressed]="duty.on && duty.learned"
+                      [attr.aria-label]="row.name + ': ' + duty.name"
+                      [disabled]="!duty.action || duty.action.disabled"
+                      [title]="duty.action?.reason || ''"
+                      (click)="boardAct('duty:' + row.id + ':' + duty.id)"
+                    >
+                      {{ !duty.learned ? 'Not learned' : duty.on ? 'On' : 'Off' }}
+                    </button>
+                  </li>
+                }
+              </ul>
+            </section>
+          }
+        </div>
+        <h3>Building plans</h3>
+        @if (project(); as plan) {
+          <p class="project-now">
+            <strong>Under way: {{ plan.name }}</strong> · {{ plan.progress }} delivered to its site
+            {{ plan.where }}. {{ plan.blurb }} Bring materials yourself, or set haulers to deliver
+            them from the yard chest.
+          </p>
+        } @else {
+          <p class="panel-note">
+            Plan one project at a time. Its lumber and stone are delivered to a building site, by
+            you or by haulers from the yard chest, and then you build it.
+          </p>
+        }
+        <div class="developer-actions plan-list">
+          @for (plan of plans(); track plan.id) {
+            <button
+              [disabled]="plan.disabled"
+              [title]="plan.reason || plan.label"
+              (click)="boardAct(plan.id)"
+            >
+              {{ plan.label }}
+            </button>
+          }
+        </div>
+        @if (plans().length && plans()[0].disabled) {
+          <p class="panel-note">{{ plans()[0].reason }}</p>
+        }
+        @if (builtNames().length) {
+          <p class="panel-note">Built so far: {{ builtNames().join(', ').toLowerCase() }}.</p>
+        }
       } @else if (currentPanel === 'map') {
         <p class="panel-note">
           Bramblewick, the lanes, Oakhaven and the Colosseum, in Grandpa’s careful hand. You are in

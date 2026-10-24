@@ -1776,6 +1776,7 @@
 .interaction-actions button.primary,
 .training-footer button.primary,
 .quality-setting button.primary,
+.duty-switch.primary,
 .rail-tabs [role='tab'][aria-selected='true'] {
   background: #486c50;
   border-color: #486c50;
@@ -2332,4 +2333,67 @@
   margin-left: 6px;
   font-weight: 400;
   color: var(--muted);
+}
+
+// The chore board: one card per critter, a row per duty with its hour and a switch.
+.chore-critters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 10px;
+  margin: 0 0 18px;
+}
+.chore-card {
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: #fffdf5b8;
+  border: 1px solid var(--line);
+}
+.chore-card h3 {
+  margin: 0 0 6px;
+}
+.chore-card h3 small {
+  display: block;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--muted);
+}
+.duty-list {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.duty-list li {
+  display: grid;
+  grid-template-columns: 38px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.duty-list li.locked .duty-text {
+  opacity: 0.7;
+}
+.duty-time {
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+.duty-text strong,
+.duty-text small {
+  display: block;
+}
+.duty-text small {
+  color: var(--muted);
+  line-height: 1.35;
+}
+.duty-switch {
+  min-width: 64px;
+  min-height: 44px;
+}
+.project-now {
+  font-size: 12px;
+  line-height: 1.5;
+}
+.plan-list {
+  margin: 8px 0 0;
 }

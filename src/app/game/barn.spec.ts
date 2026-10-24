@@ -4,6 +4,7 @@ import { createInitialState, LocalGameHost } from './host';
 import { addItem, quantity } from './logistics';
 import { activeCritter, backpack, GameState } from './model';
 import { readSave, validateSave } from './storage';
+import { PROJECTS } from './projects';
 import { weatherFor } from './calendar';
 
 function inTown(modify: (state: GameState) => void = () => undefined): LocalGameHost {
@@ -27,12 +28,17 @@ describe('the barn and its stalls', () => {
     const host = new LocalGameHost(state);
     host.state.player.position = { x: 4, z: -2 };
     host.state.player.coins = 40;
-    const build = () => host.dispatch({ type: 'interact', targetId: 'shed', action: 'add-stall' });
-    expect(build()).toBe(false);
-    addItem(backpack(host.state), 'lumber', BARN.stall.lumber);
-    expect(build()).toBe(true);
+    const act = (targetId: string, action: string) =>
+      host.dispatch({ type: 'interact', targetId, action });
+    expect(act('shed', 'plan:stall')).toBe(true);
+    host.state.player.position = { ...PROJECTS.stall.site };
+    expect(act('site', 'build')).toBe(false);
+    addItem(backpack(host.state), 'lumber', PROJECTS.stall.lumber);
+    expect(act('site', 'deliver-lumber')).toBe(true);
+    expect(act('site', 'build')).toBe(true);
     expect(barnStalls(host.state)).toBe(3);
     expect(host.state.player.coins).toBe(20);
+    expect(host.state.project).toBeNull();
     expect(quantity(backpack(host.state), 'lumber')).toBe(0);
   });
 });

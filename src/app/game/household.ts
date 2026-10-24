@@ -1,4 +1,5 @@
 import { weatherFor } from './calendar';
+import { allDuties } from './projects';
 import { AreaId, Critter, GameState, Point, ResourceNode } from './model';
 
 /**
@@ -41,6 +42,7 @@ export function createPip(day: number): Critter {
     hunger: 20,
     learnedBehaviors: { 'sunberry-foraging': 60, 'lumber-hauling': 30 },
     hauling: { enabled: false, phase: 'idle', cued: false },
+    duties: allDuties(),
     drills: { day, sessions: {} },
     practised: {},
     skills: { harvesting: 40, racing: 12 },

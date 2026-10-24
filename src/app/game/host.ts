@@ -7,6 +7,18 @@ import {
   freeStalls,
   ownedCritters,
 } from './barn';
+import {
+  CHORE,
+  DUTIES,
+  dutyLearned,
+  planBlocked,
+  PROJECT_IDS,
+  projectProgress,
+  PROJECTS,
+  STOVE,
+  stillNeeded,
+  upgradedCapacity,
+} from './projects';
 import { GEMOTHY, gemothyFind, gemothyMood, isFriend, SCRAPS } from './gemothy';
 import {
   castFor,
@@ -137,6 +149,7 @@ import {
   CropId,
   Critter,
   Drill,
+  DutyId,
   EventId,
   ExhibitionId,
   Container,
@@ -146,6 +159,7 @@ import {
   InteractionAction,
   InventoryItem,
   Point,
+  ProjectId,
   ResourceNode,
   SoilPlot,
   Training,
@@ -155,7 +169,6 @@ const RESIDENT_REACH = 1.4;
 // Everyone wakes at 8:00.
 const WAKE_MINUTE = 480;
 // Minutes after midnight when barn critters see to their learned jobs.
-const BARN_CHORES = { forage: 660, haul: 840 } as const;
 const clamp = (value: number, min = 0, max = 100) => Math.max(min, Math.min(max, value));
 const COTTAGE_COMPANION_SPOT: Point = { x: 0.5, z: 3.4 };
 // The rancher keeps this much space from anything solid.
@@ -238,7 +251,7 @@ const hauling = BEHAVIORS['lumber-hauling'];
 /** A new household with its chosen first companion and the seed its offer was drawn from. */
 export function createInitialState(starter: StarterCandidate = MALLOW, seed = 240921): GameState {
   return {
-    version: 14,
+    version: 15,
     seed,
     origin: seed,
     day: 1,
@@ -288,6 +301,8 @@ export function createInitialState(starter: StarterCandidate = MALLOW, seed = 24
     companionIndoors: false,
     gemothy: { trust: 0, visitedDay: 0, findDay: 0 },
     shedLevel: 0,
+    project: null,
+    built: [],
     flags: [],
     journal: [
       `Morning at Bramblewick. Grandpa is already up: “${starter.name} will be hungry after yesterday. Say good morning, then see about some feed.”`,
@@ -550,7 +565,10 @@ export class LocalGameHost {
     if (command.action === 'drop-cargo') return this.dropCargo();
     const interaction = this.describe(command.targetId);
     if (!interaction || !this.inReach(command.targetId)) return false;
-    const action = interaction.actions.find((item) => item.id === command.action);
+    const action = [
+      ...interaction.actions,
+      ...(command.targetId === 'shed' ? this.choreBoard() : []),
+    ].find((item) => item.id === command.action);
     if (!action || action.disabled) return false;
     return this.interact(command.targetId, command.action);
   }
@@ -639,6 +657,9 @@ export class LocalGameHost {
             'areaId' in container.location && container.location.areaId === state.areaId,
         )
         .map((container) => ({ id: container.id, position: this.containerPosition(container) })),
+      ...(state.project && PROJECTS[state.project.id].areaId === state.areaId
+        ? [{ id: 'site', position: PROJECTS[state.project.id].site }]
+        : []),
       ...this.residents(),
       ...castFor(state),
     ].filter((target) => this.inReach(target.id));
@@ -653,6 +674,13 @@ export class LocalGameHost {
 
   private inReach(id: string): boolean {
     const state = this.state;
+    if (id === 'site')
+      return (
+        !!state.project &&
+        PROJECTS[state.project.id].areaId === state.areaId &&
+        distance(PROJECTS[state.project.id].site, state.player.position) <=
+          GAME_CONFIG.interactionDistance
+      );
     const resident = this.residents().find((item) => item.id === id);
     // Walk right up to Grandpa or Pip; from farther off, your own companion keeps the dock.
     if (resident)
@@ -866,6 +894,7 @@ export class LocalGameHost {
           ...this.haulingActions(),
         ],
       };
+    if (id === 'site' && state.project) return this.describeSite();
     const container = state.containers.find((item) => item.id === id);
     if (container)
       return {
@@ -883,6 +912,7 @@ export class LocalGameHost {
           ...(container.kind === 'mill-output' || container.kind === 'chest'
             ? this.haulingActions()
             : []),
+          ...this.planActions(container.id),
         ],
       };
     const material = state.materialNodes.find(
@@ -993,13 +1023,28 @@ export class LocalGameHost {
           actions: [],
         };
       case 'hearth':
+        if (state.built.includes('stove'))
+          return {
+            id,
+            title: 'Kitchen stove',
+            description: `The iron stove beside the hearth. ${STOVE.wheat} wheat and ${STOVE.turnip} turnip from your backpack cook down into ${STOVE.feed} feed for the trough or a hungry critter.`,
+            actions: [
+              action(
+                'cook',
+                `Cook feed · ${STOVE.wheat} wheat + ${STOVE.turnip} turnip → ${STOVE.feed} feed · ${STOVE.minutes} min`,
+                this.quantity('wheat') < STOVE.wheat || this.quantity('turnip') < STOVE.turnip
+                  ? 'Bring wheat and a turnip from the farm field in your backpack.'
+                  : undefined,
+              ),
+            ],
+          };
         return {
           id,
           title: 'Stone hearth',
-          description:
-            'A small fire keeps the cottage warm. Cooking and appliances arrive as the house grows.',
-          actions: [],
+          description: `A small fire keeps the cottage warm. ${state.project?.id === 'stove' ? `The stove's building site waits beside it: ${projectProgress(state)}.` : 'A stove would let you cook here.'}`,
+          actions: this.planActions('hearth'),
         };
+
       case 'counter':
         return {
           id,
@@ -1037,19 +1082,8 @@ export class LocalGameHost {
                 state.areaId !== 'homestead' ? 'Only at the barn.' : undefined,
               ),
             ),
-            ...(state.shedLevel >= 1 && barnStalls(state) < BARN.maxStalls
-              ? [
-                  action(
-                    'add-stall',
-                    `Build another stall · ${BARN.stall.lumber} lumber · ${BARN.stall.coins} coins · ${BARN.stall.minutes} min`,
-                    this.quantity('lumber') < BARN.stall.lumber
-                      ? `Bring ${BARN.stall.lumber} lumber in your backpack from the sawmill.`
-                      : state.player.coins < BARN.stall.coins
-                        ? `You need ${BARN.stall.coins} coins.`
-                        : undefined,
-                  ),
-                ]
-              : []),
+            action('read-chores', 'Read the chore board'),
+            ...this.planActions('shed'),
             action(
               'upgrade',
               'Mend the roof and bedding · 12 coins · 60 min',
@@ -1350,6 +1384,13 @@ export class LocalGameHost {
     if (plot) return this.tend(plot, action);
     if (action.startsWith('chat:')) return this.chat(residentAbout(state, action.slice(5))!);
     if (action.startsWith('follow:')) return this.follow(action.slice('follow:'.length));
+    if (action.startsWith('duty:')) {
+      const [, critterId, duty] = action.split(':');
+      const member = ownedCritters(state).find((item) => item.id === critterId)!;
+      member.duties[duty as DutyId] = !member.duties[duty as DutyId];
+      return true;
+    }
+    if (action.startsWith('plan:')) return this.plan(action.slice('plan:'.length) as ProjectId);
     if (action.startsWith('buy-crop:')) {
       const crop = CROPS[action.slice('buy-crop:'.length) as CropId];
       state.player.coins -= crop.seedPrice;
@@ -1612,13 +1653,24 @@ export class LocalGameHost {
         );
         return true;
       }
-      case 'add-stall':
-        this.take('lumber', BARN.stall.lumber);
-        state.player.coins -= BARN.stall.coins;
-        state.shedLevel += 1;
-        this.advanceMinutes(BARN.stall.minutes);
+      case 'read-chores':
+        this.flag('read-chores');
+        return true;
+      case 'deliver-lumber':
+      case 'deliver-stone':
+        return this.deliver(action === 'deliver-lumber' ? 'lumber' : 'stone');
+      case 'build':
+        return this.build();
+      case 'set-aside':
+        return this.setAside();
+      case 'cook':
+        this.take('wheat', STOVE.wheat);
+        this.take('turnip', STOVE.turnip);
+        this.add('feed', STOVE.feed);
+        this.advanceMinutes(STOVE.minutes);
+        this.flag('cooked');
         this.note(
-          `Sawdust, pegs and a fresh bed of straw: the barn has ${barnStalls(state)} stalls now.`,
+          `Wheat and turnip simmer down on the stove into ${STOVE.feed} feed, warm and filling.`,
         );
         return true;
       case 'visit': {
@@ -2446,7 +2498,7 @@ export class LocalGameHost {
         this.note(`${worker.name} stretches, rested and ready to help again.`);
       }
     }
-    this.barnChores(previousMinutes);
+    this.chores(previousMinutes);
     if (state.day > previousDay) {
       this.barnBreakfast();
       this.collectPickup();
@@ -2821,56 +2873,306 @@ export class LocalGameHost {
     return true;
   }
 
-  /** What a barn critter does with its day, from what it has learned. */
+  /** What a barn critter does with its day, from its duties on the chore board. */
   private barnDoing(critter: Critter): string {
-    const forager = learnedStage(critter, foraging).id === 'autonomous';
-    const hauler = learnedStage(critter, hauling).id === 'autonomous';
-    if (forager && hauler)
-      return `${critter.name} forages the glade before lunch and hauls lumber in the afternoon.`;
-    if (forager) return `${critter.name} forages the glade before lunch, as it has learned.`;
-    if (hauler) return `${critter.name} hauls lumber from the sawmill each afternoon.`;
-    return `${critter.name} has no jobs of its own yet. Take it along to learn some.`;
+    const duties = DUTIES.filter(
+      (duty) => critter.duties[duty.id] && dutyLearned(critter, duty.id),
+    );
+    if (duties.length)
+      return `On the chore board: ${duties.map((duty) => duty.name.toLowerCase()).join(', ')}.`;
+    return DUTIES.some((duty) => dutyLearned(critter, duty.id))
+      ? `${critter.name} has the day off; set chores on the board by the barn.`
+      : `${critter.name} has no jobs of its own yet. Take it along to learn some.`;
   }
 
-  /**
-   * The barn critters' learned jobs: a forager picks a ripe glade bush before lunch, a hauler
-   * carries the sawmill's lumber to the yard chest in the afternoon.
-   */
-  private barnChores(previousMinutes: number): void {
+  /** The chore board's switches and plans, offered in its panel while you stand at the barn. */
+  choreBoard(): InteractionAction[] {
     const state = this.state;
-    const crossed = (mark: number) => {
-      const at = (state.day - 1) * 1440 + mark;
-      return previousMinutes < at && at <= state.totalMinutes;
-    };
-    const chest = state.containers.find((container) => container.kind === 'chest')!;
-    for (const critter of barnCritters(state)) {
-      const weather = weatherFor(state.day);
-      if (
-        crossed(BARN_CHORES.forage) &&
-        learnedStage(critter, foraging).id === 'autonomous' &&
-        weather !== 'rain' &&
-        weather !== 'snow'
-      ) {
-        const node = state.resources.find((item) => item.areaId === 'glade' && item.available);
-        if (node && room(chest, 'berry') >= 2) {
-          node.available = false;
-          node.respawnAt = state.totalMinutes + GAME_CONFIG.berryRespawnMinutes;
-          addItem(chest, 'berry', 2, 2);
-          this.note(
-            `${critter.name} comes back from the glade and drops two fine berries in the yard chest.`,
-          );
-        }
-      }
-      if (crossed(BARN_CHORES.haul) && learnedStage(critter, hauling).id === 'autonomous') {
-        const output = state.containers.find((container) => container.kind === 'mill-output')!;
-        let carried = 0;
-        while (carried < 2 && containerQuantity(output, 'lumber') && room(chest, 'lumber'))
-          if (transfer(output, chest, 'lumber')) carried++;
-          else break;
-        if (carried)
-          this.note(`${critter.name} hauls ${carried} lumber from the sawmill to the yard chest.`);
+    const action = (id: string, label: string, reason?: string): InteractionAction => ({
+      id,
+      label,
+      disabled: !!reason,
+      reason,
+    });
+    return [
+      ...ownedCritters(state).flatMap((member) =>
+        DUTIES.map((duty) =>
+          action(
+            `duty:${member.id}:${duty.id}`,
+            `${member.name} · ${duty.name} · ${member.duties[duty.id] ? 'on' : 'off'}`,
+            dutyLearned(member, duty.id) ? undefined : `${member.name} has not learned this yet.`,
+          ),
+        ),
+      ),
+      ...PROJECT_IDS.flatMap((project) => this.planActions(PROJECTS[project].target, project)),
+    ];
+  }
+
+  /** One line on who does which chores, for the chore board. */
+  private choreSummary(): string {
+    const working = ownedCritters(this.state).filter((member) =>
+      DUTIES.some((duty) => member.duties[duty.id] && dutyLearned(member, duty.id)),
+    );
+    return working.length
+      ? `${working.map((member) => member.name).join(' and ')} ${working.length > 1 ? 'have' : 'has'} chores. Barn critters do them at their hours, and so does a companion at home in the yard.`
+      : 'No one has chores yet. Critters take on the jobs they have learned: foraging in the glade, and hauling from the sawmill.';
+  }
+
+  /** Who does a duty when its hour comes: barn critters, and a companion at home. */
+  private choreCritters(duty: DutyId): Critter[] {
+    const state = this.state;
+    const atHome =
+      duty !== 'forage' &&
+      (state.areaId === 'homestead' || (state.areaId === 'cottage' && !state.companionIndoors)) &&
+      !state.training;
+    return [...barnCritters(state), ...(atHome ? [activeCritter(state)] : [])];
+  }
+
+  /** Each duty at its hour, by every critter set to it that has learned it and has energy. */
+  private chores(previousMinutes: number): void {
+    const state = this.state;
+    for (const duty of DUTIES) {
+      const at = (state.day - 1) * 1440 + duty.at;
+      if (!(previousMinutes < at && at <= state.totalMinutes)) continue;
+      for (const critter of this.choreCritters(duty.id)) {
+        if (!critter.duties[duty.id] || !dutyLearned(critter, duty.id)) continue;
+        if (critter.stamina < CHORE.reserve + CHORE.energy) continue;
+        if (this.chore(critter, duty.id)) critter.stamina -= CHORE.energy;
       }
     }
+  }
+
+  /** One critter does one chore; true if anything moved. */
+  private chore(critter: Critter, duty: DutyId): boolean {
+    const state = this.state;
+    const find = (kind: Container['kind']) =>
+      state.containers.find((container) => container.kind === kind)!;
+    const chest = find('chest');
+    if (duty === 'forage') {
+      const weather = weatherFor(state.day);
+      const node = state.resources.find((item) => item.areaId === 'glade' && item.available);
+      if (weather === 'rain' || weather === 'snow' || !node || room(chest, 'berry') < 2)
+        return false;
+      node.available = false;
+      node.respawnAt = state.totalMinutes + GAME_CONFIG.berryRespawnMinutes;
+      addItem(chest, 'berry', 2, 2);
+      this.note(
+        `${critter.name} comes back from the glade and drops two fine berries in the yard chest.`,
+      );
+      return true;
+    }
+    if (duty === 'haul') {
+      const output = find('mill-output');
+      let carried = 0;
+      while (carried < CHORE.haul && transfer(output, chest, 'lumber')) carried++;
+      if (carried)
+        this.note(`${critter.name} hauls ${carried} lumber from the sawmill to the yard chest.`);
+      return carried > 0;
+    }
+    if (duty === 'deliver') {
+      const project = state.project;
+      if (!project) return false;
+      const moved = { lumber: 0, stone: 0 };
+      for (const item of ['lumber', 'stone'] as const)
+        while (
+          moved.lumber + moved.stone < CHORE.deliver &&
+          stillNeeded(state)[item] > 0 &&
+          containerQuantity(chest, item) > 0
+        ) {
+          this.takeFrom(chest, item, 1);
+          project.delivered[item]++;
+          moved[item]++;
+        }
+      if (!moved.lumber && !moved.stone) return false;
+      const what = [
+        moved.lumber ? `${moved.lumber} lumber` : '',
+        moved.stone ? `${moved.stone} stone` : '',
+      ]
+        .filter(Boolean)
+        .join(' and ');
+      this.note(
+        `${critter.name} carries ${what} from the yard chest to the building site for ${PROJECTS[project.id].name.toLowerCase()}.`,
+      );
+      return true;
+    }
+    if (duty === 'stock') {
+      const trough = find('trough');
+      let stocked = 0;
+      while (transfer(chest, trough, 'feed')) stocked++;
+      if (stocked)
+        this.note(
+          `${critter.name} tops up the feed trough with ${stocked} feed from the yard chest.`,
+        );
+      return stocked > 0;
+    }
+    const box = find('box');
+    const pickup = find('pickup');
+    let shipped = 0;
+    for (const item of ['berry', 'turnip', 'wheat'] as const)
+      while (shipped < CHORE.ship && transfer(box, pickup, item)) shipped++;
+    if (shipped)
+      this.note(
+        `${critter.name} carries ${shipped} produce from the farm box to the sales pickup for the cart.`,
+      );
+    return shipped > 0;
+  }
+
+  /** The plans offered at a place, or for one project wherever it is planned from. */
+  private planActions(target: string, only?: ProjectId): InteractionAction[] {
+    const state = this.state;
+    return Object.values(PROJECTS)
+      .filter(
+        (plan) =>
+          (only
+            ? plan.id === only
+            : plan.target === target || (target === 'mill-output' && plan.id === 'mill')) &&
+          (plan.id === 'stall'
+            ? state.shedLevel >= 1 && barnStalls(state) < BARN.maxStalls
+            : !state.built.includes(plan.id)) &&
+          state.project?.id !== plan.id,
+      )
+      .map((plan) => {
+        const reason = planBlocked(state, plan.id, BARN.maxStalls);
+        return {
+          id: `plan:${plan.id}`,
+          label: `Plan ${plan.name.charAt(0).toLowerCase()}${plan.name.slice(1)} · ${this.costLine(plan.id)}`,
+          disabled: !!reason,
+          reason,
+        };
+      });
+  }
+
+  /** What a project costs, in a short line. */
+  private costLine(id: ProjectId): string {
+    const plan = PROJECTS[id];
+    return [
+      `${plan.lumber} lumber`,
+      plan.stone ? `${plan.stone} stone` : '',
+      plan.coins ? `${plan.coins} coins` : '',
+      `${plan.minutes} min`,
+    ]
+      .filter(Boolean)
+      .join(' · ');
+  }
+
+  private plan(id: ProjectId): boolean {
+    const plan = PROJECTS[id];
+    this.state.project = { id, delivered: { lumber: 0, stone: 0 } };
+    this.flag('planned');
+    this.note(
+      `Plans for ${plan.name.toLowerCase()} are pegged up at a building site${plan.areaId === 'cottage' ? ' beside the hearth' : ''}. It needs ${this.costLine(id)}. Bring materials there yourself, or set haulers to deliver them from the yard chest.`,
+    );
+    return true;
+  }
+
+  /** The building site: what has arrived, and what is left to do. */
+  private describeSite(): Interaction {
+    const state = this.state;
+    const plan = PROJECTS[state.project!.id];
+    const need = stillNeeded(state);
+    const action = (id: string, label: string, reason?: string): InteractionAction => ({
+      id,
+      label,
+      disabled: !!reason,
+      reason,
+    });
+    const ready = !need.lumber && !need.stone;
+    const actions: InteractionAction[] = [];
+    for (const item of ['lumber', 'stone'] as const) {
+      if (!plan[item]) continue;
+      const carried = this.quantity(item);
+      actions.push(
+        action(
+          `deliver-${item}`,
+          need[item]
+            ? `Deliver ${item} · ${need[item]} more needed · you carry ${carried}`
+            : `${item === 'lumber' ? 'Lumber' : 'Stone'} · all ${plan[item]} here`,
+          !need[item]
+            ? `All the ${item} is here.`
+            : !carried
+              ? item === 'lumber'
+                ? 'Bring lumber from the sawmill or the yard chest in your backpack.'
+                : 'Crack stone at the quarry boulder and bring it here.'
+              : undefined,
+        ),
+      );
+    }
+    actions.push(
+      action(
+        'build',
+        `Build · ${[plan.coins ? `${plan.coins} coins` : '', `${plan.energy} energy`, `${plan.minutes} min`].filter(Boolean).join(' · ')}`,
+        !ready
+          ? 'Deliver every material first.'
+          : state.player.coins < plan.coins
+            ? `You need ${plan.coins} coins.`
+            : state.player.stamina < plan.energy
+              ? 'You need some rest first.'
+              : undefined,
+      ),
+      {
+        ...action('set-aside', 'Set the plans aside · delivered materials come back to you'),
+        secondary: true,
+      },
+    );
+    return {
+      id: 'site',
+      title: `Building site · ${plan.name}`,
+      description: `${plan.blurb} Delivered: ${projectProgress(state)}.${ready ? ' Everything is here; it only needs building.' : ' Haulers set to deliver bring materials from the yard chest at 15:00.'}`,
+      actions,
+    };
+  }
+
+  private deliver(item: 'lumber' | 'stone'): boolean {
+    const project = this.state.project!;
+    const amount = Math.min(this.quantity(item), stillNeeded(this.state)[item]);
+    if (!amount) return false;
+    this.take(item, amount);
+    project.delivered[item] += amount;
+    this.advanceMinutes(2);
+    const left = stillNeeded(this.state);
+    this.note(
+      `${amount} ${item} set down at the building site. ${left.lumber + left.stone ? `Delivered so far: ${projectProgress(this.state)}.` : 'Everything is here; time to build.'}`,
+    );
+    return true;
+  }
+
+  private build(): boolean {
+    const state = this.state;
+    const plan = PROJECTS[state.project!.id];
+    state.player.coins -= plan.coins;
+    state.player.stamina -= plan.energy;
+    state.project = null;
+    if (plan.id === 'stall') state.shedLevel += 1;
+    else state.built.push(plan.id);
+    for (const container of state.containers)
+      container.capacity = upgradedCapacity(container.id, container.capacity, state.built);
+    this.advanceMinutes(plan.minutes);
+    this.flag('built');
+    this.note(plan.finished.replace('{stalls}', String(barnStalls(state))));
+    return true;
+  }
+
+  private setAside(): boolean {
+    const state = this.state;
+    const { id, delivered } = state.project!;
+    if (delivered.lumber) this.add('lumber', delivered.lumber);
+    if (delivered.stone) this.add('stone', delivered.stone);
+    state.project = null;
+    this.note(
+      `The plans for ${PROJECTS[id].name.toLowerCase()} are rolled up for another day${delivered.lumber || delivered.stone ? '; what was delivered is back in your backpack' : ''}.`,
+    );
+    return true;
+  }
+
+  /** Takes units from a container, from its stacks in order. */
+  private takeFrom(container: Container, itemId: InventoryItem['itemId'], amount: number): void {
+    for (const stack of container.items.filter((item) => item.itemId === itemId)) {
+      const taken = Math.min(stack.quantity, amount);
+      stack.quantity -= taken;
+      amount -= taken;
+      if (!amount) break;
+    }
+    container.items = container.items.filter((item) => item.quantity > 0);
   }
 
   /** At dawn the barn critters eat from the feed trough, or go hungry if it is empty. */

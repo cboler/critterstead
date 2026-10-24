@@ -152,7 +152,7 @@ for (const fixture of [
     // A reset opens the starter offer; nothing is written until a critter is chosen.
     await expect.poll(() => readSave(page)).toBeUndefined();
     await takeStarterHome(page);
-    await expect.poll(async () => ((await readSave(page)) as { version: number }).version).toBe(14);
+    await expect.poll(async () => ((await readSave(page)) as { version: number }).version).toBe(15);
     await page.reload();
     await expect(page.locator('.world-canvas canvas')).toBeVisible();
     await expect(page.getByRole('alert')).toHaveCount(0);
@@ -162,7 +162,7 @@ for (const fixture of [
 test('starts a new homestead from How to play, without developer keys', async ({ page }) => {
   await page.goto('/');
   await takeStarterHome(page);
-  await expect.poll(async () => ((await readSave(page)) as { version: number }).version).toBe(14);
+  await expect.poll(async () => ((await readSave(page)) as { version: number }).version).toBe(15);
   const before = (await readSave(page)) as GameState;
 
   // A phone has no backtick key: the reset lives behind the ? button.
@@ -179,7 +179,7 @@ test('starts a new homestead from How to play, without developer keys', async ({
   await expect(page.getByRole('dialog')).toHaveCount(0);
   await expect.poll(() => readSave(page)).toBeUndefined();
   await takeStarterHome(page);
-  await expect.poll(async () => ((await readSave(page)) as { version: number }).version).toBe(14);
+  await expect.poll(async () => ((await readSave(page)) as { version: number }).version).toBe(15);
 });
 
 test('backs up a homestead to a file and restores it from the opening walk', async ({ page }) => {

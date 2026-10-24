@@ -302,6 +302,18 @@ Colosseum's booths are `exhibition`, `ladder` and `promotion` objects sharing on
 builder; promotion cups run on the event engine as `event: 'promotion'` with `cupDay`
 (`promotionLegs`, `promotionField`).
 
+## Current implementation additions — plan 007 (2026-10-24)
+
+`projects.ts` holds the chore board's `DUTIES` (each resting on a learned behavior, with its
+hour) and the `PROJECTS` table. Each critter's `duties` switch them; `chores()` in
+`advanceMinutes` runs a duty as its hour passes for barn critters and for a companion at
+home in the yard, moving goods between existing containers (`chore`). One project at a time
+lives in `GameState.project` with what has been delivered to its site, a target `site` in
+interactions; `build` spends its coins, adds a stall (`shedLevel`) or records the upgrade in
+`built`, from which container capacities follow (`upgradedCapacity`, also used by
+validation). Save v15; v14 saves are migrated (`fromV14`) rather than retired. Dock actions
+may be `secondary`: never chosen by E or the controller's A.
+
 ## Architectural reality audit (reconciliation baseline before M4)
 
 The following audit records the reconciled pre-M4 baseline. The dated additions

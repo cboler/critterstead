@@ -26,7 +26,10 @@ Colosseum ladder against rival critters, step into the cottage to read the
 120-day wall calendar and forecast, and sleep into another day. Rest together at the nook for two game hours to restore
 up to 30 of your energy and 35 for your companion. Independent foraging keeps 20 energy in reserve; an
 explicit cue can spend it. Chop timber and stone, run the sawmill, and teach the
-companion to haul lumber. Grandpa keeps his own day around the stead, and his old Pip
+companion to haul lumber. The chore board by the barn sets each critter's learned duties
+(foraging, hauling, delivering building materials, stocking the trough, shipping produce),
+and lumber and stone delivered to a building site build barn stalls, a bigger chest and
+trough, larger sawmill hoppers and a kitchen stove that cooks feed. Grandpa keeps his own day around the stead, and his old Pip
 forages the glade each fair morning. There are five areas (yard, glade, cottage, Oakhaven,
 and the Colosseum beyond it), four crops, and six berry bushes.
 

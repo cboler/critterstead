@@ -66,6 +66,7 @@ import { loadFigureModels } from './game/render/models';
 import { familiesMet } from './game/cast';
 import { barnStalls, ownedCritters } from './game/barn';
 import { MAP_SIZE, minimap, worldMap } from './game/map';
+import { CHORE, DUTIES, dutyLearned, dutyLesson, projectProgress, PROJECTS } from './game/projects';
 import {
   storedQualityChoice,
   storeQualityChoice,
@@ -96,7 +97,7 @@ function storeFlag(key: string, on: boolean): void {
 // A backup file larger than this is not one of ours.
 const BACKUP_LIMIT = 5_000_000;
 
-type Panel = 'journal' | 'help' | 'developer' | 'calendar' | 'map' | 'inventory';
+type Panel = 'journal' | 'help' | 'developer' | 'calendar' | 'map' | 'inventory' | 'chores';
 type JournalTab = 'quests' | 'critters' | 'history';
 
 /** Whether the details panel sits beside the world rather than over it. */
@@ -176,8 +177,10 @@ const ITEM_USES: Record<string, string> = {
   turnip: 'Garden produce for the store or the pickup.',
   wheat: 'Garden produce for the store or the pickup.',
   timber: 'Heavy. The sawmill turns it into lumber.',
-  stone: 'Heavy. Kept for building, later on.',
-  lumber: 'Sawn planks, kept in the yard chest for building.',
+  stone:
+    'Heavy. Footings for the trough, the sawmill and the stove; deliver it to a building site.',
+  lumber:
+    'Sawn planks for building: barn stalls, a bigger chest, the stove. Deliver to a building site.',
 };
 
 /** What an action can visibly change; compared before and after to show its results. */
@@ -321,6 +324,51 @@ export class App implements AfterViewInit, OnDestroy {
     }));
   });
   protected readonly household = computed(() => ownedCritters(this.state()));
+  // The chore board's switches and plans, read from the host while its panel is open.
+  protected readonly board = signal<InteractionAction[]>([]);
+  /** Each critter you own, and each duty: on or off, learned or how to teach it. */
+  protected readonly choreRows = computed(() => {
+    const state = this.state();
+    const offered = new Map(this.board().map((action) => [action.id, action]));
+    return ownedCritters(state).map((critter) => ({
+      id: critter.id,
+      name: critter.name,
+      kind: kindName(critter.speciesId),
+      where: critter.id === state.activeCritterId ? 'following you' : 'at home in the barn',
+      energy: Math.round(critter.stamina),
+      duties: DUTIES.map((duty) => ({
+        id: duty.id,
+        name: duty.name,
+        // A following companion forages beside you; only a barn critter goes out alone.
+        doing:
+          duty.id === 'forage' && critter.id === state.activeCritterId
+            ? 'forages beside you in the glade; from the barn, it ' + duty.doing
+            : duty.doing,
+        at: `${String(Math.floor(duty.at / 60)).padStart(2, '0')}:${String(duty.at % 60).padStart(2, '0')}`,
+        on: critter.duties[duty.id],
+        learned: dutyLearned(critter, duty.id),
+        lesson: dutyLesson(duty.id),
+        action: offered.get(`duty:${critter.id}:${duty.id}`),
+      })),
+    }));
+  });
+  protected readonly plans = computed(() =>
+    this.board().filter((action) => action.id.startsWith('plan:')),
+  );
+  /** The project under way, where its site is and what has reached it. */
+  protected readonly project = computed(() => {
+    const state = this.state();
+    if (!state.project) return null;
+    const plan = PROJECTS[state.project.id];
+    return {
+      name: plan.name,
+      blurb: plan.blurb,
+      progress: projectProgress(state),
+      where: plan.areaId === 'cottage' ? 'beside the cottage hearth' : 'in the yard',
+    };
+  });
+  protected readonly chore = CHORE;
+  protected readonly builtNames = computed(() => this.state().built.map((id) => PROJECTS[id].name));
   protected readonly stalls = computed(() => barnStalls(this.state()));
   protected readonly bag = computed(() => backpack(this.state()));
   /** Bags and their stacks, named and explained, for the inventory screen. */
@@ -976,6 +1024,7 @@ export class App implements AfterViewInit, OnDestroy {
     this.lessonLabels = lessons.map((lesson) => lesson.label);
     const interaction = this.host.interaction();
     this.nearby.set(interaction);
+    if (this.panel() === 'chores') this.board.set(this.host.choreBoard());
     this.world?.setTarget(this.host.state.training ? null : (interaction?.id ?? null));
     // Whatever sits above the bottom panel is placed from its measured height, so measure as
     // soon as the panel or the note changes instead of waiting for the periodic check.
@@ -1290,10 +1339,12 @@ export class App implements AfterViewInit, OnDestroy {
       return;
     }
     const interaction = this.host.interaction();
-    const selected = action ?? interaction?.actions.find((entry) => !entry.disabled)?.id;
+    const selected =
+      action ?? interaction?.actions.find((entry) => !entry.disabled && !entry.secondary)?.id;
     if (interaction && selected) {
       const done = this.command({ type: 'interact', targetId: interaction.id, action: selected });
       if (done && selected === 'read-calendar') this.openPanel('calendar');
+      if (done && selected === 'read-chores') this.openPanel('chores');
     }
   }
   /** The log toss charges while held: press on pointer down, throw on release. */
@@ -1524,6 +1575,7 @@ export class App implements AfterViewInit, OnDestroy {
   protected openPanel(panel: Panel | null): void {
     this.panel.set(panel);
     if (panel === 'journal') this.journalTab.set('quests');
+    this.board.set(panel === 'chores' ? this.host.choreBoard() : []);
     this.resetArmed.set(false);
     this.restoreOffer.set(null);
     this.backupMessage.set('');
@@ -1573,11 +1625,16 @@ export class App implements AfterViewInit, OnDestroy {
     return this.state().flags.includes(flag);
   }
   protected primaryAction(id: string): boolean {
-    return this.nearby()?.actions.find((action) => !action.disabled)?.id === id;
+    return (
+      this.nearby()?.actions.find((action) => !action.disabled && !action.secondary)?.id === id
+    );
   }
   protected blockedReason(): string {
     const actions = this.nearby()?.actions ?? [];
-    return actions.every((action) => action.disabled) ? (actions[0]?.reason ?? '') : '';
+    // Explain the main actions when only a secondary one (like setting plans aside) is left.
+    return actions.every((action) => action.disabled || action.secondary)
+      ? (actions.find((action) => action.disabled)?.reason ?? '')
+      : '';
   }
   protected async save(): Promise<void> {
     if (this.saveBlocked || this.beat() !== null) return;
@@ -1673,6 +1730,12 @@ export class App implements AfterViewInit, OnDestroy {
     this.baseline = null;
     this.refresh();
     await this.save();
+  }
+  /** A switch or a plan on the chore board, while its panel is open at the board. */
+  protected boardAct(action: string): void {
+    if (this.panel() !== 'chores' || !this.ready()) return;
+    this.command({ type: 'interact', targetId: 'shed', action });
+    this.board.set(this.host.choreBoard());
   }
   /** Whether there is a game to back up: a saved one, or a stored record that failed to load. */
   protected canBackup(): boolean {
