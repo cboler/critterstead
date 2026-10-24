@@ -1,6 +1,7 @@
 import { backpack } from './model';
 import { createInitialState, LocalGameHost } from './host';
-import { readSave, validateSave } from './storage';
+import { decodeSave, encodeSave, readSave, validateSave } from './storage';
+import { desk, perform } from './fixtures/play';
 import { activeCritter } from './model';
 
 describe('versioned homestead save validation', () => {
@@ -118,5 +119,28 @@ describe('learning data', () => {
       expect(() => readSave(invalid)).toThrow(/kept/);
       expect(invalid).toEqual(before);
     }
+  });
+});
+
+describe('backup files', () => {
+  it('carry a played homestead, mid-event and after it, through JSON intact', () => {
+    const host = desk(3, 'ladder');
+    expect(host.dispatch({ type: 'interact', targetId: 'ladder', action: 'cup' })).toBe(true);
+    host.update(0.5);
+    const midway = decodeSave(encodeSave(host.state));
+    expect(midway).toEqual(host.state);
+    perform(host);
+    host.dispatch({ type: 'debug', action: 'next-day' });
+    const later = decodeSave(encodeSave(host.state));
+    expect(later).toEqual(host.state);
+    expect(activeCritter(later).competitions.length).toBe(1);
+  });
+
+  it('refuse files that are not saves, or saves that fail their checks', () => {
+    expect(() => decodeSave('not json')).toThrow(/not a Critterstead backup/);
+    expect(() => decodeSave('[]')).toThrow();
+    expect(() => decodeSave(encodeSave({ ...createInitialState(), version: 13 }))).toThrow(
+      /earlier build/,
+    );
   });
 });

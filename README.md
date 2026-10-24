@@ -56,8 +56,8 @@ npm start
 Open `http://localhost:4200/`. WASD or arrow keys move; **E** interacts; **Space**
 cues the companion during training and racing (and jumps on the hurdle run; **A**/**D** lean
 on the balance beam; **A**/**S**/**D** step the rhythm lanes; **S** shoos a moth from the
-chessboard); **J** opens the journal; **Esc**
-pauses or closes a menu. Click/tap the ground to walk there, or hold a finger (or the
+chessboard); **J** opens the journal, **M** the map, **I** the bag and **?** (or **H**) How
+to play; **Esc** pauses or closes a menu. Click/tap the ground to walk there, or hold a finger (or the
 mouse button) on the world to walk toward it; releasing stops. Scroll, pinch, **+**/**−**
 or the on-screen buttons zoom the camera. Small screens show a details chip; Help has a
 visual quality setting (Auto picks one for the device). The journal (**J**) lists today's
@@ -68,15 +68,18 @@ A standard gamepad uses the left stick to move, **A** to interact/cue, the D-pad
 select actions/menu buttons (on the balance beam, the D-pad or stick leans; in rhythm
 steps, the D-pad or **X**/**A**/**B** step the lanes; at the chessboard, **B** shoos), **B** to
 close, **X** for help, **Y** for the journal,
-and Menu to pause. On-screen hints adapt to a connected controller. Automated
+View for the map, and Menu to pause. On-screen hints adapt to a connected controller. Automated
 controller coverage uses a mocked Gamepad API; physical hardware still needs a
 playtest.
 
 The clock covers a full game day in about 30 real minutes; activities also advance
 time. Menus and hidden tabs pause the simulation. Sleeping advances to the next
-morning. Your homestead uses one versioned IndexedDB save in this browser profile.
-Storage can be cleared/evicted; other browsers/devices have separate saves. There
-is no account, backend, cloud backup, or multiplayer. Unreadable or newer saves are
+morning. Sleeping after midnight wakes you at 8:00 the same morning. Your homestead uses
+one versioned IndexedDB save in this browser profile. Storage can be cleared/evicted;
+other browsers/devices have separate saves. How to play can download a backup file and
+restore one (also from the opening walk, to move to another device), and can ask the
+browser to protect the save from automatic cleanup. There is no account, backend, cloud
+backup, or multiplayer. Unreadable or newer saves are
 reported and retained rather than silently replaced. Reset erases local progress.
 
 ## Project documentation

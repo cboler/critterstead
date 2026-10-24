@@ -45,6 +45,20 @@ export class IndexedDbStorage implements SaveStorage {
     return readSave(value);
   }
 
+  /** The stored record as it is, even one that fails validation, so it can be backed up. */
+  async loadRaw(): Promise<unknown> {
+    await this.writes;
+    const database = await this.open();
+    return new Promise<unknown>((resolve, reject) => {
+      const request = database
+        .transaction(storeName, 'readonly')
+        .objectStore(storeName)
+        .get(saveKey);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error ?? new Error('Could not read your homestead.'));
+    });
+  }
+
   async save(state: GameState): Promise<void> {
     // Snapshot when requested; a later simulation tick must not change a queued save.
     validateSave(state);
@@ -125,6 +139,22 @@ export function readSave(value: unknown): GameState {
     );
   validateSave(value);
   return structuredClone(value);
+}
+
+/** A backup file's text: the stored record as JSON, readable in any browser. */
+export function encodeSave(value: unknown): string {
+  return JSON.stringify(value);
+}
+
+/** Reads a backup file's text back into a game, with the same checks as a stored save. */
+export function decodeSave(text: string): GameState {
+  let value: unknown;
+  try {
+    value = JSON.parse(text);
+  } catch {
+    throw new Error('That file is not a Critterstead backup.');
+  }
+  return readSave(value);
 }
 
 /** Writes accept only the current schema. Older records must pass readSave first. */

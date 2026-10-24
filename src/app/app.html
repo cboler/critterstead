@@ -124,6 +124,7 @@
           <div class="error-message" role="alert">
             {{ error() }}
             @if (!sessionBusy()) {
+              <button (click)="openPanel('help')">Back up or restore</button>
               <button (click)="openPanel('developer')">Open save tools</button>
             }
           </div>
@@ -970,10 +971,11 @@
         </div>
         <p class="help-note">
           One full day lasts about 30 minutes; activities also take time. Menus and hidden tabs
-          pause the clock. <kbd>Esc</kbd> pauses · <kbd>J</kbd> opens your journal. With a
-          controller, use the left stick to move, <kbd>A</kbd> to act or cue {{ companion().name }},
-          the D-pad to choose actions or menu buttons, <kbd>B</kbd> to close, <kbd>X</kbd> for help,
-          <kbd>Y</kbd> for the journal, and Menu to pause. Keyboard and touch controls still work.
+          pause the clock. <kbd>Esc</kbd> pauses · <kbd>J</kbd> journal · <kbd>M</kbd> map ·
+          <kbd>I</kbd> bag · <kbd>?</kbd> this guide. With a controller, use the left stick to move,
+          <kbd>A</kbd> to act or cue {{ companion().name }}, the D-pad to choose actions or menu
+          buttons, <kbd>B</kbd> to close, <kbd>X</kbd> for help, <kbd>Y</kbd> for the journal, View
+          for the map, and Menu to pause. Keyboard and touch controls still work.
         </p>
         <button class="primary" (click)="openPanel(null)">
           Let’s meet {{ companion().name }} <span aria-hidden="true">→</span>
@@ -1025,6 +1027,60 @@
           </button>
         </div>
         @if (!sessionBusy()) {
+          <div class="start-over">
+            <h3>Your save</h3>
+            <p>
+              @if (beat() !== null) {
+                Moving from another browser or device? Restore a backup file here instead of
+                starting fresh.
+              } @else {
+                Your homestead lives in this browser only.
+                {{
+                  storageKept()
+                    ? 'The browser has promised to keep it through automatic cleanup.'
+                    : 'Browsers can clear site data, so keep a backup file now and then.'
+                }}
+                A backup also carries it to another device.
+              }
+            </p>
+            <div class="developer-actions">
+              @if (canBackup()) {
+                <button (click)="downloadBackup()">Download a backup</button>
+              }
+              <button (click)="backupFile.click()">Restore from a backup</button>
+              @if (storageKept() === false && beat() === null) {
+                <button (click)="keepStorage()">Protect from cleanup</button>
+              }
+              <input
+                #backupFile
+                class="backup-file"
+                type="file"
+                accept=".json,application/json"
+                aria-label="Backup file"
+                (change)="pickBackup($event)"
+              />
+            </div>
+            @if (restoreOffer(); as restore) {
+              <p class="restore-offer" role="status">
+                Restore <strong>{{ restore.summary }}</strong
+                >?
+                {{
+                  beat() !== null
+                    ? 'Play continues from that day.'
+                    : 'It replaces the homestead in this browser, which cannot be undone.'
+                }}
+              </p>
+              <div class="developer-actions">
+                <button class="danger" (click)="confirmRestore()">
+                  Confirm: restore this backup
+                </button>
+                <button (click)="restoreOffer.set(null)">Cancel</button>
+              </div>
+            }
+            @if (backupMessage()) {
+              <p class="panel-note" role="status">{{ backupMessage() }}</p>
+            }
+          </div>
           <div class="start-over">
             <h3>Start over</h3>
             <p>
@@ -1220,6 +1276,16 @@
               <li><span>Nothing pressing. Enjoy the day.</span></li>
             }
           </ul>
+          @if (comingUp().length) {
+            <h3>Coming up</h3>
+            <ul class="calendar-events coming-up">
+              @for (event of comingUp(); track $index) {
+                <li [class]="event.kind">
+                  <strong>{{ event.when }}</strong> · {{ event.label }}
+                </li>
+              }
+            </ul>
+          }
           <h3>Your journey</h3>
           <ol class="quest-list journey">
             @for (quest of journeyQuests(); track quest.id) {
@@ -1338,6 +1404,7 @@
           <button (click)="debug('restore')">Restore stamina</button
           ><button (click)="debug('next-day')">Advance one day</button
           ><button (click)="save()">Save now</button
+          ><button (click)="openPanel('help')">Back up or restore</button
           ><button class="danger" (click)="reset()">
             {{ resetArmed() ? 'Confirm: erase this homestead' : 'Reset saved game' }}
           </button>

@@ -152,6 +152,8 @@ import {
 } from './model';
 
 const RESIDENT_REACH = 1.4;
+// Everyone wakes at 8:00.
+const WAKE_MINUTE = 480;
 // Minutes after midnight when barn critters see to their learned jobs.
 const BARN_CHORES = { forage: 660, haul: 840 } as const;
 const clamp = (value: number, min = 0, max = 100) => Math.max(min, Math.min(max, value));
@@ -526,7 +528,7 @@ export class LocalGameHost {
 
   dispatch(command: GameCommand): boolean {
     if (command.type === 'debug') {
-      if (command.action === 'next-day') this.sleep();
+      if (command.action === 'next-day') this.sleep(true);
       else if (command.action === 'restore') {
         this.state.player.stamina = 100;
         this.critter.stamina = 100;
@@ -943,9 +945,10 @@ export class LocalGameHost {
     if (plot) return state.areaId === 'homestead' ? this.describePlot(plot) : null;
     const object = AREAS[state.areaId].objects.find((item) => item.id === id);
     if (!object) return null;
-    const sleep = action('sleep', 'Turn in for the night · tomorrow 8:00');
-    const sleepCopy =
-      'Sleep restores both energies to 100 at 8:00 tomorrow; hunger carries over. For daytime recovery, rest together at the barn.';
+    // Up past midnight, sleep ends at 8:00 the same morning rather than skipping a day.
+    const wake = state.minute < WAKE_MINUTE ? '8:00 this morning' : '8:00 tomorrow';
+    const sleep = action('sleep', `Turn in for the night · ${wake}`);
+    const sleepCopy = `Sleep restores both energies to 100 at ${wake}; hunger carries over. For daytime recovery, rest together at the barn.`;
     switch (object.kind) {
       case 'house':
         return {
@@ -2509,9 +2512,14 @@ export class LocalGameHost {
     if (watching) this.learn(foraging, 'observation');
   }
 
-  private sleep(): void {
+  /** Sleeps until the next 8:00; a whole day is skipped only when asked (the developer kit). */
+  private sleep(fullDay = false): void {
     const state = this.state;
-    this.advanceMinutes(1440 - state.minute + 480);
+    this.advanceMinutes(
+      !fullDay && state.minute < WAKE_MINUTE
+        ? WAKE_MINUTE - state.minute
+        : 1440 - state.minute + WAKE_MINUTE,
+    );
     state.areaId = 'homestead';
     state.areaInstanceId = 'local-homestead';
     state.player.position = { ...AREAS.homestead.spawn };

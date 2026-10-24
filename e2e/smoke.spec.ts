@@ -109,6 +109,27 @@ test('keeps the desktop world, goals, and satchel in one viewport', async ({ pag
   }
 });
 
+test('keeps the zoom buttons clear of the dock on a mid-sized window', async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop', 'Checked at one desktop size.');
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await page.goto('/');
+  await takeStarterHome(page);
+  await expect(page.locator('.interaction-dock')).toBeVisible();
+  const [zoom, dock] = await Promise.all(
+    ['.view-tools', '.interaction-dock'].map((selector) =>
+      page.locator(selector).evaluate((element) => element.getBoundingClientRect().toJSON()),
+    ),
+  );
+  const overlaps =
+    zoom.left < dock.right &&
+    dock.left < zoom.right &&
+    zoom.top < dock.bottom &&
+    dock.top < zoom.bottom;
+  expect(overlaps).toBe(false);
+});
+
 test('keeps care and day progression across a reload', async ({ page }) => {
   await page.goto('/');
   await takeStarterHome(page);

@@ -552,3 +552,6 @@ architectural generalizations must be introduced incrementally:
    to force a schema migration to succeed.
 5. **Deterministic continuation**: Migration must never reroll ongoing training, recalculate
    random outcomes, or replay one-time milestones.
+6. **Backup files**: How to play downloads the save as JSON (`encodeSave`) and restores one
+   through `decodeSave`, which applies `readSave`'s checks; nothing is written until the
+   player confirms. A save that failed to load is downloaded exactly as stored (`loadRaw`).

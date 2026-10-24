@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { expect, Page, test } from '@playwright/test';
 import { createInitialState } from '../src/app/game/host';
 import { activeCritter, type GameState } from '../src/app/game/model';
@@ -131,6 +132,18 @@ for (const fixture of [
     await expect(page.getByRole('alert')).toContainText(fixture.message);
     expect(await readSave(page)).toEqual(fixture.value);
 
+    // The kept record can be downloaded exactly as it is, before anything erases it.
+    await page.getByRole('button', { name: 'Back up or restore', exact: true }).click();
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      page.getByRole('button', { name: 'Download a backup', exact: true }).click(),
+    ]);
+    expect(download.suggestedFilename()).toBe('critterstead-kept-save.json');
+    const file = test.info().outputPath('kept.json');
+    await download.saveAs(file);
+    expect(JSON.parse(readFileSync(file, 'utf8'))).toEqual(fixture.value);
+    await page.getByRole('button', { name: 'Close panel', exact: true }).click();
+
     await page.getByRole('button', { name: 'Open save tools', exact: true }).click();
     await page.getByRole('button', { name: 'Reset saved game', exact: true }).click();
     expect(await readSave(page)).toEqual(fixture.value);
@@ -167,4 +180,45 @@ test('starts a new homestead from How to play, without developer keys', async ({
   await expect.poll(() => readSave(page)).toBeUndefined();
   await takeStarterHome(page);
   await expect.poll(async () => ((await readSave(page)) as { version: number }).version).toBe(14);
+});
+
+test('backs up a homestead to a file and restores it from the opening walk', async ({ page }) => {
+  await page.goto('/');
+  await takeStarterHome(page);
+  const care = page.getByRole('button', { name: /Give a little scritch/ });
+  await care.click();
+  await expect(care).toBeDisabled();
+  await expect.poll(async () => JSON.stringify(await readSave(page))).toContain('petted-today');
+  const saved = (await readSave(page)) as GameState;
+
+  await page.getByRole('button', { name: 'How to play', exact: true }).click();
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: 'Download a backup', exact: true }).click(),
+  ]);
+  expect(download.suggestedFilename()).toBe('critterstead-mallow-day-1.json');
+  const file = test.info().outputPath('backup.json');
+  await download.saveAs(file);
+
+  // A fresh browser: the walk begins, and the backup can be restored before choosing.
+  await page.getByRole('button', { name: 'Start a new homestead', exact: true }).click();
+  await page.getByRole('button', { name: 'Confirm: erase this homestead', exact: true }).click();
+  await expect.poll(() => readSave(page)).toBeUndefined();
+  await page.getByRole('button', { name: 'How to play', exact: true }).click();
+  await page.locator('.backup-file').setInputFiles({
+    name: 'notes.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from('{"not": "a save"'),
+  });
+  await expect(page.getByRole('dialog')).toContainText('not a Critterstead backup');
+  await page.locator('.backup-file').setInputFiles(file);
+  await expect(page.locator('.restore-offer')).toContainText('Mallow · day 1');
+  expect(await readSave(page)).toBeUndefined();
+  await page.getByRole('button', { name: 'Confirm: restore this backup', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.locator('.opening-card, .starter-offer')).toHaveCount(0);
+  await expect.poll(async () => ((await readSave(page)) as GameState).seed).toBe(saved.seed);
+  await page.reload();
+  await expect(page.locator('.world-canvas canvas')).toBeVisible();
+  await expect(page.getByRole('button', { name: /Give a little scritch/ })).toBeDisabled();
 });

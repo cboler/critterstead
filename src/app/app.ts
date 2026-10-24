@@ -11,7 +11,14 @@ import {
   computed,
 } from '@angular/core';
 import { AREAS, DRILLS, EXHIBITIONS, ROUTINE } from './game/content';
-import { calendarDate, calendarView, capitalize, formatDate, weatherFor } from './game/calendar';
+import {
+  calendarDate,
+  calendarView,
+  capitalize,
+  formatDate,
+  upcomingEvents,
+  weatherFor,
+} from './game/calendar';
 import { createInitialState, LocalGameHost } from './game/host';
 import { OFFER_BEAT, OPENING, openingFarewell, stageOpening } from './game/opening';
 import {
@@ -35,7 +42,7 @@ import {
   Training,
 } from './game/model';
 import { nextObjective, objectives } from './game/objectives';
-import { IndexedDbStorage } from './game/storage';
+import { decodeSave, encodeSave, IndexedDbStorage } from './game/storage';
 import { encumbrance } from './game/checks';
 import { containerName } from './game/logistics';
 import {
@@ -66,41 +73,28 @@ import {
   type QualityChoice,
 } from './game/render/quality';
 
-// The minimap is a device preference too, off until asked for.
+// Device preferences, like the visual quality, each off until asked for: the minimap, wider
+// timing windows and sound.
 const MINIMAP_KEY = 'critterstead-minimap';
-function storedMinimap(): boolean {
-  try {
-    return localStorage.getItem(MINIMAP_KEY) === 'on';
-  } catch {
-    return false;
-  }
-}
-function storeMinimap(on: boolean): void {
-  try {
-    if (on) localStorage.setItem(MINIMAP_KEY, 'on');
-    else localStorage.removeItem(MINIMAP_KEY);
-  } catch {
-    // Private browsing: the choice lasts for this visit.
-  }
-}
-
-// Wider timing windows are a device preference, like the visual quality.
 const ASSIST_KEY = 'critterstead-wide-timing';
-function storedAssist(): boolean {
+const SOUND_KEY = 'critterstead-sound';
+function storedFlag(key: string): boolean {
   try {
-    return localStorage.getItem(ASSIST_KEY) === 'on';
+    return localStorage.getItem(key) === 'on';
   } catch {
     return false;
   }
 }
-function storeAssist(on: boolean): void {
+function storeFlag(key: string, on: boolean): void {
   try {
-    if (on) localStorage.setItem(ASSIST_KEY, 'on');
-    else localStorage.removeItem(ASSIST_KEY);
+    if (on) localStorage.setItem(key, 'on');
+    else localStorage.removeItem(key);
   } catch {
     // Private browsing: the choice lasts for this visit.
   }
 }
+// A backup file larger than this is not one of ours.
+const BACKUP_LIMIT = 5_000_000;
 
 type Panel = 'journal' | 'help' | 'developer' | 'calendar' | 'map' | 'inventory';
 type JournalTab = 'quests' | 'critters' | 'history';
@@ -268,9 +262,16 @@ export class App implements AfterViewInit, OnDestroy {
   protected readonly panel = signal<Panel | null>(null);
   protected readonly saveStatus = signal('Opening your homestead…');
   protected readonly error = signal('');
-  protected readonly sound = signal(false);
+  protected readonly sound = signal(storedFlag(SOUND_KEY));
   protected readonly canInstall = signal(false);
   protected readonly resetArmed = signal(false);
+  // Backups: a file read and checked, waiting for the player to confirm it replaces this game.
+  protected readonly restoreOffer = signal<{ state: GameState; summary: string } | null>(null);
+  protected readonly backupMessage = signal('');
+  // Whether the browser has promised not to clear the save under storage pressure.
+  protected readonly storageKept = signal<boolean | null>(null);
+  // The stored record failed its checks at load, so a backup copies it as it is.
+  private unreadable = false;
   // A fresh game begins by choosing a first companion; nothing is saved until then.
   protected readonly offer = signal<StarterCandidate[] | null>(null);
   protected readonly offerFocus = signal<string>(MALLOW.id);
@@ -482,18 +483,18 @@ export class App implements AfterViewInit, OnDestroy {
       entry.event === 'exhibition' ? 'Colosseum exhibition' : EXHIBITIONS[entry.event].name;
     return name + ' · ' + entry.time + ' points · ' + entry.medal;
   }
-  protected readonly assist = signal(storedAssist());
-  protected readonly showMinimap = signal(storedMinimap());
+  protected readonly assist = signal(storedFlag(ASSIST_KEY));
+  protected readonly showMinimap = signal(storedFlag(MINIMAP_KEY));
   protected readonly mapSize = MAP_SIZE;
   protected readonly mapPlaces = computed(() => worldMap(this.state()));
   protected readonly minimapView = computed(() => minimap(this.state()));
   protected setMinimap(on: boolean): void {
     this.showMinimap.set(on);
-    storeMinimap(on);
+    storeFlag(MINIMAP_KEY, on);
   }
   protected setAssist(on: boolean): void {
     this.assist.set(on);
-    storeAssist(on);
+    storeFlag(ASSIST_KEY, on);
   }
   private readonly drillCopy = computed(() => {
     const activity = this.state().training;
@@ -656,6 +657,17 @@ export class App implements AfterViewInit, OnDestroy {
     this.quests().filter((quest) => quest.group === 'journey'),
   );
   protected readonly nextQuest = computed(() => nextObjective(this.state()));
+  /** The week ahead from the wall calendar, so cups and harvests can be planned anywhere. */
+  protected readonly comingUp = computed(() => {
+    const state = this.state();
+    return upcomingEvents(state, 8)
+      .filter((event) => event.day > state.day)
+      .slice(0, 5)
+      .map((event) => ({
+        ...event,
+        when: event.day === state.day + 1 ? 'Tomorrow' : formatDate(event.day),
+      }));
+  });
   /** The journal's entries, newest first, gathered under the morning that began each day. */
   protected readonly history = computed(() => {
     const days: { title: string; entries: string[] }[] = [];
@@ -794,6 +806,10 @@ export class App implements AfterViewInit, OnDestroy {
     window.addEventListener('beforeinstallprompt', this.beforeInstall);
     window.addEventListener('gamepadconnected', this.controllerChange);
     window.addEventListener('gamepaddisconnected', this.controllerChange);
+    void navigator.storage
+      ?.persisted?.()
+      .then((kept) => this.storageKept.set(kept))
+      .catch(() => undefined);
     try {
       const saved = await this.storage.load();
       if (this.destroyed) return;
@@ -802,6 +818,7 @@ export class App implements AfterViewInit, OnDestroy {
       this.saveStatus.set(saved ? 'Your homestead is saved' : 'A new beginning');
     } catch (error) {
       this.saveBlocked = true;
+      this.unreadable = true;
       this.error.set(
         `${error instanceof Error ? error.message : 'Could not open your save.'} Your existing save has been kept. Saving is paused until you start a new homestead from How to play (?).`,
       );
@@ -1044,6 +1061,7 @@ export class App implements AfterViewInit, OnDestroy {
       });
     if (edge(2)) this.zone.run(() => this.openPanel(this.panel() === 'help' ? null : 'help'));
     if (edge(3)) this.zone.run(() => this.openPanel(this.panel() === 'journal' ? null : 'journal'));
+    if (edge(8)) this.zone.run(() => this.openPanel(this.panel() === 'map' ? null : 'map'));
     // On the beam the d-pad leans instead of moving focus.
     if (!beam && (edge(12) || edge(14))) this.zone.run(() => this.navigateGamepad(-1));
     if (!beam && (edge(13) || edge(15))) this.zone.run(() => this.navigateGamepad(1));
@@ -1416,6 +1434,8 @@ export class App implements AfterViewInit, OnDestroy {
       });
     if (!event.repeat && key === 'j')
       this.zone.run(() => this.openPanel(this.panel() === 'journal' ? null : 'journal'));
+    if (!event.repeat && (key === '?' || key === 'h'))
+      this.zone.run(() => this.openPanel(this.panel() === 'help' ? null : 'help'));
     if (!event.repeat && key === 'm')
       this.zone.run(() => this.openPanel(this.panel() === 'map' ? null : 'map'));
     if (!event.repeat && key === 'i')
@@ -1505,6 +1525,8 @@ export class App implements AfterViewInit, OnDestroy {
     this.panel.set(panel);
     if (panel === 'journal') this.journalTab.set('quests');
     this.resetArmed.set(false);
+    this.restoreOffer.set(null);
+    this.backupMessage.set('');
     this.blur();
     this.clearGamepadSelection();
     if (panel)
@@ -1516,6 +1538,7 @@ export class App implements AfterViewInit, OnDestroy {
   }
   protected toggleSound(): void {
     this.sound.update((value) => !value);
+    storeFlag(SOUND_KEY, this.sound());
     if (this.sound()) this.chime();
   }
   private chime(): void {
@@ -1651,6 +1674,101 @@ export class App implements AfterViewInit, OnDestroy {
     this.refresh();
     await this.save();
   }
+  /** Whether there is a game to back up: a saved one, or a stored record that failed to load. */
+  protected canBackup(): boolean {
+    return this.unreadable || (this.beat() === null && !this.sessionBusy());
+  }
+  /** Downloads the homestead as a file; an unreadable save is copied exactly as it was kept. */
+  protected async downloadBackup(): Promise<void> {
+    if (!this.canBackup()) return;
+    try {
+      const value = this.unreadable ? await this.storage.loadRaw() : this.host.state;
+      if (value === undefined) {
+        this.backupMessage.set('There is no saved homestead to back up yet.');
+        return;
+      }
+      const state = this.host.state;
+      const name = this.unreadable
+        ? 'critterstead-kept-save.json'
+        : `critterstead-${activeCritter(state)
+            .name.toLowerCase()
+            .replace(/[^a-z]+/g, '-')
+            .replace(/^-|-$/g, '')}-day-${state.day}.json`;
+      const url = URL.createObjectURL(new Blob([encodeSave(value)], { type: 'application/json' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = name;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 10_000);
+      this.backupMessage.set(`Backup saved as ${name}. Keep it somewhere safe.`);
+    } catch {
+      this.backupMessage.set('The backup could not be made. Please try again.');
+    }
+  }
+  /** Reads a chosen backup file and checks it; nothing changes until the player confirms. */
+  protected async pickBackup(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    this.restoreOffer.set(null);
+    this.backupMessage.set('');
+    if (!file) return;
+    try {
+      if (file.size > BACKUP_LIMIT) throw new Error('That file is not a Critterstead backup.');
+      const state = decodeSave(await file.text());
+      const critter = activeCritter(state);
+      this.restoreOffer.set({
+        state,
+        summary: `${critter.name} · day ${state.day}, ${formatDate(state.day)} · ${state.player.coins} leaf coins`,
+      });
+    } catch (error) {
+      this.backupMessage.set(
+        error instanceof Error ? error.message : 'That file could not be read.',
+      );
+    }
+  }
+  /** Replaces this homestead with the checked backup, saved before play resumes. */
+  protected async confirmRestore(): Promise<void> {
+    const offer = this.restoreOffer();
+    if (!offer || this.sessionBusy()) return;
+    try {
+      await this.storage.save(offer.state);
+    } catch {
+      this.backupMessage.set('The backup could not be saved here. Your homestead is unchanged.');
+      return;
+    }
+    this.host = new LocalGameHost(offer.state);
+    this.saveBlocked = false;
+    this.unreadable = false;
+    this.error.set('');
+    this.restoreOffer.set(null);
+    this.backupMessage.set('');
+    // Leave the opening walk or the starter choice, if either was showing.
+    this.offer.set(null);
+    this.beat.set(null);
+    this.farewell.set(null);
+    this.world?.setScene(null);
+    this.world?.setGuests(null);
+    this.world?.setGuestFocus(null);
+    this.result.set(null);
+    this.baseline = null;
+    this.activityBaseline = null;
+    this.workBaseline = null;
+    this.lastDay = 0;
+    this.openPanel(null);
+    this.refresh();
+    this.saveStatus.set('Your homestead is saved');
+  }
+  /** Asks the browser to keep the save through automatic storage cleanup. */
+  protected async keepStorage(): Promise<void> {
+    const kept = (await navigator.storage?.persist?.().catch(() => false)) ?? false;
+    this.storageKept.set(kept);
+    this.backupMessage.set(
+      kept
+        ? 'This browser will keep your save through automatic cleanup.'
+        : 'This browser decided not to promise that. A backup file is the safe way to keep your homestead.',
+    );
+  }
   protected debug(action: 'next-day' | 'restore'): void {
     this.command({ type: 'debug', action });
   }
@@ -1664,6 +1782,7 @@ export class App implements AfterViewInit, OnDestroy {
       await this.storage.clear();
       this.host = new LocalGameHost();
       this.saveBlocked = false;
+      this.unreadable = false;
       this.error.set('');
       this.openPanel(null);
       this.beginOpening();

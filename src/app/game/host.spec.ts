@@ -196,6 +196,21 @@ describe('progression, resources, and persistence', () => {
     expect(host.critter.stamina).toBe(100);
     expect(host.state.resources[0].available).toBe(true);
   });
+
+  it('sleeps past midnight until 8:00 the same morning, not the next', () => {
+    const host = at({ x: -5, z: -1.5 }, (state) => {
+      state.totalMinutes = 1440 + 90;
+      state.day = 2;
+      state.minute = 90;
+    });
+    expect(host.interaction()?.actions.find((item) => item.id === 'sleep')?.label).toContain(
+      'this morning',
+    );
+    expect(act(host, 'house', 'sleep')).toBe(true);
+    expect(host.state.day).toBe(2);
+    expect(host.state.minute).toBe(480);
+    expect(host.state.player.stamina).toBe(100);
+  });
 });
 
 describe('learning conditions and continuity', () => {

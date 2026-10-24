@@ -672,7 +672,8 @@
   right: var(--free-right);
   bottom: calc(var(--bottom) + var(--hotbar-h) + 12px);
   margin: 0 auto;
-  max-width: 760px;
+  // Centred, but clear of the zoom buttons at the free area's right edge.
+  max-width: min(760px, calc(100vw - var(--free-left) - var(--free-right) - 116px));
   max-height: min(42vh, 330px);
   overflow-y: auto;
   padding: 14px 16px 16px;
@@ -735,7 +736,7 @@
   right: var(--free-right);
   bottom: calc(var(--bottom) + var(--hotbar-h) + 12px);
   margin: 0 auto;
-  max-width: 540px;
+  max-width: min(540px, calc(100vw - var(--free-left) - var(--free-right) - 116px));
   padding: 18px 22px;
   border-radius: 22px;
   background: var(--hud-bg-strong);
@@ -761,7 +762,7 @@
   right: var(--free-right);
   bottom: calc(var(--bottom) + var(--hotbar-h) + 12px);
   margin: 0 auto;
-  max-width: 540px;
+  max-width: min(540px, calc(100vw - var(--free-left) - var(--free-right) - 116px));
   padding: 16px 22px;
   border-radius: 22px;
   background: var(--hud-bg-strong);
@@ -1245,6 +1246,16 @@
 }
 .start-over p {
   margin: 0 0 10px;
+}
+.start-over + .start-over {
+  margin-top: 18px;
+}
+// The file picker opens from its button; the input itself stays out of sight.
+.backup-file {
+  display: none;
+}
+.start-over .restore-offer {
+  margin: 12px 0 8px;
 }
 .journal-modal dl {
   font-size: 12px;
