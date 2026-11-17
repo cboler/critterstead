@@ -174,7 +174,8 @@ describe('saves with chores and projects', () => {
     const before = structuredClone(v14);
     const loaded = readSave(v14);
     expect(v14).toEqual(before);
-    expect(loaded.version).toBe(15);
+    expect(loaded.version).toBe(16);
+    expect(loaded.story.passedDay).toBeNull();
     expect(loaded.project).toBeNull();
     expect(loaded.built).toEqual([]);
     expect(activeCritter(loaded).duties).toEqual({

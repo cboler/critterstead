@@ -43,7 +43,7 @@ uses just one companion.
 In the intended story, Pip is Grandpa's ancient, experienced critter. Broader
 systems—including the town of Oakhaven, breeding, and Colosseum combat—are **planned**
 in the canonical design.
-The active campaign gives the game its story (Stage 2). See the
+The game now has its story, from the opening walk to the credits (Stage 2). See the
 [active plan](docs/exec-plans/active/003-household-and-opening.md) for local
 verification and publication status; the public site may be an earlier revision.
 

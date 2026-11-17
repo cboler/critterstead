@@ -5,7 +5,7 @@
   [class.quality-light]="quality() === 'light'"
   [class.is-night]="night()"
   [attr.inert]="panel() ? '' : null"
-  [class.choosing]="beat() !== null"
+  [class.choosing]="beat() !== null || tale() !== null"
 >
   <header class="masthead">
     <div class="masthead-start">
@@ -462,6 +462,20 @@
           </section>
         }
       }
+      @if (taleBeat(); as scene) {
+        @if (!scene.card) {
+          <section class="opening-card tale-card" id="game-controls" aria-labelledby="tale-speaker">
+            <p class="offer-eyebrow" id="tale-speaker">{{ scene.speaker ?? scene.title }}</p>
+            <p class="opening-line" aria-live="polite">
+              {{ scene.speaker ? '“' + scene.line + '”' : scene.line }}
+            </p>
+            <div class="opening-actions">
+              <button type="button" (click)="skipTale()">Skip</button>
+              <button class="primary" type="button" (click)="continueTale()">Continue</button>
+            </div>
+          </section>
+        }
+      }
       @if (offer(); as candidates) {
         <section class="starter-offer" id="game-controls" aria-labelledby="offer-heading">
           <p class="offer-eyebrow">A first companion</p>
@@ -527,7 +541,7 @@
           }
         </section>
       }
-      @if (beat() === null && !state().training && !result() && nearby(); as target) {
+      @if (beat() === null && !tale() && !state().training && !result() && nearby(); as target) {
         <div class="interaction-dock" id="game-controls">
           <div class="interaction-copy">
             <h2>{{ target.title }}</h2>
@@ -821,6 +835,52 @@
       <span class="eyebrow">{{ companion().name }} learned something · {{ learned.lesson }}</span>
       <strong>{{ learned.stage }}</strong>
       <span>{{ learned.detail }}</span>
+    </div>
+  }
+  @if (taleBeat(); as scene) {
+    @if (scene.card === 'title') {
+      <div class="tale-title" role="dialog" aria-modal="true" [attr.aria-label]="scene.heading">
+        <div class="tale-title-inner">
+          <h2>{{ scene.heading }}</h2>
+          <p aria-live="polite">{{ scene.line }}</p>
+          <button class="primary" type="button" (click)="continueTale()">Continue</button>
+        </div>
+      </div>
+    } @else if (scene.card === 'letter') {
+      <div class="tale-backdrop" role="dialog" aria-modal="true" [attr.aria-label]="scene.heading">
+        <article class="tale-letter">
+          <p class="offer-eyebrow">{{ scene.heading }}</p>
+          <p class="tale-letter-text" aria-live="polite">{{ scene.line }}</p>
+          <div class="opening-actions">
+            <button type="button" (click)="skipTale()">Skip</button>
+            <button class="primary" type="button" (click)="continueTale()">
+              {{ scene.last ? 'Fold it away' : 'Read on' }}
+            </button>
+          </div>
+        </article>
+      </div>
+    }
+  }
+  @if (creditsRoll(); as roll) {
+    <div class="credits" role="dialog" aria-modal="true" aria-label="Credits">
+      <div class="credits-roll">
+        <img src="icons/critterstead.svg" alt="" class="credits-mark" />
+        <h2>Critterstead</h2>
+        <p class="credits-tag">A little care. A lot of possibility.</p>
+        @for (section of roll; track $index) {
+          <section>
+            @if (section.heading) {
+              <h3>{{ section.heading }}</h3>
+            }
+            @for (line of section.lines; track $index) {
+              <p>{{ line }}</p>
+            }
+          </section>
+        }
+      </div>
+      <button class="primary credits-close" type="button" (click)="closeCredits()">
+        Back to Bramblewick
+      </button>
     </div>
   }
   @if (farewell(); as text) {
@@ -1432,6 +1492,35 @@
               </li>
             }
           </ul>
+        </div>
+        <div role="tabpanel" aria-label="Story" [hidden]="journalTab() !== 'story'">
+          @if (keepsakes().length) {
+            <h3>What Pip showed you</h3>
+            <ul class="quest-list">
+              @for (keepsake of keepsakes(); track keepsake.id) {
+                <li>
+                  <strong>{{ keepsake.name }}</strong>
+                  <span>{{ keepsake.memory }}</span>
+                </li>
+              }
+            </ul>
+          }
+          <h3>{{ grandpaGone() ? 'Remembered' : 'The years with Grandpa' }}</h3>
+          <ul class="story-pages">
+            @for (page of storyPages(); track page.id) {
+              <li>
+                <button type="button" (click)="replayTale(page.id)">{{ page.title }}</button>
+              </li>
+            } @empty {
+              <li class="panel-note">
+                Nothing to look back on yet. Some evenings are worth remembering; they will be kept
+                here.
+              </li>
+            }
+          </ul>
+          @if (storyOver()) {
+            <button class="primary" type="button" (click)="rollCredits()">Roll the credits</button>
+          }
         </div>
         <div role="tabpanel" aria-label="History" [hidden]="journalTab() !== 'history'">
           <div class="journal-summary">

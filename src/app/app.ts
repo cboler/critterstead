@@ -22,6 +22,16 @@ import {
 import { createInitialState, LocalGameHost } from './game/host';
 import { OFFER_BEAT, OPENING, openingFarewell, stageOpening } from './game/opening';
 import {
+  credits,
+  CREDITS_SCENE,
+  CreditsSection,
+  KEEPSAKES,
+  stageBeat,
+  storyEnded,
+  storyLine,
+  StoryScene,
+} from './game/story';
+import {
   FAMILIES,
   FAMILY_IDS,
   kindName,
@@ -63,7 +73,7 @@ import {
 import { eventInfo, ordinal, RANKS } from './game/ladder';
 import { GameWorld } from './game/world';
 import { loadFigureModels } from './game/render/models';
-import { familiesMet } from './game/cast';
+import { familiesMet, RESIDENTS } from './game/cast';
 import { barnStalls, ownedCritters } from './game/barn';
 import { MAP_SIZE, minimap, worldMap } from './game/map';
 import { CHORE, DUTIES, dutyLearned, dutyLesson, projectProgress, PROJECTS } from './game/projects';
@@ -98,7 +108,7 @@ function storeFlag(key: string, on: boolean): void {
 const BACKUP_LIMIT = 5_000_000;
 
 type Panel = 'journal' | 'help' | 'developer' | 'calendar' | 'map' | 'inventory' | 'chores';
-type JournalTab = 'quests' | 'critters' | 'history';
+type JournalTab = 'quests' | 'critters' | 'story' | 'history';
 
 /** Whether the details panel sits beside the world rather than over it. */
 function sidePanelLayout(): boolean {
@@ -299,6 +309,42 @@ export class App implements AfterViewInit, OnDestroy {
     return beat === null ? null : OPENING[beat];
   });
   protected readonly farewell = signal<string | null>(null);
+  // A story scene being shown, one beat at a time. The world draws a staged copy of the
+  // game meanwhile (`taleView`); the game itself waits, untouched.
+  protected readonly tale = signal<{ scene: StoryScene; index: number } | null>(null);
+  protected readonly taleBeat = computed(() => {
+    const tale = this.tale();
+    if (!tale) return null;
+    const beat = tale.scene.beats[tale.index];
+    return {
+      title: tale.scene.title,
+      speaker: beat.speaker ?? null,
+      card: beat.card ?? null,
+      heading: beat.heading ?? '',
+      line: storyLine(beat.line, this.host.state),
+      last: tale.index === tale.scene.beats.length - 1,
+    };
+  });
+  protected readonly creditsRoll = signal<CreditsSection[] | null>(null);
+  private taleView: GameState | null = null;
+  private taleMark: { x: number; z: number } | null = null;
+  // A scene chosen from the journal to be read again; it changes nothing.
+  private taleReplay = false;
+  // The scenes' words, loaded apart from the game so they add nothing to its start.
+  private readonly sceneBook = signal<readonly StoryScene[] | null>(null);
+  /** Scenes already seen, for the journal's Story tab, and what sitting with Pip turned up. */
+  protected readonly storyPages = computed(() => {
+    const story = this.state().story;
+    return (this.sceneBook() ?? [])
+      .filter((scene) => story.seen.includes(scene.id))
+      .map(({ id, title }) => ({ id, title }));
+  });
+  protected readonly keepsakes = computed(() => {
+    const found = this.state().story.keepsakes;
+    return KEEPSAKES.filter((keepsake) => found.includes(keepsake.id));
+  });
+  protected readonly storyOver = computed(() => storyEnded(this.state()));
+  protected readonly grandpaGone = computed(() => this.state().story.passedDay !== null);
   private offerCandidates: StarterCandidate[] = [];
   private farewellTimer = 0;
   protected readonly sessionBusy = signal(false);
@@ -311,6 +357,7 @@ export class App implements AfterViewInit, OnDestroy {
   protected readonly journalTabs: { id: JournalTab; label: string }[] = [
     { id: 'quests', label: 'Quests' },
     { id: 'critters', label: 'Critters' },
+    { id: 'story', label: 'Story' },
     { id: 'history', label: 'History' },
   ];
   /** The nine families, and which of them you have met in the wild. */
@@ -874,6 +921,7 @@ export class App implements AfterViewInit, OnDestroy {
     }
     if (this.destroyed) return;
     this.refresh();
+    void import('./game/story-scenes').then(({ SCENES }) => this.sceneBook.set(SCENES));
     // Figures come from their model files when those load; otherwise from code.
     await loadFigureModels(document.baseURI);
     if (this.destroyed) return;
@@ -907,7 +955,10 @@ export class App implements AfterViewInit, OnDestroy {
     this.previousTime = time;
     const stick = document.hidden ? { x: 0, z: 0 } : this.pollGamepad();
     if (this.beat() !== null) this.walkOpening(dt);
-    else if (!this.paused() && !this.panel() && !document.hidden) {
+    else if (this.tale()) this.walkTale(dt);
+    else if (this.creditsRoll()) {
+      // The credits hold the world still.
+    } else if (!this.paused() && !this.panel() && !document.hidden) {
       let x = 0;
       let z = 0;
       if (this.keys.has('w') || this.keys.has('arrowup')) {
@@ -950,6 +1001,8 @@ export class App implements AfterViewInit, OnDestroy {
       this.host.update(dt);
       if (training && !this.host.state.training) this.zone.run(() => this.finishActivity());
       if (working && !this.host.state.work) this.zone.run(() => this.finishWork());
+      if (this.host.state.story.queue.length && !this.result())
+        this.zone.run(() => this.beginTale(this.host.state.story.queue[0]));
       this.saveElapsed += dt;
       if (
         this.saveElapsed > 8 ||
@@ -965,7 +1018,7 @@ export class App implements AfterViewInit, OnDestroy {
       this.insetElapsed = 0;
       this.measureInsets();
     }
-    this.world?.render(this.host.state, dt);
+    this.world?.render(this.taleView ?? this.host.state, dt);
     if (this.world && this.world.night !== this.night()) {
       const night = this.world.night;
       this.zone.run(() => this.night.set(night));
@@ -979,6 +1032,11 @@ export class App implements AfterViewInit, OnDestroy {
   };
 
   private refresh(): void {
+    if (this.taleView) {
+      // A scene is playing: the HUD reads the staged copy, and the game waits.
+      this.state.set(structuredClone(this.taleView));
+      return;
+    }
     this.learning.set(this.host.learning());
     this.hauling.set(this.host.haulingLearning());
     this.state.set(structuredClone(this.host.state));
@@ -1082,6 +1140,12 @@ export class App implements AfterViewInit, OnDestroy {
       // A continues the walk; Start skips to the choice.
       if (edge(0)) this.zone.run(() => this.continueOpening());
       if (edge(9)) this.zone.run(() => this.skipOpening());
+      return { x: 0, z: 0 };
+    }
+    if (this.tale() || this.creditsRoll()) {
+      // A continues a scene; Start skips it, or closes the credits.
+      if (edge(0)) this.zone.run(() => this.continueTale());
+      if (edge(9)) this.zone.run(() => this.skipTale());
       return { x: 0, z: 0 };
     }
     if (edge(9))
@@ -1444,6 +1508,15 @@ export class App implements AfterViewInit, OnDestroy {
       if (!event.repeat && key === 'escape') this.zone.run(() => this.skipOpening());
       return;
     }
+    if (this.tale() || this.creditsRoll()) {
+      // Escape leaves a scene from anywhere; a focused button answers Enter and Space itself.
+      if (!event.repeat && key === 'escape') this.zone.run(() => this.skipTale());
+      else if (target.tagName !== 'BUTTON' && !event.repeat && ['enter', ' ', 'e'].includes(key)) {
+        event.preventDefault();
+        this.zone.run(() => this.continueTale());
+      }
+      return;
+    }
     // The log toss and the hurdle run own their keys, even on a focused button, so a held key
     // can charge a throw and a jump lands on the key going down.
     const held = this.host.state.training?.kind;
@@ -1691,6 +1764,92 @@ export class App implements AfterViewInit, OnDestroy {
     at.x += ((target.x - at.x) / gap) * step;
     at.z += ((target.z - at.z) / gap) * step;
   }
+  /**
+   * Shows a story scene: the queue's next one, or one read again from the journal. The
+   * scene is drawn on a staged copy of the game, so nothing it shows can change the save.
+   */
+  private beginTale(id: string, replay = false): void {
+    if (this.tale() || this.creditsRoll()) return;
+    this.taleReplay = replay;
+    this.walkTo = null;
+    this.keys.clear();
+    if (id === CREDITS_SCENE) {
+      this.creditsRoll.set(credits(this.host.state, RESIDENTS));
+      return;
+    }
+    const book = this.sceneBook();
+    // The scenes are still arriving; the queue keeps until they have.
+    if (!book) return;
+    const scene = book.find((item) => item.id === id);
+    if (!scene) {
+      // A scene this build does not know: let it go rather than hold the game.
+      this.host.dispatch({ type: 'story-seen', id });
+      return;
+    }
+    this.taleView = structuredClone(this.host.state);
+    this.showTaleBeat(scene, 0);
+  }
+  private showTaleBeat(scene: StoryScene, index: number): void {
+    const stage = scene.beats[index].stage;
+    if (stage && this.taleView) {
+      this.world?.setScene(stageBeat(this.taleView, stage));
+      this.taleMark = stage.player;
+    }
+    this.tale.set({ scene, index });
+    this.refresh();
+  }
+  protected continueTale(): void {
+    if (this.creditsRoll()) return this.closeCredits();
+    const tale = this.tale();
+    if (!tale) return;
+    if (tale.index + 1 < tale.scene.beats.length) this.showTaleBeat(tale.scene, tale.index + 1);
+    else this.endTale();
+  }
+  protected skipTale(): void {
+    if (this.creditsRoll()) this.closeCredits();
+    else this.endTale();
+  }
+  private endTale(): void {
+    const tale = this.tale();
+    if (!tale) return;
+    this.taleView = null;
+    this.taleMark = null;
+    this.world?.setScene(null);
+    this.tale.set(null);
+    if (!this.taleReplay) this.host.dispatch({ type: 'story-seen', id: tale.scene.id });
+    this.taleReplay = false;
+    this.baseline = null;
+    this.refresh();
+    void this.save();
+  }
+  protected closeCredits(): void {
+    if (!this.creditsRoll()) return;
+    this.creditsRoll.set(null);
+    if (!this.taleReplay) this.host.dispatch({ type: 'story-seen', id: CREDITS_SCENE });
+    this.taleReplay = false;
+    this.refresh();
+    void this.save();
+  }
+  /** Reads a seen scene again from the journal, or rolls the credits again. */
+  protected replayTale(id: string): void {
+    this.openPanel(null);
+    this.beginTale(id, true);
+  }
+  protected rollCredits(): void {
+    this.replayTale(CREDITS_SCENE);
+  }
+  /** Walks the rancher in the staged copy toward the current beat's mark. */
+  private walkTale(dt: number): void {
+    const target = this.taleMark;
+    const view = this.taleView;
+    if (!target || !view) return;
+    const at = view.player.position;
+    const gap = Math.hypot(target.x - at.x, target.z - at.z);
+    if (gap < 0.02) return;
+    const step = Math.min(gap, dt * 2.8);
+    at.x += ((target.x - at.x) / gap) * step;
+    at.z += ((target.z - at.z) / gap) * step;
+  }
   protected focusCandidate(id: string): void {
     const candidate = this.offer()?.find((item) => item.id === id);
     if (!candidate) return;
@@ -1810,6 +1969,9 @@ export class App implements AfterViewInit, OnDestroy {
     this.offer.set(null);
     this.beat.set(null);
     this.farewell.set(null);
+    this.tale.set(null);
+    this.creditsRoll.set(null);
+    this.taleView = null;
     this.world?.setScene(null);
     this.world?.setGuests(null);
     this.world?.setGuestFocus(null);

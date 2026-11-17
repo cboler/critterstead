@@ -5,11 +5,14 @@ import { AreaId, GameState, Point } from './model';
  * save exists. The first household starts the next morning, so nothing here is saved.
  */
 export interface SceneStage {
-  grandpa: Point;
-  pip: Point;
+  // Null when he, or Pip, is not in the scene.
+  grandpa: Point | null;
+  pip: Point | null;
   gemothy: Point | null;
   binTipped: boolean;
   berriesPicked: boolean;
+  // Whether the rancher's companion is in the scene (not before one is chosen).
+  companion?: boolean;
 }
 
 export interface OpeningBeat {
@@ -55,7 +58,7 @@ export const OPENING: readonly OpeningBeat[] = [
     player: { x: -1.6, z: 0.4 },
     stage: stage({ x: -2.7, z: -0.2 }, { x: -2.9, z: 0.9 }),
     speaker: null,
-    line: '“Before we go, this is yours,” Grandpa says, and presses a folded map into your hands, soft from years in his coat pocket. “The yard, the lane, Oakhaven, the Colosseum. Every place worth going is on it.”',
+    line: '“Before we go, this is yours,” Grandpa says, and presses a folded map into your hands, soft from years in his coat pocket. “The yard, the lane, Oakhaven, the Colosseum. Every place worth going is on it, and one or two I’ve stopped going to.”',
   },
   {
     id: 'west-road',
@@ -161,7 +164,7 @@ export const OPENING: readonly OpeningBeat[] = [
       { binTipped: true, berriesPicked: true },
     ),
     speaker: 'Grandpa',
-    line: 'Three of them are looking for a home today. Take your time. This one is yours to choose.',
+    line: 'Three of them are looking for a home today. Take your time. Not the fastest, not the strongest: the one you’d want waiting at the gate. This one is yours to choose.',
     guests: 'offer',
   },
 ];
@@ -184,5 +187,5 @@ export function stageOpening(state: GameState, beat: OpeningBeat): void {
 
 /** What Grandpa says once the choice is made, and how the first night passes. */
 export function openingFarewell(name: string): string {
-  return `“Good choice. Let’s get ${name} home.” ${name} follows you all the way back to Bramblewick. That night, ${name} sleeps in the nook, and Pip keeps one ear on the newcomer.`;
+  return `“Good choice,” says Grandpa, who would have said so whichever you chose. “Let’s get ${name} home.” ${name} follows you all the way back to Bramblewick. That night, ${name} sleeps in the nook, and Pip keeps one ear on the newcomer.`;
 }

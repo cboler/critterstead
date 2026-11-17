@@ -1,7 +1,9 @@
 import { CROPS, EXHIBITIONS, scheduledExhibition } from './content';
 import { activeCritter, ExhibitionId, GameState, Season, Weather } from './model';
+import { grandpaAlive, nextTitleDay, STORY } from './story';
 import {
   ATHLETIC_RANKS,
+  TITLE,
   CUP,
   isCupDay,
   isPromotionDay,
@@ -73,7 +75,21 @@ export function upcomingEvents(state: GameState, days = DAYS_PER_SEASON): Calend
   for (let day = state.day; day < state.day + days; day++) {
     const date = calendarDate(day);
     if (date.dayOfSeason === 1 && day !== state.day)
-      events.push({ day, label: `${capitalize(date.season)} begins`, kind: 'season' });
+      events.push({
+        day,
+        // While Grandpa lives, autumn means the school cart.
+        label:
+          date.season === 'autumn' && grandpaAlive(state) && date.year < STORY.lastSummerYear
+            ? 'The school cart · autumn and winter terms away'
+            : `${capitalize(date.season)} begins`,
+        kind: 'season',
+      });
+    if (critter.ladder.rank === TITLE.rank && day === nextTitleDay(state))
+      events.push({
+        day,
+        label: `${TITLE.name} · for Grandpa’s old title · ${TITLE.fee} coins to enter`,
+        kind: 'cup',
+      });
     const age = critter.ageDays + day - state.day;
     if (age > 0 && age % DAYS_PER_YEAR === 0)
       events.push({

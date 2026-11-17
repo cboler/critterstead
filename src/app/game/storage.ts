@@ -1,6 +1,7 @@
 import { ExhibitionId, GameState, ProjectId } from './model';
 import { CRITTER_KINDS } from './families';
 import { GRANDPA, PIP_ID } from './household';
+import { KEEPSAKES, newStory } from './story';
 import {
   BEHAVIORS,
   CROPS,
@@ -129,7 +130,7 @@ export class IndexedDbStorage implements SaveStorage {
 }
 
 /** Saves from builds before this version are retired, not migrated (D55). */
-export const SAVE_VERSION = 15;
+export const SAVE_VERSION = 16;
 // The oldest save still carried forward; earlier ones are retired.
 const OLDEST_CARRIED = 14;
 
@@ -141,19 +142,33 @@ export function readSave(value: unknown): GameState {
       `This homestead comes from an earlier build of Critterstead (save v${version}), before the world was redrawn, and cannot be carried forward.`,
     );
   // Migrate a copy, so a save that then fails its checks is left exactly as it was.
-  const save = version === 14 ? fromV14(structuredClone(value) as Record<string, unknown>) : value;
+  let save = value;
+  if (version === 14 || version === 15) {
+    const copy = structuredClone(value) as Record<string, unknown>;
+    save = fromV15(version === 14 ? fromV14(copy) : copy);
+  }
   validateSave(save);
   return structuredClone(save);
 }
 
 /** v14 → v15: the chore board and building projects. Every duty starts on, as before. */
-function fromV14(save: Record<string, unknown>): unknown {
+function fromV14(save: Record<string, unknown>): Record<string, unknown> {
   for (const critter of Array.isArray(save['critters']) ? save['critters'] : [])
     if (critter && typeof critter === 'object')
       (critter as Record<string, unknown>)['duties'] = allDuties();
   save['project'] = null;
   save['built'] = [];
   save['version'] = 15;
+  return save;
+}
+
+/**
+ * v15 → v16: the story. Grandpa is alive in every earlier household and nothing has been
+ * shown, so the years with him begin from wherever the household's calendar stands.
+ */
+function fromV15(save: Record<string, unknown>): unknown {
+  save['story'] = newStory();
+  save['version'] = 16;
   return save;
 }
 
@@ -386,6 +401,22 @@ export function validateSave(value: unknown): asserts value is GameState {
   number(root['shedLevel'], 'shedLevel', 0, Number.MAX_SAFE_INTEGER, true);
   strings(root['flags'], 'flags');
   strings(root['journal'], 'journal');
+  {
+    const story = record(root['story'], 'story');
+    if (story['passedDay'] !== null)
+      number(story['passedDay'], 'story.passedDay', 1, root['day'] as number, true);
+    strings(story['queue'], 'story.queue');
+    strings(story['seen'], 'story.seen');
+    strings(story['keepsakes'], 'story.keepsakes');
+    // Keepsakes are found in order, and only after Grandpa.
+    const found = story['keepsakes'] as string[];
+    if (
+      found.length > KEEPSAKES.length ||
+      found.some((id, index) => KEEPSAKES[index].id !== id) ||
+      (found.length > 0 && story['passedDay'] === null)
+    )
+      corrupt('story.keepsakes');
+  }
   if (root['training'] !== null) {
     const training = record(root['training'], 'training');
     if (training['critterId'] !== root['activeCritterId']) corrupt('training.critterId');
@@ -438,7 +469,10 @@ export function validateSave(value: unknown): asserts value is GameState {
       else if (training['cupDay'] !== undefined) corrupt('training.cupDay');
       const legs =
         training['event'] === 'promotion'
-          ? promotionLegs(training['cupDay'] as number)
+          ? promotionLegs(
+              training['cupDay'] as number,
+              (record(selected['ladder'], 'critter.ladder')['rank'] as number) ?? 0,
+            )
           : cup
             ? cupLegs(training['cupDay'] as number)
             : EXHIBITIONS[training['event'] as ExhibitionId].legs;
@@ -564,7 +598,8 @@ function validateCritter(critter: Record<string, unknown>): void {
     if (result['event'] === 'cup' || result['event'] === 'promotion') {
       number(result['field'], 'competition.field', 1, 100, true);
       number(result['placing'], 'competition.placing', 1, result['field'] as number, true);
-      number(result['rank'], 'competition.rank', 0, ATHLETIC_RANKS - 1, true);
+      // A promotion entry at Champion rank is a Grand Championship.
+      number(result['rank'], 'competition.rank', 0, ATHLETIC_RANKS, true);
     } else if (['placing', 'field', 'rank'].some((key) => result[key] !== undefined))
       corrupt('competition.placing');
   }

@@ -4,7 +4,11 @@ import { Drill, EventId, Stats } from './model';
 
 // Plan 005 ladder tuning, set with the balancing simulator (`balance.ts`, `npm run balance`).
 
-/** The ladder's ranks. The first three are athletic; the last two wait for bouts. */
+/**
+ * The ladder's ranks. The first three are climbed in athletic cups. A Champion's one
+ * contest is the Grand Championship, for Grandpa's old title; until bouts are built it is
+ * run as a five-leg cup on the same engine (D57).
+ */
 export const RANKS = ['Fledgling', 'Contender', 'Veteran', 'Champion', 'Grand Champion'] as const;
 export const ATHLETIC_RANKS = 3;
 
@@ -91,6 +95,33 @@ export const RIVALS: readonly (readonly Rival[])[] = [
   ],
 ];
 
+/** The Grand Championship: five legs against the valley's Champions and the title holder. */
+export const TITLE = {
+  name: 'Grand Championship',
+  rank: 3,
+  energy: 60,
+  minutes: 120,
+  fee: 40,
+  purse: [400, 150, 60],
+  legs: ['run', 'lift', 'chess', 'pace', 'hoops'],
+} as const satisfies {
+  name: string;
+  rank: number;
+  energy: number;
+  minutes: number;
+  fee: number;
+  purse: readonly number[];
+  legs: readonly Drill[];
+};
+
+/** Who stands for the title: Hetty Larkspur's Lantern, and three Champions. */
+export const TITLE_FIELD: readonly Rival[] = [
+  rival('lantern', 'Lantern', 'Hetty Larkspur', 'reptile', [360, 400, 280, 380], 0.9),
+  rival('halcyon', 'Halcyon', 'Ansel Reeve', 'avian', [250, 290, 400, 330], 0.8),
+  rival('boulder', 'Boulder', 'Una Marsh', 'bovine', [410, 380, 220, 240], 0.8),
+  rival('tansy', 'Tansy', 'Ivo Dunn', 'canine', [300, 340, 320, 290], 0.85),
+];
+
 /** Promotion cups fall on these days, for critters with enough ladder points. */
 export const PROMOTION_DAYS: readonly number[] = [15, 29];
 export const PROMOTION = {
@@ -122,7 +153,9 @@ export const isPromotionDay = (dayOfSeason: number) => PROMOTION_DAYS.includes(d
 export const qualifiedForPromotion = (ladder: { rank: number; points: number }) =>
   ladder.rank < ATHLETIC_RANKS && ladder.points >= PROMOTION.qualify;
 
-export function promotionLegs(day: number): ExhibitionLeg[] {
+/** The legs a promotion cup, or at Champion rank the Grand Championship, is run over. */
+export function promotionLegs(day: number, rank = 0): ExhibitionLeg[] {
+  if (rank >= TITLE.rank) return TITLE.legs.map((drill) => ({ drill }));
   const season = Math.floor((day - 1) / 30);
   const dayOfSeason = ((day - 1) % 30) + 1;
   const held =
@@ -134,6 +167,7 @@ export function promotionLegs(day: number): ExhibitionLeg[] {
 
 /** The rank's strongest rivals: the best stats played with the best form. */
 export function promotionField(rank: number): Rival[] {
+  if (rank >= TITLE.rank) return [...TITLE_FIELD];
   const strength = (rival: Rival) =>
     (rival.stats.strength + rival.stats.endurance + rival.stats.speed + rival.stats.intelligence) *
     rival.form;
@@ -213,6 +247,11 @@ export interface EventInfo {
 
 /** What an event or a ranked cup asks of a critter at a rank, from its id and cup day. */
 export function eventInfo(event: EventId, cupDay: number | undefined, rank: number): EventInfo {
+  if (event === 'promotion' && rank >= TITLE.rank) {
+    const legs = promotionLegs(cupDay ?? 1, rank);
+    const { name, energy, minutes, fee } = TITLE;
+    return { name, legs, stats: legWeights(legs), energy, minutes, fee };
+  }
   if (event === 'promotion') {
     const legs = promotionLegs(cupDay ?? 1);
     return {

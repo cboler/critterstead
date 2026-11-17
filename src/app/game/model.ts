@@ -223,8 +223,18 @@ export interface Training {
   seed?: number;
   scores?: number[];
 }
+/** Where the household's story stands. Scenes are presentation; the rules live in story.ts. */
+export interface StoryState {
+  // The day Grandpa passed; null while he is alive.
+  passedDay: number | null;
+  // Scenes waiting to be shown, oldest first, and those already shown.
+  queue: string[];
+  seen: string[];
+  // What sitting with Pip has turned up, in the order it was found.
+  keepsakes: string[];
+}
 export interface GameState {
-  version: 15;
+  version: 16;
   seed: number;
   // The seed the household began with; it never changes, so what it draws is lasting.
   origin: number;
@@ -256,6 +266,7 @@ export interface GameState {
   flags: string[];
   journal: string[];
   training: Training | null;
+  story: StoryState;
 }
 export type GameCommand =
   | { type: 'move'; x: number; z: number; seconds: number }
@@ -268,6 +279,8 @@ export type GameCommand =
   // Balance beam: lean left (-1), right (1), or hold still (0).
   | { type: 'training-steer'; direction: number }
   | { type: 'drop-cargo' }
+  // A story scene has been shown (or skipped) and need not be shown again.
+  | { type: 'story-seen'; id: string }
   | { type: 'debug'; action: 'next-day' | 'restore' };
 export interface InteractionAction {
   id: string;

@@ -6,6 +6,9 @@ import { learnedStage } from './host';
 import { quantity } from './logistics';
 import { projectProgress, PROJECTS, stillNeeded } from './projects';
 import { activeCritter, GameState } from './model';
+import { grandpaAlive, KEEPSAKES, keepsakeDue, nextTitleDay, storyEnded, titleDay } from './story';
+import { formatDate } from './calendar';
+import { TITLE } from './ladder';
 
 /**
  * A reading of the save for the journal's quest page: nothing here is stored, and nothing
@@ -90,6 +93,20 @@ export function objectives(state: GameState): Objective[] {
       `Today: the ${RANKS[critter.ladder.rank]} Promotion Cup`,
       `${name} has qualified. Enter at the promotion desk; first place makes a ${RANKS[critter.ladder.rank + 1]}.`,
     );
+  // The Grand Championship on its day, for a Champion who holds their own stead.
+  if (
+    critter.ladder.rank === TITLE.rank &&
+    titleDay(state) &&
+    !critter.competitions.some((result) => result.day === state.day && result.event === 'promotion')
+  )
+    offer(
+      'title',
+      `Today: the ${TITLE.name}`,
+      `Five legs for Grandpa’s old title, entered at the promotion desk for ${TITLE.fee} coins. Pip has gone on ahead.`,
+    );
+  // After Grandpa: Pip has something to show you, at its place on his round.
+  const keepsake = keepsakeDue(state);
+  if (keepsake) offer('keepsake', 'Sit with Pip', keepsake.hint);
   // A scheduled event on its day, once the first showing has been seen.
   const event = scheduledExhibition(calendarDate(state.day).dayOfSeason);
   if (
@@ -190,7 +207,34 @@ export function objectives(state: GameState): Objective[] {
       has('checked-calendar'),
     ),
   ];
-  return [...today, ...journey];
+  // After Grandpa, the long arc is his: keeping Pip's rounds, and the title he left warm.
+  const after: Objective[] = [];
+  if (!grandpaAlive(state)) {
+    const found = state.story.keepsakes.length;
+    after.push(
+      step(
+        'rounds',
+        'Keep Pip’s rounds',
+        keepsake?.hint ??
+          (found < KEEPSAKES.length
+            ? 'Pip is keeping Grandpa’s old round, alone. Let him. A day will come to sit with him again.'
+            : 'You know now where everything went, and why.'),
+        found >= KEEPSAKES.length,
+        { value: found, goal: KEEPSAKES.length },
+      ),
+      step(
+        'title',
+        'The title he left warm',
+        storyEnded(state)
+          ? `${name} is Grand Champion. Two white ribbons share the high nail.`
+          : critter.ladder.rank < TITLE.rank
+            ? `Raise a Champion on the ladder. The ${TITLE.name} is next held on ${formatDate(nextTitleDay(state)!)}.`
+            : `${name} is a Champion. The ${TITLE.name} is next held on ${formatDate(nextTitleDay(state)!)}, at the promotion desk.`,
+        storyEnded(state),
+      ),
+    );
+  }
+  return [...today, ...after, ...journey];
 }
 
 /** The one thing to suggest when the rancher is not near anything: the journey's next step. */

@@ -72,6 +72,19 @@ import {
   weatherFor,
 } from './calendar';
 import { advanceGarden, plotReady } from './garden';
+import {
+  dawnScene,
+  eveningScenes,
+  grandpaAlive,
+  keepsakeDue,
+  newStory,
+  nextSpring,
+  nextTitleDay,
+  schoolScene,
+  STORY,
+  titleDay,
+  turnOfSeason,
+} from './story';
 import { kindName, MALLOW, StarterCandidate } from './families';
 import {
   createPip,
@@ -80,6 +93,7 @@ import {
   grandpaWhereabouts,
   PIP_ID,
   PIP_PICKS,
+  pipAtTheRail,
   pipNextPick,
   pipWhereabouts,
   Whereabouts,
@@ -87,6 +101,7 @@ import {
 import { nextObjective } from './objectives';
 import {
   ATHLETIC_RANKS,
+  TITLE,
   CUP,
   CUP_DAYS,
   cupLegs,
@@ -251,7 +266,7 @@ const hauling = BEHAVIORS['lumber-hauling'];
 /** A new household with its chosen first companion and the seed its offer was drawn from. */
 export function createInitialState(starter: StarterCandidate = MALLOW, seed = 240921): GameState {
   return {
-    version: 15,
+    version: 16,
     seed,
     origin: seed,
     day: 1,
@@ -308,6 +323,7 @@ export function createInitialState(starter: StarterCandidate = MALLOW, seed = 24
       `Morning at Bramblewick. Grandpa is already up: “${starter.name} will be hungry after yesterday. Say good morning, then see about some feed.”`,
     ],
     training: null,
+    story: newStory(),
   };
 }
 
@@ -559,6 +575,13 @@ export class LocalGameHost {
       return true;
     }
     if (command.type === 'training-release') return this.trainingRelease();
+    if (command.type === 'story-seen') {
+      const story = this.state.story;
+      if (!story.queue.includes(command.id)) return false;
+      story.queue = story.queue.filter((id) => id !== command.id);
+      if (!story.seen.includes(command.id)) story.seen.push(command.id);
+      return true;
+    }
     if (this.state.training || this.state.work) return false;
     if (command.type === 'drop-cargo') return this.dropCargo();
     if (command.type === 'move') return this.move(command.x, command.z, command.seconds);
@@ -844,12 +867,22 @@ export class LocalGameHost {
         description: resident.activity,
         actions: [action('talk', 'Talk with Grandpa · 5 min')],
       };
-    if (resident)
+    if (resident) {
+      // After Grandpa, Pip keeps the old round; some days he has something to show you.
+      const due = keepsakeDue(state);
+      const waiting = !!due && resident.spot === due.spot;
       return {
         id,
         title: 'Pip',
-        description: `${resident.activity} Grandpa's Brindlekin, older than anyone can quite say.`,
+        description: `${resident.activity} ${
+          grandpaAlive(state)
+            ? 'Grandpa’s Brindlekin, older than anyone can quite say.'
+            : waiting
+              ? 'He looks round at you, and waits.'
+              : 'Grandpa’s Brindlekin still, and yours to look after.'
+        }`,
         actions: [
+          ...(waiting ? [action('sit-with-pip', 'Sit with Pip a while · 20 min')] : []),
           action(
             'greet-pip',
             'Scratch Pip behind the ears',
@@ -859,6 +892,7 @@ export class LocalGameHost {
           ),
         ],
       };
+    }
     if (id === critter.id)
       return {
         id,
@@ -1200,8 +1234,10 @@ export class LocalGameHost {
         const today = scheduledExhibition(dayOfSeason);
         const rank = critter.ladder.rank;
         const cup = isCupDay(dayOfSeason) && rank < ATHLETIC_RANKS;
-        const promotionDay = isPromotionDay(dayOfSeason) && rank < ATHLETIC_RANKS;
-        const qualified = qualifiedForPromotion(critter.ladder);
+        // A Champion's one contest: the Grand Championship, on the days it is held.
+        const title = rank === TITLE.rank && titleDay(state);
+        const promotionDay = (isPromotionDay(dayOfSeason) && rank < ATHLETIC_RANKS) || title;
+        const qualified = qualifiedForPromotion(critter.ladder) || title;
         const info = (event: EventId) => eventInfo(event, state.day, rank);
         const entered = (event: EventId) =>
           critter.competitions.some((result) => result.day === state.day && result.event === event);
@@ -1241,15 +1277,21 @@ export class LocalGameHost {
             id,
             title: cup ? `Ladder registrar · today: the ${info('cup').name}` : 'Ladder registrar',
             description: `${
-              rank >= ATHLETIC_RANKS
-                ? `${critter.name} is a ${RANKS[rank]}; that rank’s contests are bouts, still to come.`
-                : cup
-                  ? `A ranked cup: ${legs('cup')} against ${field.length} ${RANKS[rank]} rivals, ${field
-                      .slice(0, 3)
-                      .map((rival) => rival.name)
-                      .join(', ')} among them. The top three earn ladder points.`
-                  : `Ranked cups are held on days ${CUP_DAYS.join(', ')} of every season.`
-            } ${critter.name} is a ${RANKS[rank]} with ${critter.ladder.points} ladder points; ${PROMOTION.qualify} qualify for a promotion cup.`,
+              rank > TITLE.rank
+                ? `${critter.name} is the Grand Champion; there is no rung above.`
+                : rank === TITLE.rank
+                  ? `${critter.name} is a Champion; the one contest above is the ${TITLE.name}, entered at the promotion desk.`
+                  : cup
+                    ? `A ranked cup: ${legs('cup')} against ${field.length} ${RANKS[rank]} rivals, ${field
+                        .slice(0, 3)
+                        .map((rival) => rival.name)
+                        .join(', ')} among them. The top three earn ladder points.`
+                    : `Ranked cups are held on days ${CUP_DAYS.join(', ')} of every season.`
+            }${
+              rank < ATHLETIC_RANKS
+                ? ` ${critter.name} is a ${RANKS[rank]} with ${critter.ladder.points} ladder points; ${PROMOTION.qualify} qualify for a promotion cup.`
+                : ''
+            }`,
             actions: [...(cup ? [enter('cup')] : []), chat],
           };
         }
@@ -1261,17 +1303,25 @@ export class LocalGameHost {
               ? `Promotion desk · today: the ${info('promotion').name}`
               : 'Promotion desk',
             description:
-              rank >= ATHLETIC_RANKS
-                ? `${critter.name} is a ${RANKS[rank]}. Champions settle things in bouts, and the arena floor is not ready for them yet.`
-                : `${
-                    promotionDay
-                      ? `Three legs (${legs('promotion')}) against the ${RANKS[rank]} rank’s best: ${field.map((rival) => rival.name).join(', ')}. First place makes a ${RANKS[rank + 1]}.`
-                      : `Promotion cups are held on days ${PROMOTION_DAYS.join(' and ')} of every season.`
-                  } ${
-                    qualified
-                      ? `${critter.name} has qualified with ${critter.ladder.points} ladder points.`
-                      : `${critter.name} needs ${PROMOTION.qualify} ladder points to enter and has ${critter.ladder.points}.`
-                  }`,
+              rank > TITLE.rank
+                ? `${critter.name} is the Grand Champion. The white ribbon is yours to keep; nobody at this desk would dream of asking for it back.`
+                : title
+                  ? `Five legs (${legs('promotion')}) against the valley’s Champions and the title holder, Hetty Larkspur’s Lantern. First place takes the Grand Champion’s ribbon.`
+                  : rank === TITLE.rank
+                    ? `${critter.name} is a Champion. The one contest above is the ${TITLE.name}, held at Midwinter, the last day of winter, for ranchers who hold their own stead. ${
+                        grandpaAlive(state)
+                          ? 'Bramblewick is your grandfather’s, and he made his last entry long ago.'
+                          : `It is next held on ${formatDate(nextTitleDay(state)!)}.`
+                      }`
+                    : `${
+                        promotionDay
+                          ? `Three legs (${legs('promotion')}) against the ${RANKS[rank]} rank’s best: ${field.map((rival) => rival.name).join(', ')}. First place makes a ${RANKS[rank + 1]}.`
+                          : `Promotion cups are held on days ${PROMOTION_DAYS.join(' and ')} of every season.`
+                      } ${
+                        qualified
+                          ? `${critter.name} has qualified with ${critter.ladder.points} ladder points.`
+                          : `${critter.name} needs ${PROMOTION.qualify} ladder points to enter and has ${critter.ladder.points}.`
+                      }`,
             actions: [...(promotionDay && qualified ? [enter('promotion')] : []), chat],
           };
         }
@@ -1735,11 +1785,27 @@ export class LocalGameHost {
         );
         return true;
       }
+      case 'sit-with-pip': {
+        const due = keepsakeDue(state)!;
+        const pip = state.critters.find((item) => item.id === PIP_ID)!;
+        state.story.keepsakes.push(due.id);
+        this.queueScene(due.scene);
+        this.advanceMinutes(20);
+        pip.happiness = clamp(pip.happiness + 8);
+        this.critter.bond = clamp(this.critter.bond + 2);
+        this.critter.history.push(`Day ${state.day}: Sat with Pip. ${due.name}.`);
+        this.note(`${due.name}. ${due.memory}`);
+        return true;
+      }
       case 'greet-pip': {
         const pip = state.critters.find((item) => item.id === PIP_ID)!;
         pip.happiness = clamp(pip.happiness + 5);
         this.flag('greeted-pip-today');
-        this.note('Pip leans into your hand and sighs, the way he does for Grandpa.');
+        this.note(
+          grandpaAlive(state)
+            ? 'Pip leans into your hand and sighs, the way he does for Grandpa.'
+            : 'Pip leans into your hand. After a moment he sighs, the way he used to for Grandpa.',
+        );
         return true;
       }
       case 'travel': {
@@ -2057,6 +2123,7 @@ export class LocalGameHost {
     const critter = this.critter;
     const cupDay = id === 'cup' || id === 'promotion' ? state.day : undefined;
     const event = eventInfo(id, cupDay, critter.ladder.rank);
+    if (id === 'promotion' && critter.ladder.rank >= TITLE.rank) this.queueScene('midwinter-desk');
     state.player.stamina -= 5;
     state.player.coins -= event.fee;
     critter.stamina -= event.energy;
@@ -2189,17 +2256,18 @@ export class LocalGameHost {
     const state = this.state;
     const critter = this.critter;
     const rank = critter.ladder.rank;
+    const title = rank >= TITLE.rank;
     const field = promotionField(rank).map((rival) => ({
       rival,
-      points: rivalPoints(rival, promotionLegs(cupDay), () => this.random()),
+      points: rivalPoints(rival, promotionLegs(cupDay, rank), () => this.random()),
     }));
     const placing = placingOf(
       points,
       field.map((entry) => entry.points),
     );
-    const purse = PROMOTION.purse[rank][placing - 1] ?? 0;
+    const purse = (title ? TITLE.purse : PROMOTION.purse[rank])[placing - 1] ?? 0;
     const medal = ['gold', 'silver', 'bronze'][placing - 1] ?? 'none';
-    const name = `${RANKS[rank]} Promotion Cup`;
+    const name = title ? TITLE.name : `${RANKS[rank]} Promotion Cup`;
     critter.competitions.push({
       day: state.day,
       time: points,
@@ -2211,16 +2279,39 @@ export class LocalGameHost {
     });
     state.player.coins += purse;
     const best = field.reduce((top, entry) => (entry.points > top.points ? entry : top));
+    if (title) {
+      const holder = field[0];
+      if (placing === 1) {
+        critter.ladder = { rank: rank + 1, points: 0 };
+        critter.history.push(
+          `Day ${state.day}: won the ${name}. Grand Champion, as Grandpa and Pip were.`,
+        );
+        this.flag('promoted:grand-champion');
+        this.queueScene('grand-champion');
+        this.queueScene('credits');
+        this.note(
+          `The chalk goes up, and the whole Colosseum with it. ${critter.name} wins the ${name} with ${points} points (${legs}), ahead of ${best.rival.name} with ${best.points}. ${critter.name} is Grand Champion, and the purse is ${purse} coins.`,
+        );
+        return;
+      }
+      critter.history.push(
+        `Day ${state.day}: ${ordinal(placing)} of ${field.length + 1} in the ${name} (${points} points).`,
+      );
+      this.note(
+        `${critter.name} places ${ordinal(placing)} of ${field.length + 1} in the ${name} with ${points} points (${legs}). ${best.rival.name} (${best.rival.rancher}) took it with ${best.points}${best.rival === holder.rival ? ', and keeps the title warm a little longer' : `; ${holder.rival.name} keeps the title`}.${purse ? ` ${purse} coins.` : ''} A Champion may challenge again at the turn of any season. At the rail, Pip gets up, stretches, and waits to walk you home.`,
+      );
+      return;
+    }
     if (placing === 1) {
       critter.ladder = { rank: rank + 1, points: 0 };
-      const title = RANKS[rank + 1];
-      critter.history.push(`Day ${state.day}: won the ${name} and became a ${title}.`);
-      this.flag(`promoted:${title.toLowerCase().replace(' ', '-')}`);
+      const ribbon = RANKS[rank + 1];
+      critter.history.push(`Day ${state.day}: won the ${name} and became a ${ribbon}.`);
+      this.flag(`promoted:${ribbon.toLowerCase().replace(' ', '-')}`);
       this.note(
-        `The whole crowd is on its feet! ${critter.name} wins the ${name} with ${points} points (${legs}), ahead of ${best.rival.name}. A steward pins a ${title} ribbon to ${critter.name}’s collar${purse ? ` and hands you ${purse} coins` : ''}.${
+        `The whole crowd is on its feet! ${critter.name} wins the ${name} with ${points} points (${legs}), ahead of ${best.rival.name}. A steward pins a ${ribbon} ribbon to ${critter.name}’s collar${purse ? ` and hands you ${purse} coins` : ''}.${
           rank + 1 >= ATHLETIC_RANKS
-            ? ` ${title}s settle things in bouts, and the arena floor is not ready for those yet.`
-            : ` The ladder starts again: ${title} cups, ${title} rivals.`
+            ? ` Above a ${ribbon} there is only the ${TITLE.name}, at Midwinter.`
+            : ` The ladder starts again: ${ribbon} cups, ${ribbon} rivals.`
         }`,
       );
       return;
@@ -2504,20 +2595,108 @@ export class LocalGameHost {
       this.collectPickup();
       this.gemothyFinds();
       for (const individual of state.critters) individual.ageDays += state.day - previousDay;
-      state.flags = state.flags.filter(
-        (flag) =>
-          flag !== 'petted-today' &&
-          flag !== 'greeted-pip-today' &&
-          !flag.startsWith('pip-') &&
-          !flag.startsWith('greeted:') &&
-          !flag.startsWith('chatted:') &&
-          !flag.startsWith('visited:'),
-      );
+      this.clearDailyFlags();
     }
     for (const node of state.materialNodes)
       if (node.remaining === 0 && node.respawnAt <= state.totalMinutes) node.remaining = 6;
     for (const node of state.resources)
       if (!node.available && node.respawnAt <= state.totalMinutes) node.available = true;
+  }
+
+  private clearDailyFlags(): void {
+    this.state.flags = this.state.flags.filter(
+      (flag) =>
+        flag !== 'petted-today' &&
+        flag !== 'greeted-pip-today' &&
+        !flag.startsWith('pip-') &&
+        !flag.startsWith('greeted:') &&
+        !flag.startsWith('chatted:') &&
+        !flag.startsWith('visited:'),
+    );
+  }
+
+  /** Puts a story scene in line to be shown, once. */
+  private queueScene(id: string): void {
+    const story = this.state.story;
+    if (!story.seen.includes(id) && !story.queue.includes(id)) story.queue.push(id);
+  }
+
+  /**
+   * Carries the household forward to 8:00 on a later day without simulating the days
+   * between: the school terms away, and the days around the funeral. Whoever is at home
+   * minds the stead; ripe crops come in to the yard chest and the beds are put to rest.
+   */
+  private carryTo(day: number): void {
+    const state = this.state;
+    const skipped = day - state.day;
+    if (skipped <= 0) return;
+    state.day = day;
+    state.minute = WAKE_MINUTE;
+    state.totalMinutes = (day - 1) * 1440 + WAKE_MINUTE;
+    const chest = state.containers.find((container) => container.kind === 'chest')!;
+    for (const plot of state.plots) {
+      if (plot.crop && plotReady(plot))
+        for (const { itemId, quantity } of CROPS[plot.crop.speciesId].harvest) {
+          const fits = Math.min(quantity, room(chest, itemId));
+          if (fits > 0) addItem(chest, itemId, fits, 1);
+        }
+      plot.crop = null;
+      plot.tilled = false;
+      plot.moistUntil = 0;
+    }
+    for (const node of state.resources) node.available = true;
+    for (const node of state.materialNodes) node.remaining = 6;
+    for (const critter of state.critters) {
+      critter.ageDays += skipped;
+      critter.drills = { day, sessions: {} };
+      if (critter.ownerId !== state.player.id) continue;
+      critter.stamina = 100;
+      critter.hunger = Math.min(critter.hunger, 25);
+      critter.happiness = Math.max(critter.happiness, 70);
+    }
+    this.clearDailyFlags();
+  }
+
+  /** Autumn and winter at school: home again on the first morning of spring. */
+  private schoolTerm(): void {
+    const state = this.state;
+    this.queueScene(schoolScene(calendarDate(state.day).year));
+    this.carryTo(nextSpring(state.day));
+    // Two terms of Pip's lessons and Grandpa's walks.
+    for (const critter of state.critters) {
+      if (critter.ownerId !== state.player.id) continue;
+      for (const stat of ['strength', 'endurance', 'speed', 'intelligence'] as const)
+        critter.stats[stat] += 1;
+      const known = critter.learnedBehaviors[foraging.id] ?? 0;
+      if (known < foraging.practiceCeiling)
+        critter.learnedBehaviors[foraging.id] = Math.min(
+          foraging.practiceCeiling,
+          known + STORY.termLessons,
+        );
+      critter.history.push(
+        `Day ${state.day}: You came home from school. ${critter.name} had waited.`,
+      );
+    }
+    this.note(
+      `${formatDate(state.day)}. Home. Grandpa and Pip kept the stead through autumn and winter: the beds are resting, the berries are back, and what was ripe when you left is in the yard chest.`,
+    );
+  }
+
+  /** The first morning of autumn in Grandpa's last year. Fixed; nothing prevents it. */
+  private grandpaPasses(): void {
+    const state = this.state;
+    state.story.passedDay = state.day;
+    this.queueScene('the-passing');
+    const pip = state.critters.find((item) => item.id === PIP_ID);
+    pip?.history.push(`Day ${state.day}: Stayed.`);
+    this.critter.history.push(
+      `Day ${state.day}: Grandpa died in his chair by the window, with Pip across his feet.`,
+    );
+    this.carryTo(state.day + STORY.mourningDays);
+    state.player.coins += STORY.inheritance;
+    this.note(
+      `${formatDate(state.day)}. Bramblewick is yours now. In the tea caddy on the shelf there are ${STORY.inheritance} coins. It is all there is. Pip is out by the flowerpots.`,
+    );
   }
 
   /** Grandpa and Pip, where they are right now; Pip only while he belongs to the household. */
@@ -2567,6 +2746,8 @@ export class LocalGameHost {
   /** Sleeps until the next 8:00; a whole day is skipped only when asked (the developer kit). */
   private sleep(fullDay = false): void {
     const state = this.state;
+    // What the evening held is told before the night passes.
+    for (const scene of eveningScenes(state)) this.queueScene(scene);
     this.advanceMinutes(
       !fullDay && state.minute < WAKE_MINUTE
         ? WAKE_MINUTE - state.minute
@@ -2585,6 +2766,15 @@ export class LocalGameHost {
     state.work = null;
     state.companionIndoors = false;
     this.flag('slept');
+    // Home is spring and summer: autumn brings the school cart, or, in the end, the morning
+    // Pip does not come to wake you.
+    const turn = turnOfSeason(state);
+    if (turn === 'school') this.schoolTerm();
+    else if (turn === 'passing') this.grandpaPasses();
+    const dawn = dawnScene(state);
+    if (dawn) this.queueScene(dawn);
+    if (pipAtTheRail(state)) this.queueScene('midwinter-morning');
+    if (turn) return;
     const ready = state.plots.filter(plotReady).length;
     const dry = state.plots.filter(
       (plot) =>
@@ -3214,6 +3404,13 @@ export class LocalGameHost {
     this.flag(`introduced:${resident.id}`);
     this.flag(`chatted:${resident.id}`);
     this.advanceMinutes(5);
+    // Once, after Grandpa: what each of them has been meaning to say.
+    const condoled = `condoled:${resident.id}`;
+    if (introduced && resident.after && !grandpaAlive(state) && !state.flags.includes(condoled)) {
+      this.flag(condoled);
+      this.note(`${resident.name}: ${resident.after}`);
+      return true;
+    }
     this.note(
       `${resident.name}: ${introduced ? resident.lines[state.day % resident.lines.length] : resident.intro}`,
     );

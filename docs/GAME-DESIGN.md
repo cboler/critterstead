@@ -688,8 +688,10 @@ a combat pit:
   harvest time trials, and beauty/physique exhibitions.
 - **The ladder**: critters climb ranks — Fledgling, Contender, Veteran — through ranked
   cups against rival ranchers' critters and a promotion cup at each rank. Champion and
-  Grand Champion, Grandpa's old title, are won in turn-based bouts
-  ([D53](DECISIONS.md#d53--a-colosseum-ladder-of-athletic-cups-accepted-2026-10-05)).
+  Grand Champion, Grandpa's old title, are meant for turn-based bouts
+  ([D53](DECISIONS.md#d53--a-colosseum-ladder-of-athletic-cups-accepted-2026-10-05)); until
+  those exist a Champion's one contest, the Midwinter Grand Championship, is a five-leg cup
+  ([D57](DECISIONS.md#d57--the-story-of-bramblewick-accepted-2026-11-16)).
 
 ---
 
@@ -821,9 +823,44 @@ The emotional heart of the game is losing Grandpa and carrying on: keeping his n
 alive and learning, after he is gone, who he really was (comparable in intent to
 _Ni no Kuni_). The childhood therefore spends its time developing Grandpa himself.
 
-- **Length (provisional)**: two or three years of only spring and summer, using timeskips
-  rather than hundreds of fully simulated days. The player's first winter comes after
-  Grandpa's passing. Playtesting may lengthen or shorten this.
+- **Length (provisional)**: three years of only spring and summer. Autumn and winter are
+  school terms away, skipped in a night; the player's first winter at home comes after
+  Grandpa's passing. Playtesting may shorten this to two (`STORY.lastSummerYear`).
+
+### The story
+
+Written 2026-11-16 ([D57](DECISIONS.md#d57--the-story-of-bramblewick-accepted-2026-11-16));
+the scenes' words live in `story-scenes.ts`, which is the script. Spoilers follow.
+
+- **Springs and summers.** The school cart comes on the first morning of each autumn.
+  Grandpa's letters arrive through the terms (the last in Marigold's hand), and each
+  spring he cuts a notch in the gatepost for the player's height. Each year he keeps
+  closer to the house: the field fence, then the porch, then his chair by the window.
+  He never speaks of the title; Bertram lets it slip. Asked why he stopped: “Something
+  better came along.”
+- **The passing.** Fixed: the first morning of autumn in the third year, in his chair, Pip
+  across his feet. The town buries him in Clover Glade where the path gives out. The
+  cart leaves without the player. He leaves forty-one coins.
+- **Pip's rounds.** Pip keeps Grandpa's round at the old hours, alone. Sitting with him
+  at the right place, across autumn, turns up five keepsakes in order: names under the
+  flowerpots (every Brindlekin Grandpa raised; the last pot empty), the player's own
+  elbow-marks on the fence rail, the ribbon tin and a clipping (he walked away
+  undefeated the winter the player arrived), the best berry Pip leaves on the stone each
+  morning (the companion adds a second, untaught), and, not before winter, a letter in
+  the chess book.
+- **The reveal.** Grandpa's fortune bought Pip's long life at the growth labs. They could
+  not do it for an old man, so he bought the years for Pip: so there would always be
+  someone at Bramblewick who remembered how things are done, and who knew the player.
+  “Being useful and being loved are different things.”
+- **The title.** The Grand Championship is held at Midwinter, the last day of winter,
+  for ranchers who hold their own stead; after a household's first, at the turn of any
+  season. Hetty Larkspur, whom Grandpa taught, has kept the title warm for fifteen
+  winters with her reptile Lantern. Pip walks to the Colosseum rail to watch.
+- **The ending.** Winning it rolls the credits. Pip falls in at the player's heel, as he
+  did at Grandpa's in the opening; two white ribbons share the high nail. Play goes on,
+  with Pip at the player's side in the yard.
+- **Motifs to keep**: “Shoes on, sleepyhead”; the one waiting at the gate; the empty nail;
+  “given time and someone to watch”; Pip a few unhurried steps from somebody.
 
 ### Opening and acquisition
 

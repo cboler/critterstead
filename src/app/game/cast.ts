@@ -119,6 +119,8 @@ export interface Resident {
   doing: string;
   intro: string;
   lines: readonly string[];
+  // Said once, the first time you chat after Grandpa's passing.
+  after?: string;
 }
 
 // Working names, like every place name (see DECISIONS, open questions).
@@ -139,6 +141,8 @@ export const RESIDENTS: readonly Resident[] = [
       apron: '#f3ead2',
     },
     doing: 'Marigold is behind the counter, weighing out seed by the scoop.',
+    after:
+      '“I have put his seed order by, same as every year. I couldn’t not. You come and collect it when you’re ready, and you’ll pay what he paid, and I won’t hear a word about it.”',
     intro:
       '“You must be the young one from Bramblewick. Your grandfather has bought his seed off this counter since before I could see over it. Feed, seed, and I pay fair for good berries and garden produce. Better than the pickup cart ever will.”',
     lines: [
@@ -164,6 +168,8 @@ export const RESIDENTS: readonly Resident[] = [
       hat: '#8a7660',
     },
     doing: 'Wren leans on the pen gate, keeping an eye on everyone inside.',
+    after:
+      '“That stray he brought me, wrapped in his coat? He came by every week for a year to see how it was getting on. Never took it home. Said it had a home; he was only visiting. …You visit whenever you like.”',
     intro:
       '“Hello there. These ones are waiting for homes: some lost, some given up, one or two who just turned up. Every one of them has a story. Come and meet them whenever you like.”',
     lines: [
@@ -189,6 +195,8 @@ export const RESIDENTS: readonly Resident[] = [
       apron: '#e9dcc0',
     },
     doing: 'Bertram is sweeping the tavern step and eyeing the bin.',
+    after:
+      '“His stool’s the one by the window. I am not saving it. I just haven’t happened to let anybody sit there. …Even Gemothy has left the bin alone this week. First time ever.”',
     intro:
       '“Afternoon! If you see a ringed tail round my bin, that is Gemothy. Belongs to nobody. I have stopped chasing him; it only encourages him.”',
     lines: [
@@ -213,6 +221,8 @@ export const RESIDENTS: readonly Resident[] = [
       hair: '#b76e54',
     },
     doing: 'Dr. Fenn is taking the air on the clinic step between patients.',
+    after:
+      '“I’ll tell you what I told him: there was nothing more to do, and nothing was left undone. He asked me to make sure you heard the second half.”',
     intro:
       '“Welcome. If a critter of yours is ever hurt or poorly, bring it here first and ask questions after. I would rather see ten false alarms than miss one.”',
     lines: [
@@ -237,6 +247,8 @@ export const RESIDENTS: readonly Resident[] = [
       hat: '#5e9186',
     },
     doing: 'Ottilie stands at the exhibition booth with a clipboard and a whistle.',
+    after:
+      '“He stood at that rail once a summer and never said who he was. As if we didn’t know. As if the whole booth didn’t stand up straighter.”',
     intro:
       '“A new face! The everyday showing runs all day: a sprint, then the stone pull. The bigger events are on the calendar. The ladder’s cups are at the booths by the gate.”',
     lines: [
@@ -260,6 +272,8 @@ export const RESIDENTS: readonly Resident[] = [
       hair: '#2f2a26',
     },
     doing: 'Gus is copying cup results into an enormous ledger.',
+    after:
+      '“There is a page in this ledger with one name down it eleven times. I have never let anyone turn the corner down. …There’s room under it. I’m only saying there’s room.”',
     intro:
       '“Ranked cups, six a season. Place in the top three and you earn ladder points. Six points and you can try for promotion at the desk next door.”',
     lines: [
@@ -284,12 +298,42 @@ export const RESIDENTS: readonly Resident[] = [
       hat: '#6f5d8a',
     },
     doing: 'Celia is polishing a tray of rank ribbons, one colour at a time.',
+    after:
+      '“I pinned his first ribbon and I was not much older than you are. He said thank you to the critter before he said it to me. I have judged every rancher since by that, and most come up short.”',
     intro:
       '“Promotion cups are on the fifteenth and the twenty-ninth. Three legs against the best of your rank. Win, and you move up. I have pinned ribbons on a great many critters, including, once, your grandfather’s.”',
     lines: [
       '“Second place in a promotion cup is no shame. You keep your place in line for the next.”',
       '“Contender ribbons are green. Veteran ribbons are gold. Champion ribbons, well. You will see.”',
       '“The stands are half built, but the ribbons are all finished. Priorities.”',
+    ],
+  },
+  {
+    id: 'resident-champion',
+    name: 'Hetty Larkspur',
+    role: 'Keeps to the Colosseum rail',
+    areaId: 'colosseum',
+    post: { x: -7.3, z: 0.4 },
+    hours: { start: 540, end: 1080 },
+    look: {
+      coat: '#f3ead2',
+      trim: '#c9a23f',
+      legs: '#5d6670',
+      skin: '#c99272',
+      hair: '#8f8a80',
+      hat: '#f3ead2',
+    },
+    doing:
+      'Hetty Larkspur leans on the rail with Lantern at her feet, watching the young ones run.',
+    after:
+      '“He taught me to hold a ribbon so it wouldn’t crease, and to lose so it wouldn’t show. I never beat him. Remember that when they call me Grand Champion. I only ever kept the seat.”',
+    intro:
+      '“Bramblewick? Then I know exactly who you are. Hetty Larkspur. This is Lantern; he is slower than he looks and cleverer than I am. Your grandfather taught me most of what I know, and kept the rest to annoy me.”',
+    lines: [
+      '“Lantern has never won a sprint in his life. He wins everything else, and then waits for the sprinters to get tired.”',
+      '“People think the title is the hard part. Getting up the morning after is the hard part. There’s still feed to carry.”',
+      '“Midwinter, the last day of winter. I’ll be there. I’m always there. I keep hoping somebody will come and make an afternoon of it.”',
+      '“Don’t train for me. Train for the one walking next to you. I’ll still be here when the two of you are ready.”',
     ],
   },
 ];
@@ -371,11 +415,37 @@ function gemothy(state: GameState): CastMember[] {
   ];
 }
 
+/** Lantern, the title holder, at Hetty Larkspur's feet whenever she is at the rail. */
+function lantern(state: GameState): CastMember[] {
+  const hetty = residentAbout(state, 'resident-champion');
+  if (!hetty) return [];
+  return [
+    {
+      id: 'lantern',
+      areaId: hetty.areaId,
+      position: { x: hetty.post.x + 0.9, z: hetty.post.z + 0.5 },
+      name: 'Lantern',
+      activity:
+        'Lantern, Hetty Larkspur’s old reptile, basks at the rail with one eye on the sand. He has held the title a long time and does not seem to think about it much.',
+      figure: {
+        kind: 'critter',
+        speciesId: 'reptile',
+        visualTraits: {
+          coat: FAMILIES.reptile.coats[0],
+          accent: FAMILIES.reptile.accents[0],
+          size: 1.1,
+        },
+      },
+    },
+  ];
+}
+
 /** Everyone besides the household in the current area. */
 export function castFor(state: GameState): CastMember[] {
   return [
     ...wildCritters(state),
     ...townsfolk(state),
+    ...lantern(state),
     ...shelterCritters(state),
     ...gemothy(state),
     ...barnFolk(state),

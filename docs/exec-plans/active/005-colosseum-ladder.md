@@ -152,6 +152,8 @@ Adjustments from the published game's playtest; empty if none are needed.
 
 ## Current handoff
 
-M1–M3 complete (M2 in plan 006). Next: M4 — adjust from the published game's playtest
+M1–M3 complete (M2 in plan 006). Plan 003 M5 added the Grand Championship above Champion
+as a five-leg cup (`TITLE`, `TITLE_FIELD`; D57), outside the simulator: Lantern's stats
+total 1,420, so a casual critter needs a season or two past Champion. Next: M4 — adjust from the published game's playtest
 (empty if none needed); rerun `npm run balance` after any change to drills, cups or
 rivals.

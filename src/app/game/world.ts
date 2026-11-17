@@ -29,6 +29,7 @@ import {
   TOWN_BUILDINGS,
   TOWN_CARTS,
   TOWN_WELL,
+  MEMORIAL,
 } from './content';
 import {
   activeMoment,
@@ -578,7 +579,7 @@ export class GameWorld {
     this.clock += this.reducedMotion ? 0 : dt;
     this.cueTime += dt;
     // A planned, finished or set-aside project redraws the scenery in place.
-    const sceneryKey = `${state.areaId}:${calendarDate(state.day).season}:${this.qualityTier}:${state.project?.id ?? ''}:${state.built.join(',')}`;
+    const sceneryKey = `${state.areaId}:${calendarDate(state.day).season}:${this.qualityTier}:${state.project?.id ?? ''}:${state.built.join(',')}:${state.story.passedDay === null ? '' : `stone${state.story.keepsakes.length}`}`;
     if (this.builtKey !== sceneryKey) {
       const moved = this.area !== state.areaId;
       this.builtKey = sceneryKey;
@@ -732,7 +733,7 @@ export class GameWorld {
     this.critter.visible =
       (state.areaId !== 'cottage' || state.companionIndoors) &&
       this.guests.length === 0 &&
-      !this.staging;
+      (!this.staging || !!this.staging.companion);
     this.animateGuests(state, dt);
     this.animateResidents(state, dt);
     this.animateCast(state, dt);
@@ -1733,6 +1734,7 @@ export class GameWorld {
         this.scenery.add(group);
         if (index < 3) this.label('Sunberries', node.position.x, 1.7, node.position.z);
       });
+    if (state.story.passedDay !== null) this.memorial(state.story.keepsakes.includes('berry'));
     this.tossStation(TOSS_STATION.x, TOSS_STATION.z);
     this.beamStation();
     this.runLane();
@@ -1908,6 +1910,42 @@ export class GameWorld {
         [size + 0.25, 0.12, 0.22],
       ),
     );
+  }
+
+  /**
+   * Where the glade's path gives out: the porch bench, a rounded stone, a few late flowers,
+   * and the best berry of the morning (two, once the companion has learned to leave one).
+   */
+  private memorial(twoBerries: boolean): void {
+    const group = new THREE.Group();
+    group.position.set(MEMORIAL.x, 0, MEMORIAL.z);
+    const stone = this.mesh(this.pebble, '#aeb6ab', [0.5, 0.42, -0.5], [0.62, 0.85, 0.3]);
+    stone.rotation.y = -0.5;
+    group.add(stone);
+    group.add(this.mesh(this.box, '#8f978c', [0.5, 0.06, -0.5], [0.95, 0.12, 0.55]));
+    // The bench he sat on, that last fine evening.
+    const bench = new THREE.Group();
+    bench.position.set(-0.55, 0, 0.35);
+    bench.rotation.y = 0.9;
+    bench.add(this.mesh(this.box, '#a57e55', [0, 0.45, 0], [1.4, 0.1, 0.45]));
+    bench.add(this.mesh(this.box, '#a57e55', [0, 0.75, -0.2], [1.4, 0.4, 0.08]));
+    for (const side of [-1, 1])
+      bench.add(this.mesh(this.box, '#7d6448', [side * 0.6, 0.22, 0], [0.1, 0.45, 0.4]));
+    group.add(bench);
+    const flowers = ['#f0c071', '#e9a3a3', '#f3ead2', '#f0c071', '#c9b6e0'];
+    flowers.forEach((color, index) => {
+      const angle = index * 1.3 + 0.4;
+      const x = 0.5 + Math.cos(angle) * 0.75;
+      const z = -0.5 + Math.sin(angle) * 0.5 + 0.35;
+      group.add(this.mesh(this.cylinder, '#6c8a58', [x, 0.13, z], [0.02, 0.26, 0.02]));
+      group.add(this.mesh(this.sphere, color, [x, 0.29, z], [0.08, 0.065, 0.08]));
+    });
+    for (let berry = 0; berry < (twoBerries ? 2 : 1); berry++)
+      group.add(
+        this.mesh(this.sphere, '#bd4b65', [0.36 + berry * 0.2, 0.15, -0.28], [0.07, 0.08, 0.07]),
+      );
+    this.scenery.add(group);
+    this.label('Grandpa', MEMORIAL.x + 0.5, 1.55, MEMORIAL.z - 0.5);
   }
 
   private pot(parent: THREE.Group, x: number, z: number): void {

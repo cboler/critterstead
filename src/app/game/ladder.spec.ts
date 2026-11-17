@@ -42,13 +42,13 @@ describe('the ladder’s ranked cups', () => {
     );
     expect(calendar.map((event) => event.day)).toEqual(CUP_DAYS);
     expect(calendar[0].label).toBe('Fledgling Cup · ranked · 5 coins to enter');
-    // A Champion's contests are bouts, still to come: no cup, and the booth says why.
+    // A Champion has one contest left, at the promotion desk: no cup, and the booth says so.
     const champion = booth(3, (state) => (activeCritter(state).ladder = { rank: 3, points: 0 }));
     expect(champion.interaction()!.actions.map((action) => action.id)).toEqual([
       'chat:resident-ladder',
     ]);
     expect(champion.interaction()!.description).toContain(
-      'a Champion; that rank’s contests are bouts',
+      'a Champion; the one contest above is the Grand Championship',
     );
   });
 
@@ -226,6 +226,6 @@ describe('promotion cups', () => {
     expect(enter(veteran)).toBe(true);
     perform(veteran);
     expect(veteran.critter.ladder.rank).toBe(3);
-    expect(veteran.state.journal[0]).toContain('settle things in bouts');
+    expect(veteran.state.journal[0]).toContain('there is only the Grand Championship');
   });
 });

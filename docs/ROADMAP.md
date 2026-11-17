@@ -19,7 +19,7 @@ For active milestone execution, see [exec-plans/README.md](exec-plans/README.md)
 
 ```
 [Stage 0: Bootstrap] -> [Stage 1: First Living Stead] -> [Stage 2: Household & Opening]
-       Complete                 Complete                  Campaign 003; M4-M5 await story
+       Complete                 Complete                  Campaign 003; story built, in playtest
                                      |
                                      v
                   [Training & Exhibitions] -> [Colosseum Ladder]
@@ -221,8 +221,10 @@ Stage 2, sequenced in [plan 003](exec-plans/active/003-household-and-opening.md)
 1. **M1** — the nine families and a choice of starter (save v9). Complete.
 2. **M2** — Grandpa, Pip and the road to Oakhaven (save v10). Complete.
 3. **M3** — the walk to town: the scripted opening and the starter offer in Oakhaven. Complete.
-4. **M4** — the years with Grandpa (needs story beats).
-5. **M5** — Grandpa's passing and the first winter (needs story beats).
+4. **M4** — the years with Grandpa: school terms, letters and scenes (save v16). Built.
+5. **M5** — Grandpa's passing, Pip's rounds, the Midwinter title and the credits. Built;
+   both await a playtest on the published site
+   ([D57](DECISIONS.md#d57--the-story-of-bramblewick-accepted-2026-11-16)).
 
 ---
 

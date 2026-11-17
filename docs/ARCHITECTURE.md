@@ -314,6 +314,26 @@ interactions; `build` spends its coins, adds a stall (`shedLevel`) or records th
 validation). Save v15; v14 saves are migrated (`fromV14`) rather than retired. Dock actions
 may be `secondary`: never chosen by E or the controller's A.
 
+## Current implementation additions — plan 003 M4–M5, the story (2026-11-16)
+
+Save v16 adds `GameState.story`: the day Grandpa passed (or null), a `queue` of scenes
+waiting to be shown, those `seen`, and the `keepsakes` found. `story.ts` is pure: when a
+scene falls due (`turnOfSeason`, `dawnScene`, `eveningScenes`), the keepsakes and
+`keepsakeDue`, the title's days (`titleDay`), `stageBeat` and the credits. The host acts
+only in `sleep`: waking in autumn or winter while Grandpa lives is the school cart
+(`carryTo` the next spring without simulating the days between) or, from the third year,
+his passing. `grandpaWhereabouts` returns null afterwards and `pipWhereabouts` follows
+Pip's vigil (`spot`), then the player once the title is home. Sitting with Pip is an
+ordinary dock action. The Grand Championship is a `promotion` at Champion rank
+(`TITLE`, `TITLE_FIELD` in `ladder.ts`).
+
+Scenes are presentation. The app plays the queue's first scene on a staged copy of the
+game (`taleView`), which `GameWorld.render` draws while the host waits untouched; ending or
+skipping a scene dispatches `story-seen`. A reload mid-scene replays it from its start.
+The scenes' text (`story-scenes.ts`) is a lazily loaded chunk, cached by the service
+worker with the other scripts; the initial bundle sits at its 1.30 MB error budget.
+v14 and v15 saves are migrated with Grandpa alive and nothing shown.
+
 ## Architectural reality audit (reconciliation baseline before M4)
 
 The following audit records the reconciled pre-M4 baseline. The dated additions

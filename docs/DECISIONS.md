@@ -51,6 +51,7 @@ For sequencing, see [ROADMAP.md](ROADMAP.md) and [exec-plans/README.md](exec-pla
 | **D31** | Monster Rancher training minigames family                 | Accepted       | [Training](GAME-DESIGN.md#training-system)                                                                                     |
 | **D32** | Viewport decoupling from interaction dock UI              | Accepted       | [Architecture](ARCHITECTURE.md#1-viewport--canvas-decoupling)                                                                  |
 | **D33** | Restructured Campaign 001 vertical slice runway           | Accepted       | [Roadmap](ROADMAP.md)                                                                                                          |
+| **D57** | The story of Bramblewick; school terms; a Midwinter title | Accepted       | [The story](GAME-DESIGN.md#the-story)                                                                                          |
 | **D56** | A chore board, deliveries and building projects           | Accepted       | [Plan 007](exec-plans/active/007-chores-and-building.md)                                                                       |
 | **D55** | Saves from earlier builds may be retired before release   | Accepted       | [Plan 006](exec-plans/completed/006-oakhaven-and-the-wider-map.md)                                                             |
 | **D54** | A wider map; town residents; sell by pickup or shop       | Accepted       | [Plan 006](exec-plans/completed/006-oakhaven-and-the-wider-map.md)                                                             |
@@ -366,6 +367,26 @@ Maximum age differs between families and is a primary trait offspring inherit. A
 stays a handful of modeling choices (youth, peak, elder) rather than a deep system.
 [Aging](GAME-DESIGN.md#aging-and-respectful-mortality).
 
+### D57 — The story of Bramblewick (accepted 2026-11-16)
+
+The product owner asked for the overarching story to be written and built rather than
+waiting on beats of their own: Grandpa dies a few years after the opening, becoming
+champion ends the game with credits, and raising critters continues afterwards. Choices
+made in writing it, all provisional until played:
+
+- The spring-and-summer years (D39) are explained by school: autumn and winter terms away,
+  with letters from home. This settles the childhood calendar as a skip, in one night.
+- Three summers with Grandpa; his passing on the first morning of the third autumn.
+- Pip was Grandpa's champion partner, and his fortune bought Pip's long life so the player
+  would not be left alone. Grandpa left the title undefeated the winter the player arrived.
+- “Becoming champion” is winning the Grand Championship, Grandpa's old title. Against D53,
+  it runs on the athletic event engine as a five-leg cup until bouts are built, so the
+  ending can be reached today. It is held only after the passing, at Midwinter.
+- Hetty Larkspur and Lantern, and the Brindlekins' names, are new. Grandma stays unwritten.
+- Breeding after the credits waits for Stage 4; adoption and raising continue now.
+
+[The story](GAME-DESIGN.md#the-story), [plan 003](exec-plans/active/003-household-and-opening.md).
+
 ### D56 — A chore board, deliveries and building projects (accepted 2026-10-24)
 
 Asked for by the product owner: expose setting critters to work, distributing goods, and
@@ -450,8 +471,8 @@ Agents must not invent hardcoded canon or premature balance constants for these 
 | **Automation throughput caps & scaling limits**        | Physical logistics settled; maximum autonomous efficiency will be playtested.                                                                                                      |
 | **Personality traits & preference influence**          | Evolving preferences settled; specific happiness formulas remain tunable.                                                                                                          |
 | **Critter longevity & end-of-life timing**             | Natural aging and respectful mortality settled; lifespan varies by family and is inherited (D50); 1200-day placeholder is not fixed canon.                                         |
-| **Childhood calendar mechanics**                       | Spring-and-summer-only years are settled direction; whether autumn and winter are skipped or time-skipped is undecided until it can be felt in play.                               |
-| **Story beats across the Grandpa years**               | What happens in each of the 2–3 years, and the first winter's exact narrative role, are open.                                                                                      |
+| **Length of the Grandpa years**                        | Autumn and winter are school terms, skipped in a night (D57). Three summers or two is open until it can be felt in play.                                                           |
+| **Bouts for the top ranks**                            | The Grand Championship is a five-leg cup for now (D57); turn-based bouts (D53) would replace it.                                                                                   |
 | **Grandma and wider family**                           | The player lives with grandparents; only Grandpa has canon. Do not invent the rest.                                                                                                |
 | **Final place names**                                  | Oakhaven, Bramblewick and the other areas are working names.                                                                                                                       |
 | **Gemothy's return**                                   | He returns near the tavern bin as a friend who brings weekly finds, never a party member (D54).                                                                                    |

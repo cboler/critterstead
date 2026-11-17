@@ -425,6 +425,8 @@ export function arenaSeats(): {
   return seats;
 }
 
+// Where the glade's south path gives out under the tree: Grandpa's stone, after his passing.
+export const MEMORIAL: Point = { x: 5.9, z: 7.5 };
 // Logs are thrown west from the stump, away from the glade's paths.
 export const TOSS_STATION: Point = { x: -5, z: -3.4 };
 export const EXHIBITION_BOOTH: Point = { x: -1.8, z: 0.4 };

@@ -1,7 +1,8 @@
 # 003 — Household and Opening (Stage 2)
 
 **Status:** authorized 2026-10-02 ([D43](../../DECISIONS.md#d43--stage-2-begins-accepted-2026-10-02)). M1–M3 built and locally
-verified ([M1](#m1-evidence--2026-10-02), [M2](#m2-evidence--2026-10-02), [M3](#m3-evidence--2026-10-03)); M4 needs story beats.
+verified ([M1](#m1-evidence--2026-10-02), [M2](#m2-evidence--2026-10-02), [M3](#m3-evidence--2026-10-03)); M4–M5 built
+2026-11-16 ([evidence](#m4m5-evidence--2026-11-16)), awaiting the published playtest.
 
 ## Purpose
 
@@ -18,8 +19,8 @@ critter, Mallow (Brindlekin, provisional), rendered by a single hand-built figur
 
 ## Milestones
 
-Each milestone changes ordinary play (D18). M4 and M5 need the product owner's story beats
-before they start.
+Each milestone changes ordinary play (D18). M4 and M5 were written and built together at
+the product owner's request ([D57](../../DECISIONS.md#d57--the-story-of-bramblewick-accepted-2026-11-16)).
 
 ### M1 — The nine families and a choice of starter (save v9)
 
@@ -64,13 +65,26 @@ before they start.
 - [x] Verification: unit tests for the script, a browser test walking every beat, the
       browser suite skipping the walk, controller skip, PWA check, inspected screenshots.
 
-### M4 — The years with Grandpa
+### M4 — The years with Grandpa (save v16)
 
-Spring-and-summer years with timeskips and Grandpa-guided routines. Needs story beats.
+- [x] Three springs and summers; waking in autumn is the school cart, and the night
+      carries the household to spring with the stead minded and letters from home.
+- [x] Scenes with Grandpa on their days and after a first ribbon or a Champion's; his
+      routine and what he says change each year; the calendar warns of the cart.
+- [x] The opening's lines polished to plant what the ending returns to.
 
-### M5 — Grandpa's passing and the first winter
+### M5 — Grandpa's passing, Pip's rounds and the title
 
-Fixed, scripted passing; Pip's after-routines; inheriting the stead. Needs story beats.
+- [x] The passing on the first morning of the third autumn: fixed, scripted, saved.
+      Grandpa leaves the world; the stone and bench stand in Clover Glade; forty-one coins.
+- [x] Pip keeps the old round alone; sitting with him turns up five keepsakes in order,
+      kept in the journal's Story tab, where seen scenes can be read again.
+- [x] Townsfolk each say their piece once; Hetty Larkspur and Lantern at the rail.
+- [x] The Grand Championship at Midwinter and each season's turn after: five legs for
+      Grandpa's title, Pip at the rail. Winning plays the ending and the credits; play
+      continues, with Pip at the player's heel.
+- [x] Verification: unit tests, a browser test of the scenes, lint, build, PWA check,
+      inspected screenshots.
 
 ## Decisions (routine, this campaign)
 
@@ -132,7 +146,37 @@ Fixed, scripted passing; Pip's after-routines; inheriting the stead. Needs story
   movement; the starter offer moved into Oakhaven's square. Provisional: every line and
   mark in the script.
 
+## M4–M5 evidence — 2026-11-16
+
+- Host: `story.ts` (when scenes fall due, keepsakes, title days, staging, credits),
+  `story-scenes.ts` (the script: 19 scenes), `household.ts` (Grandpa's years, Pip's vigil),
+  `ladder.ts` (`TITLE`, `TITLE_FIELD`), the host's `sleep` hooks, `carryTo`, `schoolTerm`,
+  `grandpaPasses`, `sit-with-pip`, save v16 with v14/v15 migration. Unit tests: 224 passed,
+  including `story.spec.ts` (every scene staged in bounds, school terms, the passing, the
+  vigil's hours, keepsakes in order, the title lost and won, play after the credits,
+  migration, damaged story records).
+- Presentation: the scene card, chapter cards, letters, credits, the journal's Story tab,
+  the glade's stone. Browser: `e2e/story.spec.ts` plays the passing, the letter, the ending
+  and the credits, reloads, and re-reads a scene (desktop and phone). Inspected: the
+  [funeral in the glade](../evidence/003-m5/the-glade.png), [a letter](../evidence/003-m5/the-letter.png),
+  [the road home](../evidence/003-m5/the-east-road-phone.png), the chapter card and the credits.
+- Gates: lint, unit tests, production build (the scenes are a lazy chunk; the initial
+  bundle is at its error budget), PWA check, `npm run balance` unchanged, and the browser
+  suite (81 passed, 55 skipped by project, 33 minutes).
+- Routine decisions: scenes with Grandpa play on waking, the evening's first; at most one
+  dated scene a morning; a household already in autumn or winter with Grandpa alive meets
+  the cart (or, from year three, his passing) at its next sleep; three days are carried
+  around the funeral; a term adds one to each stat and two foraging lessons from Pip;
+  Pip's ownership stays Grandpa's. Provisional: every line, every date, `STORY`, the
+  title's field, fee and purse.
+- Known: scenes show the townsfolk only where their posts are (the funeral's mourners are
+  told, not drawn); the companion in a scene is whoever follows you; the Grand
+  Championship is not in the balancing simulator; credits name no maker (add one in
+  `credits()`); breeding after the credits waits for Stage 4.
+
 ## Current handoff
 
-M3 complete pending publication. Next: M4 — the years with Grandpa. It needs the product
-owner's story beats for the spring-and-summer years before it starts.
+M1–M5 built and locally verified. Next: publish, then playtest the story on the published
+site (the developer kit's next-day reaches each scene quickly); tune the number of summers
+(`STORY.lastSummerYear`), scene dates and the title match from that. The plan moves to
+`completed/` once the playtest is in.
